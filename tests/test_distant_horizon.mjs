@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
 import test from 'node:test';
 import {distantCrest,geographicPoint,profileFor} from '../frontend/src/lib/distantHorizon.ts';
-import {sceneProjection,observerVector,RELIEF_SCALE,LUNAR_RADIUS_M} from '../frontend/src/lib/sceneGeometry.ts';
+import {sceneProjection,observerVector,RELIEF_SCALE,LUNAR_RADIUS_M,DETAIL_RADIUS_KM} from '../frontend/src/lib/sceneGeometry.ts';
+import {distantTerrainShell} from '../frontend/src/lib/distantTerrainGeometry.ts';
+
+const THREE=createRequire(new URL('../frontend/package.json',import.meta.url))('three');
 
 const bytes=readFileSync(new URL('../public/data/snapshot.json',import.meta.url));
 const snapshot=JSON.parse(bytes);
@@ -72,4 +76,58 @@ test('0/360 seam and exact bins select actual contributing points without stale 
  assert.equal(distantCrest(fixture,base,'earth',0).bin,0);
  profile.dominates[0]=false;
  assert.equal(distantCrest(fixture,base,'earth',0),null);
+});
+
+test('looking down past the detailed terrain hits the closed lunar backing instead of empty sky',()=>{
+ const analysis=snapshot.analyses.find(a=>a.candidate_id==='r384c256'&&a.height_m===20);
+ const projection=sceneProjection(analysis.position.latitude_deg,analysis.position.longitude_deg,analysis.position.elevation_m);
+ const observer=projection.point(analysis.position,analysis.height_m);
+ const peaks=profileFor(data,analysis).points.map(id=>projection.point(geographicPoint(data.points[id])));
+ const {positions,indices}=distantTerrainShell(peaks,observer);
+ const geometry=new THREE.BufferGeometry();
+ geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));geometry.setIndex(indices);
+ const material=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});
+ const mesh=new THREE.Mesh(geometry,material);mesh.updateMatrixWorld();
+ try{
+  let checked=0;
+  for(const bin of [0,45,90,135,180,225,270,315]){
+   const peak=peaks[bin],dx=peak[0]-observer[0],dz=peak[2]-observer[2],distance=Math.hypot(dx,dz);
+   if(distance<=DETAIL_RADIUS_KM+1)continue;
+   const fraction=(DETAIL_RADIUS_KM+distance)/(2*distance);
+   const origin=new THREE.Vector3(observer[0]+dx*fraction,10,observer[2]+dz*fraction);
+   const hits=new THREE.Raycaster(origin,new THREE.Vector3(0,-1,0),0,1000).intersectObject(mesh);
+   assert.ok(hits.length>0,`top view beyond the detailed disc must have a floor in sector ${bin}`);
+   checked++;
+  }
+  assert.ok(checked>=4,'check the gap beyond the detailed disc in several directions');
+  // A low-angle view could previously look straight under the curtain's -80 km edge.
+  const hits=new THREE.Raycaster(new THREE.Vector3(...observer),new THREE.Vector3(1,-20,0).normalize(),0,1000).intersectObject(mesh);
+  assert.ok(hits.length>0,'the lower opening must also be closed from an oblique view');
+ }finally{geometry.dispose();material.dispose();}
+});
+
+test('closing the lower shell preserves every measured crest and has no open bottom edges',()=>{
+ const projection=sceneProjection(a.position.latitude_deg,a.position.longitude_deg,a.position.elevation_m);
+ const observer=projection.point(a.position,a.height_m);
+ for(const analysis of snapshot.analyses){
+  const peaks=profileFor(data,analysis).points.map(id=>projection.point(geographicPoint(data.points[id])));
+  const {positions,indices}=distantTerrainShell(peaks,projection.point(analysis.position));
+  const edges=new Map();
+  for(let i=0;i<indices.length;i+=3){
+   const triangle=indices.slice(i,i+3);
+   triangle.forEach((from,j)=>{
+    const to=triangle[(j+1)%3],key=[Math.min(from,to),Math.max(from,to)].join(',');
+    edges.set(key,(edges.get(key)??0)+1);
+   });
+  }
+  peaks.forEach((peak,i)=>{
+   peak.forEach((v,j)=>assert.equal(positions[i*6+j],Math.fround(v),'crest must not move'));
+   assert.ok(positions[i*6+4]<Math.min(peak[1],observer[1]),'backing stays below the skyline and observer');
+  });
+  for(const [edge,count] of edges){
+   const [from,to]=edge.split(',').map(Number);
+   const skylineEdge=from<peaks.length*2&&to<peaks.length*2&&from%2===0&&to%2===0;
+   assert.equal(count,skylineEdge?1:2,`unsealed shell edge ${edge}`);
+  }
+ }
 });
