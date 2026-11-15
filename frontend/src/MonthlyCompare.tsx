@@ -25,9 +25,9 @@ function Visibility({ label, color, hours, month }: { label: string; color: stri
   </div>;
 }
 
-export default function MonthlyCompare({ sites, renderNovember }: { sites: Site[]; renderNovember: () => ReactNode }) {
+export default function MonthlyCompare({ sites, renderTimelines }: { sites: Site[]; renderTimelines: () => ReactNode }) {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
-  const [view, setView] = useState<'monthly' | 'november'>('monthly');
+  const [view, setView] = useState<'monthly' | 'timeline'>('monthly');
   const [monthId, setMonthId] = useState('2026-11');
   const [height, setHeight] = useState(0);
 
@@ -47,20 +47,20 @@ export default function MonthlyCompare({ sites, renderNovember }: { sites: Site[
     return () => controller.abort();
   }, []);
 
-  const showNovember = view === 'november' || load.status === 'unavailable';
+  const showTimelines = view === 'timeline' || load.status === 'unavailable';
 
   return <section className="compare-page">
     <div className="compare-mode">
       <h1>Compare landing sites</h1>
       {load.status !== 'unavailable' && <div className="compare-mode-buttons" role="group" aria-label="Comparison view">
-        <button type="button" aria-pressed={!showNovember} onClick={() => setView('monthly')}>Monthly comparison</button>
-        <button type="button" aria-pressed={showNovember} onClick={() => setView('november')}>November timelines</button>
+        <button type="button" aria-pressed={!showTimelines} onClick={() => setView('monthly')}>Monthly comparison</button>
+        <button type="button" aria-pressed={showTimelines} onClick={() => setView('timeline')}>Observation timelines</button>
       </div>}
     </div>
     {load.status === 'unavailable' && <p className="compare-state" role="status">
-      Monthly data could not be loaded. The November timelines are available below.
+      Monthly data could not be loaded. The observation timelines are available below.
     </p>}
-    {showNovember ? renderNovember() : load.status === 'ready' ? <MonthlyResults
+    {showTimelines ? renderTimelines() : load.status === 'ready' ? <MonthlyResults
       scan={load.scan}
       sites={sites}
       month={load.scan.months.find(item => item.id === monthId) ?? load.scan.months[0]}

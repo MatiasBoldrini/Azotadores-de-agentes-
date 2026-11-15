@@ -18,7 +18,7 @@ python3 -m http.server 4173 --bind 127.0.0.1 --directory dist
 
 Open http://127.0.0.1:4173 . For development, `npm run dev --prefix frontend` serves the same cached dataset with live reload. The app has no environment variables or API keys.
 
-The checked-in `public/data/snapshot.json` contains real precalculated results for 26 candidate positions × 5 heights. The browser derives interval metrics and performs a real finite search over these results. New positions outside that grid or dates outside November 2026 require regenerating the cache. Clicking terrain snaps to the nearest evaluated point and states that behavior.
+The checked-in `public/data/snapshot.json` contains precomputed November 2026 results for 26 candidate positions × 5 heights. Designer and both Compare timelines open on November. Their date pickers cover 2026-11-01 through 2027-05-01 at UTC midnight. May 1 is the endpoint for April 30. Designer evaluates all 130 configurations for the selected window. The Compare timelines each use a fixed ground-level site and have independent date controls. Clicking terrain snaps to the nearest evaluated point. New dates outside this range or positions outside the grid require regenerating the cache.
 
 ## The reproducible discovery
 
@@ -54,7 +54,7 @@ SITE//FORGE uses published mast-height illumination research as the basis for an
 | Sun | 38.544% | 59.167% (426 of 720 h) |
 | Earth | 33.852% | 27.639% (199 of 720 h) |
 
-These figures are not a paired validation. The two sources use different periods, models and definitions. PGDA 69 averages hourly samples over a lunar cycle of about 18.6 years on a 60 m surface map, and counts a step if any part of the disk is above the terrain. SITE//FORGE covers 2026-11-01 00:00 to 2026-12-01 00:00 UTC in 30-minute steps on the 5 m Site01 DEM with the regional horizon, and counts a step only if the body center is above the horizon. The differences cannot establish November accuracy or isolate a model bias. The [scientific report](validation_report.md#ridge-a-surface-comparison-with-long-term-nasa-maps) documents the raster extraction.
+These figures are not a paired validation. The two sources use different periods, models and definitions. PGDA 69 averages hourly samples over a lunar cycle of about 18.6 years on a 60 m surface map, and counts a step if any part of the disk is above the terrain. The SITE//FORGE results in this table cover 2026-11-01 00:00 to 2026-12-01 00:00 UTC in 30-minute steps on the 5 m Site01 DEM with the regional horizon, and counts a step only if the body center is above the horizon. The differences cannot establish November accuracy or isolate a model bias. The [scientific report](validation_report.md#ridge-a-surface-comparison-with-long-term-nasa-maps) documents the raster extraction.
 
 ## Demo walkthrough
 
@@ -118,7 +118,7 @@ Its OpenAPI interface is at `/docs`; endpoints cover terrain, sites, ephemerides
 
 ```sh
 .venv/bin/python -m unittest discover -s tests -v
-SITEFORGE_TEST_PYTHON=.venv/bin/python node --test tests/test_frontend_science.mjs
+SITEFORGE_TEST_PYTHON=.venv/bin/python node --test tests/test_frontend_science.mjs tests/test_frontend_story.mjs tests/test_observation_ephemeris.mjs
 npm run build --prefix frontend
 ```
 
