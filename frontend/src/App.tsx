@@ -247,7 +247,7 @@ function App(){
   <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
  </>}/>;
  const workspace=<main className={`workspace stage-${stage}`} inert={moon==='globe'||moon==='out'}>
-  <div className="scene-layer"><SceneBoundary><TerrainView active={moon!=='globe'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
+  <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
