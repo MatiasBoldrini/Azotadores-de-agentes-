@@ -676,3 +676,14 @@ option{background:#111}
 .lg-horizon{width:18px;height:0;border-top:1.5px solid #f2f2f2}
 .lg-gained{width:14px;height:9px;background:rgba(124,255,178,.35);border:1px solid #7CFFB2;border-radius:2px;margin-left:6px}
 @media (max-width:640px){.sky-panel{max-width:calc(100% - 50px);gap:4px}.sky-panel button{min-height:40px;padding:0 9px;font-size:12px}.sky-readout{font-size:11px;padding:4px 7px}.sky-readout small{display:none}}
+.mission-ops{padding:10px 0;border-bottom:1px solid var(--hairline);min-width:0}
+.mission-ops .block-head{letter-spacing:.1em}
+.mission-ops .joint.ops{border-bottom:0;padding:8px 0 0}
+.mission-ops .ops-row dt svg{flex:none}
+.mission-ops .ops-row.sun dt svg{color:var(--sun)}
+.mission-ops .ops-row.earth dt svg{color:var(--earth)}
+.mission-ops .joint.ops dd small{display:block;margin:2px 0 0}
+.ops-actions{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px}
+@media(max-width:1180px){:where(.workspace:not(.has-analysis-dock)) .results .mission-ops{grid-column:1/-1;border-bottom:0}}
+@media(max-width:900px){.results .mission-ops{grid-column:1/-1}}
+

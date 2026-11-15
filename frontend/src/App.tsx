@@ -18,7 +18,10 @@ import {StoryBar} from './Story';
 import {ResultsPanel,OptimizerCard} from './Results';
 import MoonLanding,{type MoonMode} from './moon/MoonLanding';
 import {Analysis,Bundle,Constraints,Link,keyFor,optimize,percent,violations} from './lib/science';
-import {maxObservationHours, observationDays} from './lib/observationEphemeris';
+import {maxObservationHours, observationDays, shardsForWindow} from './lib/observationEphemeris';
+import MissionOps from './MissionOps';
+import {timelineCsv} from './lib/missionOps';
+import {decodeShareState,encodeShareState,type ShareState,type ShareView} from './lib/shareLink';
 import {useObservationWindow} from './useObservationWindow';
 import {buildStory,constraintRows,contrastIndex,explainRecommendation,heightSweep,hours,peakHeight,type Search,type StoryAction} from './lib/story';
 const DEFAULT_CONSTRAINTS: Constraints = {minSun:70,minEarth:40,maxOutage:360,maxDistance:1000,maxSlope:20,requireLink:true};
@@ -70,6 +73,9 @@ function App(){
  const [showSky,setShowSky]=useState(true),[raising,setRaising]=useState(false);
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
  const searchTimer=useRef<number|undefined>(undefined);
+ const [linkCopied,setLinkCopied]=useState(false);
+ const pendingAt=useRef<string|null>(null);
+ const pendingShare=useRef<Partial<ShareState>|null|undefined>(undefined);
  useEffect(()=>{const controller=new AbortController();(async()=>{
   const r=await fetch('/data/snapshot.json',{signal:controller.signal});
   if(!r.ok)throw new Error(`Scientific dataset could not be loaded (${r.status}).`);
@@ -101,7 +107,29 @@ function App(){
  const sitePeak=peakHeight(siteSweep);
  const focusIndex=useMemo(()=>{const target=siteSweep.find(a=>a.height_m===sitePeak);return target?contrastIndex(siteSweep[0],target):0;},[siteSweep,sitePeak]);
  useEffect(()=>{window.clearTimeout(searchTimer.current);setSearching(false);setTime(focusIndex);setSearch(null);setPlaying(false);},[start,end,siteId,focusIndex]);
+ useEffect(()=>{
+  // A shared link's cursor time is applied once its window is loaded, after the window reset above.
+  const at=pendingAt.current,shared=pendingShare.current;if(!at||!selected)return;
+  if(shared?.start&&shared.end&&(Date.parse(shared.start)!==Date.parse(start)||Date.parse(shared.end)!==Date.parse(end)))return;
+  const target=Date.parse(at),i=selected.series.timestamp_utc.findIndex(t=>Date.parse(t)===target);
+  pendingAt.current=null;
+  if(i>=0)setTime(i);
+ },[selected,start,end,siteId,focusIndex]);
  useEffect(()=>{setSearch(null);},[constraints]);
+ useEffect(()=>{
+  if(!data||pendingShare.current!==undefined)return;
+  const shared=decodeShareState(location.search,{sites:data.sites.map(s=>s.id),heights:[...new Set(data.analyses.map(a=>a.height_m))],validWindow:(a,b)=>{shardsForWindow(a,b);return true;}});
+  pendingShare.current=shared;
+  if(!shared)return;
+  const s=data.sites.find(x=>x.id===shared.site)??data.sites[0];
+  setSiteId(s.id);
+  setCandidate(shared.cell&&data.analyses.some(a=>a.candidate_id===shared.cell)?shared.cell:`r${s.row}c${s.col}`);
+  if(shared.mast!==undefined)setHeight(shared.mast);
+  if(shared.start&&shared.end)void designer.select(shared.start,shared.end);
+  if(shared.at)pendingAt.current=shared.at;
+  const view=shared.view;
+  if(view&&view!=='globe'){setMoon('site');setTab(view==='designer'?'Infrastructure Designer':view==='compare'?'Compare':view==='science'?'Science & Sources':'Landing Sites');}
+ },[data]);
  useLayoutEffect(()=>{
   if(!showConfigure||!showAnalysisDock)return;
   const panel=configurePanel.current,button=configureButton.current;
@@ -263,6 +291,15 @@ function App(){
  };
  const runSearch=()=>{if(searching||designer.status==='loading')return;setShowConfigure(false);setDemoStep(null);performSearch(all,links,constraints);};
  const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else runSearch();};
+ const exportCsv=()=>{const csv=timelineCsv(selected,{siteName:site.name,candidateId:selected.candidate_id,heightM:selected.height_m,sources:data.methodology.sources});const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download=`site-forge-${site.id}-${selected.height_m}m-${start.slice(0,10)}_${end.slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);};
+ const shareView:ShareView=moon==='globe'?'globe':tab==='Infrastructure Designer'?'designer':tab==='Compare'?'compare':tab==='Science & Sources'?'science':'site';
+ const copyLink=()=>{
+  const query=encodeShareState({site:siteId,cell:selected.candidate_id===siteCell?undefined:selected.candidate_id,mast:selected.height_m,start,end,at:selected.series.timestamp_utc[index],view:shareView});
+  const url=`${location.origin}${location.pathname}?${query}`;
+  history.replaceState(null,'',`?${query}`);
+  const done=()=>{setLinkCopied(true);setNotice('Link copied: site, station, mast height, window, time and view.');window.setTimeout(()=>setLinkCopied(false),2400);};
+  if(navigator.clipboard?.writeText)navigator.clipboard.writeText(url).then(done,()=>setNotice(`Copy this link: ${url}`));else setNotice(`Copy this link: ${url}`);
+ };
  const exportResult=()=>{const blob=new Blob([JSON.stringify({analysis:selected,baseline,local_link:link,constraints,optimizer:search?{evaluated:search.evaluated,feasible:search.feasible,objective:'height/20 + distance/1000 + slope/90'}:null,methodology:data.methodology},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='site-forge-analysis.json';a.click();URL.revokeObjectURL(url);};
 
  const demo=demoStep===null?null:{step:demoStep,total:plan.length,label:plan[demoStep].label,ms:plan[demoStep].ms};
@@ -344,7 +381,8 @@ function App(){
   </div>
  </div>;
  const results=<ResultsPanel selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} headerAction={showAnalysisDock?configure:undefined}>
-  {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
+  <MissionOps analysis={selected} index={index} onExportCsv={exportCsv} onCopyLink={copyLink} copied={linkCopied}/>
+ {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
   <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id} skyReference={selected.height_m>0&&skyBase.height_m===0?skyBase:undefined} showSky={showSky}/></SceneBoundary></div>
