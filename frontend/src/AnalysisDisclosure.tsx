@@ -1,7 +1,7 @@
 import {useId,useState,type ReactNode} from 'react';
 import {ChevronDown} from 'lucide-react';
 
-export type DisclosureControls={handle:ReactNode;action:ReactNode;open:boolean;onToggle:()=>void};
+export type DisclosureControls={action:ReactNode;open:boolean;onToggle:()=>void};
 
 export default function AnalysisDisclosure({title,headingClassName='block-head',titleClassName,summary,controls,children}:{title:string;headingClassName?:string;titleClassName?:string;summary?:ReactNode;controls?:DisclosureControls;children:ReactNode}){
  const contentId=useId();
@@ -9,7 +9,6 @@ export default function AnalysisDisclosure({title,headingClassName='block-head',
  const open=controls?.open??localOpen;
  return <>
   <div className={`${headingClassName}${controls?' analysis-panel-heading':''}`}>
-   {controls?.handle}
    <h3 className="analysis-disclosure-title">
     <button type="button" className="analysis-disclosure-toggle" aria-expanded={open} aria-controls={contentId} onClick={controls?.onToggle??(()=>setLocalOpen(value=>!value))}>
      <ChevronDown size={13} aria-hidden="true"/>

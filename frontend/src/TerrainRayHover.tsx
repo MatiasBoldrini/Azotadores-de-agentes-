@@ -5,6 +5,7 @@ import {Line3, MathUtils, Vector3} from 'three';
 
 type Point = [number, number, number];
 export type TerrainLine = RefObject<ComponentRef<typeof Line> | null>;
+export type TerrainLabel = {position: Point; relativeTo?: TerrainLine};
 
 export type TerrainRay = {
  id: 'sun' | 'earth' | 'link';
@@ -13,6 +14,7 @@ export type TerrainRay = {
  visible: boolean;
  color: string;
  markerRadius?: number;
+ skyMarker?: {position: Point; radius: number};
  detail?: string;
 };
 
@@ -27,7 +29,7 @@ const ENDPOINT_RADIUS = 11;
 
 type Props = {
  rays: TerrainRay[];
- labels: Point[];
+ labels: TerrainLabel[];
  orbiting: RefObject<boolean>;
  candidateHovered: boolean;
  onHover: (tip: TerrainRayTip | null) => void;
@@ -47,6 +49,9 @@ export function TerrainRayHover({rays, labels, orbiting, candidateHovered, onHov
   const pointer = new Vector3();
   const label = new Vector3();
   const labelCorner = new Vector3();
+  const marker = new Vector3();
+  const screenRadius = (radius: number, depth: number) =>
+   Math.max(ENDPOINT_RADIUS, radius * camera.projectionMatrix.elements[5] * height / (-2 * depth));
   const toScreen = (point: Vector3) => {
    point.applyMatrix4(camera.projectionMatrix);
    return point.set((point.x + 1) * width / 2, (1 - point.y) * height / 2, 0);
@@ -64,14 +69,22 @@ export function TerrainRayHover({rays, labels, orbiting, candidateHovered, onHov
    for (const ray of rays) {
     const line = ray.line.current;
     if (!line) continue;
-    // Use the rendered endpoints, including the animated mast and the distant body markers.
+    if (ray.skyMarker) {
+     marker.fromArray(ray.skyMarker.position).applyMatrix4(line.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
+     if (marker.z <= near) {
+      const radius = screenRadius(ray.skyMarker.radius, marker.z);
+      const distance = toScreen(marker).distanceTo(pointer);
+      if (distance <= radius && distance < closest) {hit = ray; closest = distance;}
+     }
+    }
+    // Use the rendered endpoints so the hit area follows the animated station and mast.
     const start = line.geometry.getAttribute('instanceStart'), end = line.geometry.getAttribute('instanceEnd');
     segment.start.fromBufferAttribute(start, 0).applyMatrix4(line.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
     segment.end.fromBufferAttribute(end, 0).applyMatrix4(line.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
     if (segment.start.z > near && segment.end.z > near) continue;
     const endpointOnScreen = segment.end.z <= near;
     const endpointRadius = ray.markerRadius && endpointOnScreen
-     ? Math.max(ENDPOINT_RADIUS, ray.markerRadius * camera.projectionMatrix.elements[5] * height / (-2 * segment.end.z))
+     ? screenRadius(ray.markerRadius, segment.end.z)
      : 0;
     if (segment.start.z > near) {
      segment.start.lerp(segment.end, (segment.start.z - near) / (segment.start.z - segment.end.z));
@@ -91,8 +104,10 @@ export function TerrainRayHover({rays, labels, orbiting, candidateHovered, onHov
    }
    if (!hit) return clear();
 
-   const labelBounds = labels.flatMap(position => {
-    label.fromArray(position).applyMatrix4(camera.matrixWorldInverse);
+   const labelBounds = labels.flatMap(({position, relativeTo}) => {
+    label.fromArray(position);
+    if (relativeTo?.current) label.applyMatrix4(relativeTo.current.matrixWorld);
+    label.applyMatrix4(camera.matrixWorldInverse);
     if (label.z > near) return [];
     // The billboards' sizes act along the camera's X and Y axes and grow with depth.
     labelCorner.copy(label);

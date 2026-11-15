@@ -1,7 +1,7 @@
-import {useEffect, useMemo, useRef} from 'react';
+import {useEffect, useMemo, useRef, type RefObject} from 'react';
 import {useFrame} from '@react-three/fiber';
 import {Line} from '@react-three/drei';
-import {GreaterDepth, type Material} from 'three';
+import {GreaterDepth, type Group, type Material} from 'three';
 import type {TerrainLine} from './TerrainRayHover';
 
 type Point = [number, number, number];
@@ -12,6 +12,7 @@ type Props = {
  color: string;
  width: number;
  blocked: boolean;
+ worldEndFrom?: RefObject<Group | null>;
 };
 
 const DASH_PX = 9;
@@ -33,8 +34,7 @@ const screenDashes: Material['onBeforeCompile'] = shader => {
  );
 };
 
-function OccludedSightline({points, color, width}: {points: [Point, Point]; color: string; width: number}) {
- const line = useRef<NonNullable<TerrainLine['current']>>(null);
+function OccludedSightline({line, points, color, width}: {line: TerrainLine; points: [Point, Point]; color: string; width: number}) {
  const reducedMotion = useRef(false);
  useEffect(() => {
   const query = matchMedia('(prefers-reduced-motion: reduce)');
@@ -58,11 +58,25 @@ function OccludedSightline({points, color, width}: {points: [Point, Point]; colo
   dashed dashSize={DASH_PX} gapSize={GAP_PX} onBeforeCompile={screenDashes}/>;
 }
 
-export function TerrainSightline({line, start, end, color, width, blocked}: Props) {
+export function TerrainSightline({line, start, end, color, width, blocked, worldEndFrom}: Props) {
+ const occluded = useRef<NonNullable<TerrainLine['current']>>(null);
  const points = useMemo<[Point, Point]>(() => [start, end], [start, end]);
+ useFrame(() => {
+  const origin = worldEndFrom?.current?.position;
+  if (!origin || !line.current) return;
+  const x = end[0] - origin.x, y = end[1] - origin.y, z = end[2] - origin.z;
+  // Both render passes must use the same world endpoint while the station moves.
+  for (const part of [line.current, occluded.current]) {
+   if (!part) continue;
+   const endpoint = part.geometry.getAttribute('instanceEnd');
+   if (endpoint.getX(0) === Math.fround(x) && endpoint.getY(0) === Math.fround(y) && endpoint.getZ(0) === Math.fround(z)) continue;
+   part.geometry.setPositions([...start, x, y, z]);
+   part.computeLineDistances();
+  }
+ });
  return <>
   <Line ref={line} points={points} color={color} lineWidth={width} renderOrder={50}
    depthWrite={false} transparent opacity={.9} toneMapped={false}/>
-  {blocked && <OccludedSightline points={points} color={color} width={width}/>}
+  {blocked && <OccludedSightline line={occluded} points={points} color={color} width={width}/>}
  </>;
 }

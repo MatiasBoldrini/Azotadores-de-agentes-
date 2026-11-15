@@ -9,10 +9,11 @@ const ICONS={limit:AlertTriangle,gain:TrendingUp,plateau:Mountain,optimal:Check,
 
 type Demo={step:number;total:number;label:string;ms:number};
 
-export function StoryBar({story,demo,onAction,onStopDemo}:{story:Story;demo:Demo|null;onAction:(a:StoryAction)=>void;onStopDemo:()=>void}){
+export function StoryBar({story,demo,onAction,onStopDemo,hideSummary=false}:{hideSummary?:boolean;story:Story;demo:Demo|null;onAction:(a:StoryAction)=>void;onStopDemo:()=>void}){
  const Icon=ICONS[story.tone];
  const title=story.title.map(s=>s.t).join('');
  const actions=story.actions.filter(action=>action.kind!=='height'&&(demo!==null||action.kind!=='optimize'));
+ if(hideSummary&&!demo)return null;
  return <section className={`story tone-${story.tone}`} aria-label="Analysis story">
   {demo&&<div className="story-rail">
    <ol className="story-steps">
@@ -25,12 +26,12 @@ export function StoryBar({story,demo,onAction,onStopDemo}:{story:Story;demo:Demo
     <button className="demo-stop" onClick={onStopDemo}><Square size={11}/>Stop</button>
    </div>
   </div>}
-  <div className="story-body" aria-live="polite">
+  {!hideSummary&&<div className="story-body" aria-live="polite">
    <div className="story-text" key={title}>
     <h2 className="story-title"><Segments parts={story.title}/></h2>
     {story.detail.length>0&&<p className="story-detail"><Segments parts={story.detail}/></p>}
    </div>
    {actions.length>0&&<div className="story-actions">{actions.map((a,i)=><button key={a.label} className={demo&&i===0?'primary':'secondary'} onClick={()=>onAction(a)}>{a.label}<ArrowRight size={15}/></button>)}</div>}
-  </div>
+  </div>}
  </section>;
 }

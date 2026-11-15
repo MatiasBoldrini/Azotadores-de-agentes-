@@ -1,6 +1,6 @@
-import {useId,useLayoutEffect,useRef,useState,type DragEvent,type KeyboardEvent,type PointerEvent,type RefObject} from 'react';
+import {useId,useLayoutEffect,useRef,useState,type KeyboardEvent,type PointerEvent,type RefObject} from 'react';
 import {createPortal} from 'react-dom';
-import {GripVertical,Pin,PinOff} from 'lucide-react';
+import {Pin,PinOff} from 'lucide-react';
 import AnalysisDisclosure,{type DisclosureControls} from './AnalysisDisclosure';
 import {HorizonChart,TimelineChart,timelineTitle} from './Charts';
 import type {Analysis} from './lib/science';
@@ -9,7 +9,7 @@ const titles={sun:timelineTitle('sun'),earth:timelineTitle('earth'),horizon:'Hor
 const FLOATING_WIDTH=420;
 type PanelId=keyof typeof titles;
 type Point={x:number;y:number};
-type DropTarget={id:PanelId;side:'before'|'after'};
+const PANEL_ORDER:PanelId[]=['sun','earth','horizon'];
 type Move={id:PanelId;pointer:number;origin:Point;position:Point;dragged:boolean};
 
 export function HorizonPanel({analysis,index,baseline,controls,compact=false}:{
@@ -25,18 +25,13 @@ export function HorizonPanel({analysis,index,baseline,controls,compact=false}:{
 export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,timeline}:{
  analysis:Analysis;index:number;baseline:Analysis;onIndex:(index:number)=>void;timeline:RefObject<HTMLElement|null>;
 }){
- const [order,setOrder]=useState<PanelId[]>(['sun','earth','horizon']);
  const [expanded,setExpanded]=useState<Record<PanelId,boolean>>({sun:true,earth:true,horizon:true});
  // Insertion order doubles as the floating windows' stacking order.
  const [floating,setFloating]=useState(new Map<PanelId,Point>());
- const [dragged,setDragged]=useState<PanelId|null>(null);
- const [dropTarget,setDropTarget]=useState<DropTarget|null>(null);
  const [announcement,setAnnouncement]=useState('');
  const dock=useRef<HTMLElement>(null);
  const cards=useRef<Partial<Record<PanelId,HTMLElement|null>>>({});
- const handles=useRef<Partial<Record<PanelId,HTMLButtonElement|null>>>({});
  const pins=useRef<Partial<Record<PanelId,HTMLButtonElement|null>>>({});
- const drag=useRef<PanelId|null>(null);
  const move=useRef<Move|null>(null);
  const suppressClick=useRef<PanelId|null>(null);
  const instructions=useId();
@@ -76,7 +71,6 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
   return ()=>{
    observer.disconnect();
    window.removeEventListener('resize',fitWindows);
-   drag.current=null;
    move.current=null;
   };
  },[timeline,floating.size]);
@@ -119,64 +113,15 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
   });
  }
 
- function reorder(id:PanelId,target:DropTarget){
-  const docked=order.filter(panel=>panel!==id&&!floating.has(panel));
-  docked.splice(docked.indexOf(target.id)+(target.side==='after'?1:0),0,id);
-  let slot=0;
-  setOrder(order.map(panel=>floating.has(panel)?panel:docked[slot++]));
-  setAnnouncement(`${titles[id]}, position ${docked.indexOf(id)+1} of ${docked.length}.`);
- }
-
- function handleKey(event:KeyboardEvent<HTMLButtonElement>,id:PanelId){
-  const position=floating.get(id);
-  if(position){
-   const step=event.shiftKey?48:16;
-   const offset:Partial<Record<string,Point>>={
-    ArrowUp:{x:0,y:-step},ArrowDown:{x:0,y:step},ArrowLeft:{x:-step,y:0},ArrowRight:{x:step,y:0},
-   };
-   const direction=offset[event.key];
-   if(!direction)return;
-   event.preventDefault();
-   moveFloating(id,{x:position.x+direction.x,y:position.y+direction.y});
-   return;
-  }
-  if(event.key!=='ArrowUp'&&event.key!=='ArrowDown')return;
+ function moveWithKeyboard(event:KeyboardEvent<HTMLButtonElement>,id:PanelId,position:Point){
+  const step=event.shiftKey?48:16;
+  const offsets:Partial<Record<string,Point>>={
+   ArrowUp:{x:0,y:-step},ArrowDown:{x:0,y:step},ArrowLeft:{x:-step,y:0},ArrowRight:{x:step,y:0},
+  };
+  const offset=offsets[event.key];
+  if(!offset)return;
   event.preventDefault();
-  const docked=order.filter(panel=>!floating.has(panel));
-  const up=event.key==='ArrowUp';
-  const neighbor=docked[docked.indexOf(id)+(up?-1:1)];
-  if(!neighbor)return;
-  reorder(id,{id:neighbor,side:up?'before':'after'});
-  requestAnimationFrame(()=>handles.current[id]?.focus());
- }
-
- function startDrag(event:DragEvent<HTMLButtonElement>,id:PanelId){
-  const card=cards.current[id];
-  if(!card||floating.has(id)){event.preventDefault();return;}
-  const box=card.getBoundingClientRect();
-  event.dataTransfer.effectAllowed='move';
-  event.dataTransfer.setData('application/x-siteforge-analysis',id);
-  event.dataTransfer.setDragImage(card,event.clientX-box.left,event.clientY-box.top);
-  drag.current=id;
-  setDragged(id);
- }
-
- function targetAt(y:number){
-  let last:PanelId|undefined;
-  for(const id of order){
-   const card=cards.current[id];
-   if(!card||id===drag.current||floating.has(id))continue;
-   const box=card.getBoundingClientRect();
-   if(y<box.top+box.height/2)return {id,side:'before'} as const;
-   last=id;
-  }
-  return last?{id:last,side:'after'} as const:null;
- }
-
- function stopDrag(){
-  drag.current=null;
-  setDragged(null);
-  setDropTarget(null);
+  moveFloating(id,{x:position.x+offset.x,y:position.y+offset.y});
  }
 
  function startMove(event:PointerEvent<HTMLElement>,id:PanelId){
@@ -184,7 +129,7 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
   if(!position||!event.isPrimary||event.button!==0)return;
   suppressClick.current=null;
   const element=event.target;
-  if(!(element instanceof Element)||element.closest('button:not(.analysis-panel-handle), input, a, select, textarea, [contenteditable]'))return;
+  if(!(element instanceof Element)||element.closest('button, input, a, select, textarea, [contenteditable]'))return;
   // Keep a short click on the original element, including a point on an SVG plot.
   element.setPointerCapture(event.pointerId);
   move.current={id,pointer:event.pointerId,origin:{x:event.clientX,y:event.clientY},position,dragged:false};
@@ -200,45 +145,24 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
   moveFloating(id,{x:moving.position.x+dx,y:moving.position.y+dy});
  }
 
- return <aside className="analysis-dock" ref={dock} aria-label="Analysis plots"
-  onDragOver={event=>{
-   if(!drag.current)return;
-   event.preventDefault();
-   event.dataTransfer.dropEffect='move';
-   const target=targetAt(event.clientY);
-   setDropTarget(previous=>previous?.id===target?.id&&previous?.side===target?.side?previous:target);
-  }}
-  onDrop={event=>{
-   const id=drag.current;
-   if(!id)return;
-   event.preventDefault();
-   const target=targetAt(event.clientY);
-   if(target)reorder(id,target);
-   stopDrag();
-  }}>
-  <p className="sr-only" id={instructions}>Use Up and Down to reorder docked panels. Use the arrow keys to move a floating panel.</p>
+ return <aside className="analysis-dock" ref={dock} aria-label="Analysis plots">
+  <p className="sr-only" id={instructions}>Use the arrow keys to move a floating panel.</p>
   <div className="sr-only" role="status">{announcement}</div>
-  {order.map(id=>{
+  {PANEL_ORDER.map(id=>{
    const title=titles[id];
    const position=floating.get(id);
    const toggleLabel=position?`Dock ${title}`:`Float ${title}`;
-   const handleLabel=position?`Move ${title}`:`Reorder ${title}`;
    const controls:DisclosureControls={
     open:expanded[id],
     onToggle:()=>setExpanded(current=>({...current,[id]:!current[id]})),
-    handle:<button type="button" className="analysis-panel-icon analysis-panel-handle" title={handleLabel} aria-label={handleLabel}
-     aria-describedby={instructions} draggable={!position} ref={el=>{handles.current[id]=el;}}
-     onDragStart={event=>startDrag(event,id)} onDragEnd={stopDrag}
-     onKeyDown={event=>handleKey(event,id)}>
-     <GripVertical size={15} aria-hidden="true"/>
-    </button>,
-    action:<button type="button" className="analysis-panel-icon" title={toggleLabel} aria-label={toggleLabel} ref={el=>{pins.current[id]=el;}} onClick={()=>toggleFloating(id)}>
+    action:<button type="button" className="analysis-panel-icon" title={toggleLabel} aria-label={toggleLabel}
+     aria-describedby={position?instructions:undefined} ref={el=>{pins.current[id]=el;}}
+     onKeyDown={position?event=>moveWithKeyboard(event,id,position):undefined} onClick={()=>toggleFloating(id)}>
      {position?<PinOff size={15} aria-hidden="true"/>:<Pin size={15} aria-hidden="true"/>}
     </button>,
    };
    const panel=<section key={id} ref={el=>{cards.current[id]=el;}} aria-label={title}
-    className={`analysis-dock-card${position?' is-floating':''}${dragged===id?' is-dragging':''}`}
-    data-drop={dropTarget?.id===id?dropTarget.side:undefined}
+    className={`analysis-dock-card${position?' is-floating':''}`}
     style={position?{left:position.x,top:position.y,width:FLOATING_WIDTH,zIndex:activeWindows.indexOf(id)+6}:undefined}
     onPointerDown={position?event=>{raise(id);startMove(event,id);}:undefined}
     onPointerMove={position?event=>updateMove(event,id):undefined}

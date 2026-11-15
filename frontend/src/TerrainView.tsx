@@ -8,7 +8,7 @@ import {starfield} from './moon/stars';
 import {MOON_LIGHTS,MOON_TEXTURES,buildMoon,setMoonOpacity} from './moon/globe';
 import {APPROACH_KM,LANDING_FOV,heroPose,horizonPose,type Pose,type SiteFrame} from './moon/frame';
 import {SITE01_SIZE,useSite01,useSurround,type DemLevel} from './site01';
-import {TerrainRayHover,TerrainRayTooltip,type TerrainLine,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
+import {TerrainRayHover,TerrainRayTooltip,type TerrainLabel,type TerrainLine,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
 import {TerrainSightline} from './TerrainSightline';
 import {createStationClickGuard} from './lib/stationClick';
 
@@ -27,8 +27,12 @@ const DISC_KM=7.95;
 // the summit's fall-off is the skyline; the frame reaches 9° above the horizontal, past the highest body.
 const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
 // Schematic marker distance and size. The direction from the mast uses the computed azimuth and elevation.
-const SKY_KM=100,BODY_DEG={sun:1.3,earth:3.2};
-const EARTH_PHOTO='/earth/apollo-17-blue-marble.jpg';
+const SKY_KM=100,RAY_KM=.85,STATION_TRAVEL_SECONDS=.65;
+// Static photos illustrate the bodies at their computed directions and display sizes.
+const BODY_PHOTOS={
+ sun:{diameter:2.2,url:'/sky/sun-hmi.jpg',repeat:[960/1024,960/1024],offset:[32/1024,32/1024]},
+ earth:{diameter:3.2,url:'/earth/apollo-17-blue-marble.jpg',repeat:[424/640,430/640],offset:[109/640,99/640]},
+};
 // Descent progress over which the landing globe fades out.
 const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
@@ -304,68 +308,99 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress,heroHeight
 }
 
 type Point=[number,number,number];
-type Ray={body:'sun'|'earth';end:Point;visible:boolean};
+type Ray={body:'sun'|'earth';end:Point;sky:Point;visible:boolean};
 const RAY_START:Point=[0,0,0],LINK_START:Point=[0,MAST_BASE,0];
-const bodyRadius=(body:Ray['body'])=>SKY_KM*Math.tan(BODY_DEG[body]*DEG/2);
-const bodyLabel=({body,end:[x,y,z]}:Ray):Point=>[x,y+bodyRadius(body)+1.7,z];
+const RAY_DOT_RADIUS=.016;
+const STATION_LABEL:Point=[0,.09,0];
+const bodyRadius=(body:Ray['body'])=>SKY_KM*Math.tan(BODY_PHOTOS[body].diameter*DEG/2);
+const rayLabel=({end:[x,y,z]}:Ray):Point=>[x,y+.06,z];
 
-function EarthDisc({radius,visible}:{radius:number;visible:boolean}){
+function BodyDisc({body,radius,visible}:{body:Ray['body'];radius:number;visible:boolean}){
  const [map,setMap]=useState<THREE.Texture|null>(null);
  useEffect(()=>{
   let mounted=true;
-  const texture=new THREE.TextureLoader().load(EARTH_PHOTO,loaded=>{if(mounted)setMap(loaded);});
-  // The NASA scan has a black border around the globe. The circular mesh masks it,
-  // and these UVs fit the photographed limb to the disk.
+  const photo=BODY_PHOTOS[body];
+  const texture=new THREE.TextureLoader().load(photo.url,loaded=>{if(mounted)setMap(loaded);});
+  // Crop the black border from each NASA image to match its photographed limb.
   texture.colorSpace=THREE.SRGBColorSpace;
-  texture.repeat.set(424/640,430/640);
-  texture.offset.set(109/640,99/640);
+  texture.repeat.set(photo.repeat[0],photo.repeat[1]);
+  texture.offset.set(photo.offset[0],photo.offset[1]);
   return()=>{mounted=false;texture.dispose();};
- },[]);
+ },[body]);
  return <mesh renderOrder={60} raycast={noRaycast}>
-  <circleGeometry args={[radius,48]}/>
-  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={map?'#ffffff':C.earth} depthTest={visible}
+  <circleGeometry args={[radius,64]}/>
+  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={map?'#ffffff':C[body]} depthTest={visible}
    depthWrite={false} transparent opacity={visible ? 1 : map ? .76 : .22} toneMapped={false}/>
  </mesh>;
 }
 
-function SkyBody(ray:Ray){
- const {body,end,visible}=ray;
+function SkyBody({body,sky,visible}:Ray){
  const color=C[body],radius=bodyRadius(body);
- return <>
-  <Billboard position={end}>
-   {body==='earth'&&<EarthDisc radius={radius} visible={visible}/>}
-   {(body==='sun'||!visible)&&<mesh renderOrder={61} raycast={noRaycast}>
-    {visible?<circleGeometry args={[radius,40]}/>:<ringGeometry args={[radius*(body==='earth' ? .94 : .82),radius,48]}/>}
-    <meshBasicMaterial color={color} depthTest={visible} depthWrite={false} transparent opacity={visible?1:.82} toneMapped={false}/>
-   </mesh>}
-  </Billboard>
-  <Label position={bodyLabel(ray)} color={color} size={.018} depthTest={visible} text={BODY_LABELS[body].toUpperCase()}/>
- </>;
+ return <Billboard position={sky}>
+  <BodyDisc body={body} radius={radius} visible={visible}/>
+  {!visible&&<mesh renderOrder={61} raycast={noRaycast}>
+   <ringGeometry args={[radius*.94,radius,64]}/>
+   <meshBasicMaterial color={color} depthTest={false} depthWrite={false} transparent opacity={.82} toneMapped={false}/>
+  </mesh>}
+ </Billboard>;
 }
 
-function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
+function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisible}:{ground:Point;surfaceHeight:(x:number,z:number)=>number;height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:Point|null;linkVisible:boolean}){
  const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
  const target=MAST_BASE+height*MAST_PER_M;
- const linkEnd=useMemo<Point|null>(()=>linkTo&&[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]],[ground,linkTo]);
+ const root=useRef<THREE.Group>(null),initial=useRef(ground);
+ const travel=useRef<{from:THREE.Vector3;to:THREE.Vector3;elapsed:number}|null>(null);
+ const [x,y,z]=ground;
+ useLayoutEffect(()=>{
+  const group=root.current;
+  if(!group)return;
+  const to=new THREE.Vector3(x,y,z);
+  if(group.position.distanceToSquared(to)<1e-12||matchMedia('(prefers-reduced-motion: reduce)').matches){
+   group.position.copy(to);
+   travel.current=null;
+   return;
+  }
+  travel.current={from:group.position.clone(),to,elapsed:0};
+ },[x,y,z]);
+ useFrame((_,dt)=>{
+  const group=root.current,motion=travel.current;
+  if(!group||!motion)return;
+  motion.elapsed+=dt;
+  if(motion.elapsed>=STATION_TRAVEL_SECONDS){group.position.copy(motion.to);travel.current=null;return;}
+  const t=easeInOutCubic(motion.elapsed/STATION_TRAVEL_SECONDS);
+  group.position.lerpVectors(motion.from,motion.to,t);
+  // Follow the DEM while preserving the existing station elevations at both endpoints.
+  const fromOffset=motion.from.y-surfaceHeight(motion.from.x,motion.from.z);
+  const toOffset=motion.to.y-surfaceHeight(motion.to.x,motion.to.z);
+  group.position.y=surfaceHeight(group.position.x,group.position.z)+THREE.MathUtils.lerp(fromOffset,toOffset,t);
+ },-1);
  useFrame((_,dt)=>{
   level.current+= (target-level.current)*Math.min(1,dt*6);
   if(Math.abs(target-level.current)<1e-4) level.current=target;
   if(mast.current){mast.current.scale.y=level.current;mast.current.position.y=level.current/2;}
   if(head.current) head.current.position.y=level.current;
  });
- return <group position={ground}>
+ return <group ref={root} position={initial.current}>
   <ScreenScale position={[0,.002,0]}><mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.042,40]}/><meshBasicMaterial color={C.station} transparent opacity={.75} side={THREE.DoubleSide}/></mesh></ScreenScale>
   <mesh ref={mast}><cylinderGeometry args={[.0045,.0045,1,10]}/><meshBasicMaterial color={C.station}/></mesh>
   <group ref={head}>
    <mesh><octahedronGeometry args={[.024]}/><meshBasicMaterial color={C.station}/></mesh>
-   {rays.map(ray=><group key={ray.body}>
-    <TerrainSightline line={lines[ray.body]} start={RAY_START} end={ray.end}
-     color={ray.visible?C[ray.body]:BLOCKED_COLOR} width={ray.visible?1.6:2.5} blocked={!ray.visible}/>
-    <SkyBody {...ray}/>
-   </group>)}
-   <Label position={[0,.09,0]} color={C.station} text={label}/>
+   {rays.map(ray=>{
+    const color=ray.visible?C[ray.body]:BLOCKED_COLOR;
+    return <group key={ray.body}>
+     <TerrainSightline line={lines[ray.body]} start={RAY_START} end={ray.end}
+      color={color} width={ray.visible?2.2:2.5} blocked={!ray.visible}/>
+     <mesh position={ray.end} renderOrder={52} raycast={noRaycast}>
+      <sphereGeometry args={[RAY_DOT_RADIUS,16,16]}/>
+      <meshBasicMaterial color={color} depthTest={ray.visible} depthWrite={false} transparent toneMapped={false}/>
+     </mesh>
+     <Label position={rayLabel(ray)} color={color} size={.018} depthTest={ray.visible} text={`${BODY_LABELS[ray.body].toUpperCase()} · ${ray.visible?'IN VIEW':'BLOCKED'}`}/>
+     <SkyBody {...ray}/>
+    </group>;
+   })}
+   <Label position={STATION_LABEL} color={C.station} text={label}/>
   </group>
-  {linkEnd&&<TerrainSightline line={lines.link} start={LINK_START} end={linkEnd} color={linkVisible?C.ok:BLOCKED_COLOR} width={1.4} blocked={!linkVisible}/>}
+  {linkTo&&<TerrainSightline line={lines.link} start={LINK_START} end={linkTo} worldEndFrom={root} color={linkVisible?C.ok:BLOCKED_COLOR} width={1.4} blocked={!linkVisible}/>}
  </group>;
 }
 
@@ -409,21 +444,33 @@ function Scene(p:SceneProps){
   return Math.max(ground,crest)+HERO_CLEAR;
  },[p.terrain,p.frame,mean,px,extentKm]);
  const ground=point(p.selected.position),lander=point(p.lander,2);
+ const surfaceHeight=(x:number,z:number)=>{
+  let elevation:number;
+  if(tile&&surround)elevation=bilinear(tile,p.frame.centerPs[0]+x*1000,p.frame.centerPs[1]-z*1000);
+  else{
+   const grid=p.terrain.elevation_m,step=px*p.terrain.stride/1000;
+   const col=THREE.MathUtils.clamp((x+extentKm/2)/step,0,grid[0].length-1);
+   const row=THREE.MathUtils.clamp((z+n*px/2000)/step,0,grid.length-1);
+   const i=Math.min(Math.floor(row),grid.length-2),j=Math.min(Math.floor(col),grid[0].length-2);
+   elevation=THREE.MathUtils.lerp(
+    THREE.MathUtils.lerp(grid[i][j]??mean,grid[i][j+1]??mean,col-j),
+    THREE.MathUtils.lerp(grid[i+1][j]??mean,grid[i+1][j+1]??mean,col-j),row-i);
+  }
+  return (elevation-mean)*VERTICAL_EXAGGERATION/1000-(x*x+z*z)/(2*p.frame.radiusKm);
+ };
  const atLander=p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col;
  const preview=p.positions.find(o=>o.id===(p.previewId??hovered));
  const select=(id:string,event:MouseEvent)=>{if(p.canSelect(event)){setHovered(null);p.onSelect(id);}};
  const pick:TerrainPick=(r,c,event)=>{const nearest=p.positions.reduce((best,o)=>Math.hypot(o.position.row-r,o.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?o:best);select(nearest.id,event);};
  const rays=useMemo<Ray[]>(()=>BODY_KEYS.map(body=>{
   const el=p.selected.series[`${body}_elevation_deg`][p.time]*DEG,d=p.frame.horizontal(p.selected.series[`${body}_azimuth_deg`][p.time]);
-  const horizontal=SKY_KM*Math.cos(el);
-  return {body,visible:p.selected.series[`${body}_visible`][p.time],end:[d.x*horizontal,Math.sin(el)*SKY_KM,d.z*horizontal]};
+  const direction=new THREE.Vector3(d.x*Math.cos(el),Math.sin(el),d.z*Math.cos(el));
+  return {body,visible:p.selected.series[`${body}_visible`][p.time],end:direction.clone().multiplyScalar(RAY_KM).toArray(),sky:direction.multiplyScalar(SKY_KM).toArray()};
  }),[p.selected.series,p.frame,p.time]);
- const add=(a:[number,number,number],b:[number,number,number]):[number,number,number]=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
- const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
- const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,markerRadius:bodyRadius(r.body),detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
+ const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,markerRadius:RAY_DOT_RADIUS,skyMarker:{position:r.sky,radius:bodyRadius(r.body)},detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
  if(!atLander) hoverRays.push({id:'link',line:lines.link,label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
- const labelPositions:Point[]=[add(head,[0,.09,0]),...rays.map(r=>add(head,bodyLabel(r)))];
- if(!atLander) labelPositions.push(add(lander,[0,.1,0]));
+ const labelPositions:TerrainLabel[]=[{position:STATION_LABEL,relativeTo:lines.sun},...rays.map(r=>({position:rayLabel(r),relativeTo:lines[r.body]}))];
+ if(!atLander) labelPositions.push({position:[lander[0],lander[1]+.1,lander[2]]});
  const north=p.frame.horizontal(0),[nx,nz]=[north.x,north.z];
  const compass:[number,number,number]=[-extentKm*.42,point({row:n*.92,col:n*.08,elevation_m:p.terrain.elevation_m[Math.round(n*.92/p.terrain.stride)]?.[Math.round(n*.08/p.terrain.stride)]??mean} as Site)[1]+.03,extentKm*.42];
  // Stars travel with the camera, oriented as on the landing, and draw first so the globe and terrain occlude them.
@@ -448,7 +495,7 @@ function Scene(p:SceneProps){
   </ScreenScale>;})}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
-  <Station ground={ground} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
+  <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
   <group position={compass}>
    <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>

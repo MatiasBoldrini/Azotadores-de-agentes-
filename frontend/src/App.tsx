@@ -276,7 +276,7 @@ function App(){
  </ResultsPanel>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
   <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
-  <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
+  <StoryBar story={story} demo={demo} hideSummary={!!search} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
     <div className="terrain-title">
@@ -327,7 +327,7 @@ function App(){
   <div className="timeline-plots">
    {!showAnalysisDock&&<TimelineStack height={64} analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>}
    <input className="time-slider" aria-label="Timeline time" type="range" min="0" max={count-1} value={index} onChange={e=>{setTime(Number(e.target.value));setPlaying(false);}}/>
-   <div className="time-labels"><span>{utc(start)} UTC</span><span>{utc(end)} UTC</span></div>
+   <DateWindowPicker compact days={observationDays} start={start} end={end} label="Timeline observation window" onChange={setWindow} status={designer.status}/>
   </div>
   {!showAnalysisDock&&<div className="timeline-horizon"><HorizonPanel compact analysis={selected} index={index} baseline={baseline}/></div>}
  </section>
