@@ -195,6 +195,8 @@ option{background:#111}
 .terrain-title{width:fit-content;text-shadow:0 1px 10px rgba(0,0,0,.9)}
 .terrain-title h2{font-size:20px;letter-spacing:-.01em}
 .map-coordinates{margin-top:2px;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.terrain-scope{display:grid;gap:2px;width:fit-content;max-width:100%;margin-top:8px;padding:5px 8px;border-radius:6px;background:rgba(5,5,5,.76);color:var(--text-2);font-size:12px;line-height:1.4;font-variant-numeric:tabular-nums}
+.terrain-scope strong{color:var(--text);font-weight:600}
 .map-actions{position:relative;z-index:6;display:flex;gap:8px;flex-wrap:wrap;width:fit-content;max-width:100%;margin-top:10px}
 .map-actions>.map-optimize,.map-config>button{min-height:40px;padding-inline:12px;backdrop-filter:blur(14px)}
 .map-optimize{background:linear-gradient(var(--earth-soft),var(--earth-soft)),rgba(5,5,5,.72)}
