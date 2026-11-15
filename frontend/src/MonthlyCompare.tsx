@@ -1,0 +1,151 @@
+import { type ReactNode, useEffect, useState } from 'react';
+import { type MonthlyScan, type MonthlyWindow, parseMonthlyScan } from './lib/monthlyScan';
+import type { Site } from './lib/science';
+import './MonthlyCompare.css';
+
+const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const shortMonth = new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: 'UTC' });
+const dateLabel = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const hourLabel = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+const percentLabel = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 });
+
+type LoadState = { status: 'loading' | 'unavailable' } | { status: 'ready'; scan: MonthlyScan };
+
+const labelFor = (month: MonthlyWindow) => monthLabel.format(new Date(month.start_utc));
+const heightLabel = (height: number | null) => height === null ? 'None' : `${height} m`;
+
+function Visibility({ label, color, hours, duration }: { label: string; color: string; hours: number; duration: number }) {
+  return <div className="metric-block">
+    <dt className={color}>{label}</dt>
+    <dd className="metric-number">{hourLabel.format(hours)}<small>h</small></dd>
+    <dd className="metric-detail">{percentLabel.format(hours / duration)} of {hourLabel.format(duration)}&nbsp;h</dd>
+  </div>;
+}
+
+export default function MonthlyCompare({ sites, renderNovember }: { sites: Site[]; renderNovember: () => ReactNode }) {
+  const [load, setLoad] = useState<LoadState>({ status: 'loading' });
+  const [view, setView] = useState<'monthly' | 'november'>('monthly');
+  const [monthId, setMonthId] = useState('2026-11');
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadScan() {
+      try {
+        const response = await fetch('/data/monthly-site-scan.json', { signal: controller.signal });
+        if (!response.ok) throw new Error('The monthly dataset is unavailable.');
+        const scan = parseMonthlyScan(await response.json());
+        if (!controller.signal.aborted) setLoad({ status: 'ready', scan });
+      } catch {
+        if (!controller.signal.aborted) setLoad({ status: 'unavailable' });
+      }
+    }
+    void loadScan();
+    return () => controller.abort();
+  }, []);
+
+  const showNovember = view === 'november' || load.status === 'unavailable';
+
+  return <section className="compare-page">
+    <div className="compare-mode">
+      <h1>Compare landing sites</h1>
+      {load.status !== 'unavailable' && <div className="compare-mode-buttons" role="group" aria-label="Comparison view">
+        <button type="button" aria-pressed={!showNovember} onClick={() => setView('monthly')}>Monthly comparison</button>
+        <button type="button" aria-pressed={showNovember} onClick={() => setView('november')}>November timelines</button>
+      </div>}
+    </div>
+    {load.status === 'unavailable' && <p className="compare-state" role="status">
+      Monthly data could not be loaded. The November timelines are available below.
+    </p>}
+    {showNovember ? renderNovember() : load.status === 'ready' ? <MonthlyResults
+      scan={load.scan}
+      sites={sites}
+      month={load.scan.months.find(item => item.id === monthId) ?? load.scan.months[0]}
+      height={height}
+      onMonth={setMonthId}
+      onHeight={setHeight}
+    /> : <p className="compare-state" role="status">Loading monthly data…</p>}
+  </section>;
+}
+
+function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
+  scan: MonthlyScan;
+  sites: Site[];
+  month: MonthlyWindow;
+  height: number;
+  onMonth: (id: string) => void;
+  onHeight: (height: number) => void;
+}) {
+  const ridgeSites = sites.filter(site => site.id in month.sites);
+  const limits = scan.defaults;
+
+  return <div className="monthly-compare">
+    <p className="monthly-context">Fixed landing points on Connecting Ridge. Each height is measured above the terrain at the same point.</p>
+    <div className="monthly-controls">
+      <label>Month (UTC)
+        <select value={month.id} onChange={event => onMonth(event.target.value)}>
+          {scan.months.map(item => <option value={item.id} key={item.id}>{labelFor(item)}</option>)}
+        </select>
+      </label>
+      <label>Mast height at each point
+        <select value={height} onChange={event => onHeight(Number(event.target.value))}>
+          {scan.heights_m.map(item => <option value={item} key={item}>{item === 0 ? '0 m · ground level' : `${item} m`}</option>)}
+        </select>
+      </label>
+      <p className="monthly-window" aria-live="polite">
+        <span><time dateTime={month.start_utc}>{dateLabel.format(new Date(month.start_utc))}</time> to <time dateTime={month.end_utc}>{dateLabel.format(new Date(month.end_utc))}</time></span>
+        <strong>{hourLabel.format(month.duration_hours)} h</strong> · Midnight to midnight UTC
+      </p>
+    </div>
+
+    <div className="compare-grid">
+      {ridgeSites.map(site => {
+        const result = month.sites[site.id];
+        const selected = result.heights.find(item => item.height_m === height)!;
+        return <article className="comparison monthly-result" key={site.id}>
+          <div className="comparison-title">
+            <div>
+              <h2>{site.name}</h2>
+              <small>{Math.abs(site.latitude_deg).toFixed(5)}°&nbsp;S / {Math.abs(site.longitude_deg).toFixed(5)}°&nbsp;W</small>
+            </div>
+            <span className="monthly-height">{height} m above terrain</span>
+          </div>
+          <dl className="monthly-metrics">
+            <Visibility label="Sun visible" color="sun" hours={selected.sun_hours} duration={month.duration_hours}/>
+            <Visibility label="Earth visible" color="earth" hours={selected.earth_hours} duration={month.duration_hours}/>
+            <div className="metric-block">
+              <dt className="both">Longest gap without both</dt>
+              <dd className="metric-number">{hourLabel.format(selected.both_longest_outage_hours)}<small>h</small></dd>
+              <dd className="metric-detail">Sun or Earth blocked</dd>
+            </div>
+          </dl>
+          <div className="monthly-lowest">
+            <h3>Lowest height that meets the limits</h3>
+            <strong className={result.minimum_height_m === null ? 'warn' : 'good'}>
+              {result.minimum_height_m === null ? 'None at tested heights' : heightLabel(result.minimum_height_m)}
+            </strong>
+          </div>
+        </article>;
+      })}
+    </div>
+
+    <div className="monthly-history">
+      <h2>Lowest qualifying height by month</h2>
+      <table aria-describedby="monthly-limits">
+        <thead><tr><th scope="col">Site</th>{scan.months.map(item => <th
+          key={item.id} scope="col" className={item.id === month.id ? 'current-month' : undefined}
+          aria-label={labelFor(item)}
+        >{shortMonth.format(new Date(item.start_utc))} <span>{item.id.slice(2, 4)}</span></th>)}</tr></thead>
+        <tbody>{ridgeSites.map(site => <tr key={site.id}>
+          <th scope="row">{site.name}</th>
+          {scan.months.map(item => <td className={item.id === month.id ? 'current-month' : undefined} key={item.id}>
+            {heightLabel(item.sites[site.id].minimum_height_m)}
+          </td>)}
+        </tr>)}</tbody>
+      </table>
+      <p id="monthly-limits">
+        Qualifying heights need at least {limits.minSun}% Sun and {limits.minEarth}% Earth visibility in the month. The longest Sun outage and the longest Earth outage must each be at most {limits.maxOutage} h. The point also needs at most {limits.maxSlope}° slope and {hourLabel.format(limits.maxDistance)} m installation distance{limits.requireLink && ', with local line of sight'}.
+      </p>
+    </div>
+  </div>;
+}
