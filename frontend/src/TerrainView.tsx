@@ -32,6 +32,8 @@ const DISC_KM=DETAIL_RADIUS_KM;
 const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
 // Schematic marker distance and size. The direction from the mast uses the computed azimuth and elevation.
 const RAY_KM=.85,STATION_TRAVEL_SECONDS=.65;
+// Keep the station horizon available while the gray mask is hidden in the 3D view.
+const SHOW_STATION_HORIZON=false;
 // Display diameters in degrees, enlarged for legibility.
 const BODY_PHOTOS={
  sun:{diameter:2.2,url:'/sky/sun-hmi.jpg',repeat:[960/1024,960/1024],offset:[32/1024,32/1024]},
@@ -575,7 +577,7 @@ function Scene(p:SceneProps){
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
   <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:lander} linkVisible={p.linkVisible} sky={sky} head={stationHead}/>
-  <DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} observer={stationHead} hidden={!p.active||p.approach!==null}/>
+  {SHOW_STATION_HORIZON&&<DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} observer={stationHead} hidden={!p.active||p.approach!==null}/>}
   <group position={compass}>
    <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
@@ -595,7 +597,7 @@ export function TerrainScope({terrain,regionalRadiusM,sky}:{terrain:Terrain;regi
  const closeupKm=terrain.original_shape[1]*terrain.pixel_size_m/1000;
  const footprint=tile&&surround?`~${Math.round(DISC_KM)} km radius`:`${closeupKm.toFixed(2)} km across`;
  return <p className="terrain-scope">
-  <span><strong>3D display</strong> · {VERTICAL_EXAGGERATION}× vertical relief · {footprint} + station horizon</span>
+  <span><strong>3D display</strong> · {VERTICAL_EXAGGERATION}× vertical relief · {footprint}{SHOW_STATION_HORIZON&&' + station horizon'}</span>
   <span><strong>Sun/Earth visibility</strong> · {regionalRadiusM?`LOLA terrain to ${regionalRadiusM/1000} km`:'LOLA elevations'}</span>
   {sky&&<span><strong>Sky paths</strong> · geometric line of sight from LOLA terrain, drawn with the same {VERTICAL_EXAGGERATION}× vertical exaggeration</span>}
  </p>;
