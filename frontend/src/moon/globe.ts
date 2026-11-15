@@ -2,6 +2,13 @@ import * as THREE from 'three';
 import {VERTICAL_EXAGGERATION} from '../TerrainView';
 
 export const MOON_RADIUS_M = 1737400;
+export const MOON_TEXTURES = ['/moon/lroc_wac_gray.jpg', '/moon/wac_south_summer.jpg', '/moon/ldem_4_displacement.png'];
+// The landing's light rig, in landing coordinates. The site view starts its descent under the same light.
+export const MOON_LIGHTS = {
+ sun: {position: [.35, .04, 1] as [number, number, number], intensity: 2.35, color: '#fff3e0'},
+ back: {position: [-1, -.2, -.4] as [number, number, number], intensity: .08},
+ ambient: .045,
+};
 const DEG = Math.PI / 180;
 
 // ldem_4_displacement.png is ldem_4_uint.tif (NASA SVS CGI Moon Kit) linearly stretched to its own range.
@@ -18,6 +25,9 @@ const CAP_OUTER = -58;
 const CAP_FADE = -65;
 // The base sphere stops inside the opaque part of the cap so its pinched polar triangles never show through.
 const SPHERE_SOUTH = -67;
+export const CAP_LIFT = 1.001;
+// The 4 ppd relief carries no detail this close to the pole, and the 5 m site tile is draped on a smooth sphere here.
+const FLAT_POLE = -86, FLAT_POLE_END = -82;
 
 export function latLonToVec(lat: number, lon: number, r = 1) {
  const phi = (90 - lat) * DEG, theta = (lon + 180) * DEG;
@@ -47,7 +57,10 @@ function pixels(img: HTMLImageElement | ImageBitmap) {
  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
+const samplers = new WeakMap<object, (lat: number, lon: number) => number>();
 function elevationSampler(img: HTMLImageElement | ImageBitmap) {
+ const cached = samplers.get(img);
+ if (cached) return cached;
  const {data, width: w, height: h} = pixels(img);
  const at = (x: number, y: number) => data[(y * w + x) * 4] / 255;
  const sample = (u: number, v: number) => {
@@ -57,12 +70,14 @@ function elevationSampler(img: HTMLImageElement | ImageBitmap) {
   const x1 = Math.min(x0 + 1, w - 1), y1 = Math.min(y0 + 1, h - 1), tx = x - x0, ty = y - y0;
   return (at(x0, y0) * (1 - tx) + at(x1, y0) * tx) * (1 - ty) + (at(x0, y1) * (1 - tx) + at(x1, y1) * tx) * ty;
  };
- return (lat: number, lon: number) => {
+ const elevation = (lat: number, lon: number) => {
   const v = (90 - lat) / 180;
   // Average a ring of longitudes near the poles so the relief does not fan out.
   const s = Math.abs(lat) >= 88 ? Array.from({length: 16}, (_, k) => sample(k / 16, v)).reduce((a, b) => a + b) / 16 : sample((lon + 180) / 360, v);
   return ELEV_MIN + s * (ELEV_MAX - ELEV_MIN);
  };
+ samplers.set(img, elevation);
+ return elevation;
 }
 
 function displace(geometry: THREE.BufferGeometry, elevation: (lat: number, lon: number) => number) {
@@ -70,7 +85,8 @@ function displace(geometry: THREE.BufferGeometry, elevation: (lat: number, lon: 
  for (let i = 0; i < pos.count; i++) {
   p.fromBufferAttribute(pos, i);
   const {lat, lon} = vecToLatLon(p);
-  p.normalize().multiplyScalar(1 + elevation(lat, lon) / MOON_RADIUS_M * VERTICAL_EXAGGERATION);
+  const flat = THREE.MathUtils.smoothstep(lat, FLAT_POLE, FLAT_POLE_END);
+  p.normalize().multiplyScalar(1 + flat * elevation(lat, lon) / MOON_RADIUS_M * VERTICAL_EXAGGERATION);
   pos.setXYZ(i, p.x, p.y, p.z);
  }
  pos.needsUpdate = true;
@@ -84,10 +100,30 @@ const capFade = (lat: number) => {
  return 1 - t * t * (3 - 2 * t);
 };
 
+// South polar stereographic, as in the LROC mosaic and the LOLA site DEMs: x = ρ sin λ, y = ρ cos λ.
 function polarUv(lat: number, lon: number): [number, number] {
  const rho = 2 * MOON_RADIUS_M * Math.tan(Math.PI / 4 + lat * DEG / 2);
- const x = rho * Math.sin(lon * DEG), y = -rho * Math.cos(lon * DEG);
+ const x = rho * Math.sin(lon * DEG), y = rho * Math.cos(lon * DEG);
  return [(x - POLAR_XMIN) / POLAR_EXTENT, 1 - (POLAR_YMAX - y) / POLAR_EXTENT];
+}
+
+// Bilinear LROC mosaic albedo (linear RGB) at polar stereographic metres, read from a small crop around a site.
+export function polarAlbedo(img: HTMLImageElement | ImageBitmap, x0: number, y0: number, x1: number, y1: number) {
+ const pad = 2, left = Math.max(0, Math.floor((Math.min(x0, x1) - POLAR_XMIN) / POLAR_SCALE) - pad), top = Math.max(0, Math.floor((POLAR_YMAX - Math.max(y0, y1)) / POLAR_SCALE) - pad);
+ const w = Math.min(POLAR_SIZE - left, Math.ceil(Math.abs(x1 - x0) / POLAR_SCALE) + 2 * pad + 1), h = Math.min(POLAR_SIZE - top, Math.ceil(Math.abs(y1 - y0) / POLAR_SCALE) + 2 * pad + 1);
+ const canvas = document.createElement('canvas');
+ canvas.width = w;
+ canvas.height = h;
+ const ctx = canvas.getContext('2d', {willReadFrequently: true})!;
+ ctx.drawImage(img, left, top, w, h, 0, 0, w, h);
+ const {data} = ctx.getImageData(0, 0, w, h);
+ const at = (i: number, j: number, k: number) => data[(THREE.MathUtils.clamp(j, 0, h - 1) * w + THREE.MathUtils.clamp(i, 0, w - 1)) * 4 + k] / 255;
+ return (x: number, y: number, out: THREE.Color) => {
+  const fi = (x - POLAR_XMIN) / POLAR_SCALE - .5 - left, fj = (POLAR_YMAX - y) / POLAR_SCALE - .5 - top;
+  const i = Math.floor(fi), j = Math.floor(fj), tx = fi - i, ty = fj - j;
+  const c = [0, 1, 2].map(k => (at(i, j, k) * (1 - tx) + at(i + 1, j, k) * tx) * (1 - ty) + (at(i, j + 1, k) * (1 - tx) + at(i + 1, j + 1, k) * tx) * ty);
+  return out.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
+ };
 }
 
 function southCapGeometry() {
@@ -112,7 +148,9 @@ function southCapGeometry() {
  return g;
 }
 
+let capAlpha: THREE.CanvasTexture | null = null;
 function capAlphaTexture(size = 1024) {
+ if (capAlpha) return capAlpha;
  const canvas = document.createElement('canvas');
  canvas.width = canvas.height = size;
  const ctx = canvas.getContext('2d')!, img = ctx.createImageData(size, size);
@@ -123,12 +161,27 @@ function capAlphaTexture(size = 1024) {
   img.data[o] = img.data[o + 1] = img.data[o + 2] = img.data[o + 3] = Math.round(capFade(lat) * 255);
  }
  ctx.putImageData(img, 0, 0);
- return new THREE.CanvasTexture(canvas);
+ capAlpha = new THREE.CanvasTexture(canvas);
+ return capAlpha;
+}
+
+// Cuts a square of half-width `half` around the world origin out of the cap, where a site tile replaces it.
+function cutHole(material: THREE.Material, half: number) {
+ material.onBeforeCompile = shader => {
+  shader.uniforms.holeHalf = {value: half};
+  shader.vertexShader = shader.vertexShader
+   .replace('#include <common>', '#include <common>\nvarying vec3 vHoleWorld;')
+   .replace('#include <project_vertex>', '#include <project_vertex>\nvHoleWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  shader.fragmentShader = shader.fragmentShader
+   .replace('#include <common>', '#include <common>\nuniform float holeHalf;\nvarying vec3 vHoleWorld;')
+   .replace('void main() {', 'void main() {\n if (abs(vHoleWorld.x) < holeHalf && abs(vHoleWorld.z) < holeHalf && vHoleWorld.y > -holeHalf) discard;');
+ };
+ material.customProgramCacheKey = () => `hole-${half}`;
 }
 
 export type MoonMeshes = {sphere: THREE.Mesh; cap: THREE.Mesh; materials: THREE.MeshStandardMaterial[]};
 
-export function buildMoon(color: THREE.Texture, polar: THREE.Texture, relief: THREE.Texture, maxAnisotropy: number): MoonMeshes {
+export function buildMoon(color: THREE.Texture, polar: THREE.Texture, relief: THREE.Texture, maxAnisotropy: number, hole?: number): MoonMeshes {
  for (const t of [color, polar]) {
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = maxAnisotropy;
@@ -152,8 +205,9 @@ export function buildMoon(color: THREE.Texture, polar: THREE.Texture, relief: TH
   map: polar, alphaMap: capAlphaTexture(), transparent: true, alphaTest: .04,
   roughness: .95, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
  });
+ if (hole) cutHole(capMaterial, hole);
  const cap = new THREE.Mesh(capGeometry, capMaterial);
- cap.scale.setScalar(1.001);
+ cap.scale.setScalar(CAP_LIFT);
  return {sphere, cap, materials: [sphereMaterial, capMaterial]};
 }
 
