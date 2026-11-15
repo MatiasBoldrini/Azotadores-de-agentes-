@@ -308,14 +308,22 @@ function Surface({ground,levels,wireframe,onPick,mosaic}:{ground:Ground;levels:L
 // and its imagery yielding to the terrain albedo wherever it would be magnified. It carries the descent; at rest
 // it lies beyond the polar grids' horizon, or fades out if only the Site01 disc is there.
 function ContextGlobe({frame,hole,fade,textures:[color,polar,relief],magnified,progress}:{frame:SiteFrame;hole:number;fade:boolean;textures:THREE.Texture[];magnified:{value:number};progress:RefObject<number>}){
- const {gl}=useThree();
+ const {gl,camera,scene}=useThree(),group=useRef<THREE.Group>(null);
  const moon=useMemo(()=>buildMoon(color,polar,relief,gl.capabilities.getMaxAnisotropy(),{hole,neutral:ALBEDO.clone(),magnified}),[color,polar,relief,gl,hole,magnified]);
+ // A view already at rest starts with the globe faded out; it turns opaque when the polar grids arrive. Its opaque
+ // programs are compiled now, while the scene is light, rather than then.
+ useLayoutEffect(()=>{
+  if(!group.current)return;
+  setMoonOpacity(moon,1);
+  // First use reads the programs back from the GPU; done later, it would wait behind the terrain's draws.
+  for(const m of gl.compile(group.current,camera,scene))for(const program of (gl.properties.get(m) as {programs?:Map<string,{getUniforms:()=>unknown}>}).programs?.values()??[])program.getUniforms();
+ },[moon,gl,camera,scene]);
  useFrame(({camera})=>{
   const k=progress.current,altitude=camera.position.distanceTo(frame.center)-frame.radiusKm;
   magnified.value=k*(1-THREE.MathUtils.smoothstep(altitude,OVERVIEW_KM[0],OVERVIEW_KM[1]));
   setMoonOpacity(moon,fade?1-THREE.MathUtils.smoothstep(k,GLOBE_FADE[0],GLOBE_FADE[1]):1);
  });
- return <group position={frame.center} quaternion={frame.rotation} scale={frame.scale}><primitive object={moon.sphere}/><primitive object={moon.cap}/></group>;
+ return <group ref={group} position={frame.center} quaternion={frame.rotation} scale={frame.scale}><primitive object={moon.sphere}/><primitive object={moon.cap}/></group>;
 }
 
 function SiteGround({ground,levels,progress,...rest}:{ground:Ground;levels:Levels;progress:RefObject<number>;wireframe:boolean;onPick:(r:number,c:number)=>void}){
