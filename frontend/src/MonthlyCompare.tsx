@@ -1,6 +1,6 @@
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 import CompareUtcWindow from './CompareUtcWindow';
-import { type MonthlyScan, type MonthlyWindow, parseMonthlyScan } from './lib/monthlyScan';
+import { type MonthlyScan, type MonthlyWindow, mastSeason, parseMonthlyScan } from './lib/monthlyScan';
 import {type Site, type Analysis, type Link, keyFor, violations} from './lib/science';
 import {useObservationWindow} from './useObservationWindow';
 import './MonthlyCompare.css';
@@ -43,15 +43,16 @@ function verdictFor(month: MonthlyWindow, sites: Site[]) {
   };
 }
 
+const monthCount = (n: number) => `${n} ${n === 1 ? 'month' : 'months'}`;
+
 function seasonFor(scan: MonthlyScan, sites: Site[]) {
   const [a, b] = sites;
   if (!a || !b) return null;
-  let aWins = 0, bWins = 0, ties = 0;
-  for (const month of scan.months) {
-    const ra = mastRank(month.sites[a.id].minimum_height_m), rb = mastRank(month.sites[b.id].minimum_height_m);
-    if (ra < rb) aWins++; else if (rb < ra) bWins++; else ties++;
-  }
-  return `${a.name} needs the shorter mast in ${aWins} of ${scan.months.length} months, ${b.name} in ${bWins}${ties ? `; ${ties} are even` : ''}.`;
+  const s = mastSeason(scan, a.id, b.id);
+  const parts = [`${a.name} needs the shorter mast in ${s.aShorter} of ${s.months} months and ${b.name} in ${s.bShorter || 'none'}.`];
+  if (s.sameMast) parts.push(`Both need the same mast in ${monthCount(s.sameMast)}.`);
+  if (s.neither) parts.push(`In ${monthCount(s.neither)}, neither qualifies at any tested height.`);
+  return parts.join(' ');
 }
 
 export default function MonthlyCompare({ sites, analyses, links, renderTimelines }: { sites: Site[]; analyses: Analysis[]; links: Record<string,Record<string,Link>>; renderTimelines: () => ReactNode }) {

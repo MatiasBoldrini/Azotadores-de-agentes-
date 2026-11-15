@@ -66,3 +66,19 @@ export function parseMonthlyScan(value: unknown): MonthlyScan {
   ) throw new Error('Invalid monthly site dataset.');
   return scan;
 }
+
+export type MastSeason = { aShorter: number; bShorter: number; sameMast: number; neither: number; months: number };
+
+// Compares the lowest qualifying mast month by month. A month where neither site qualifies at any
+// tested height is its own outcome: it is not a tie between two equal masts.
+export function mastSeason(scan: MonthlyScan, a: string, b: string): MastSeason {
+  const season = { aShorter: 0, bShorter: 0, sameMast: 0, neither: 0, months: scan.months.length };
+  for (const month of scan.months) {
+    const ha = month.sites[a].minimum_height_m, hb = month.sites[b].minimum_height_m;
+    if (ha === null && hb === null) season.neither++;
+    else if (hb === null || (ha !== null && ha < hb)) season.aShorter++;
+    else if (ha === null || hb < ha) season.bShorter++;
+    else season.sameMast++;
+  }
+  return season;
+}

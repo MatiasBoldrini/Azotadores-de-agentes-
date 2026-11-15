@@ -44,7 +44,7 @@ const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-const C={sun:'#E2B06A',earth:'#93B9D6',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#9a9a9a',feasible:'#F2F2F2',recommended:'#ECE7E0',ok:'#F5F5F5'};
+const C={sun:'#E2B06A',earth:'#93B9D6',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#C7C9CD',feasible:'#F5F5F5',recommended:'#93B9D6',ok:'#F5F5F5'};
 const SKY_DISC_COLOR={sun:'#f5f5f5',earth:C.earth};
 // Raise the grayscale HMI browse image's exposure without tinting or flattening its limb.
 const SOLAR_EXPOSURE=new THREE.Color(3.5,3.5,3.5);
@@ -52,8 +52,8 @@ const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#D9665B';
 const CANDIDATE_HIT_RADIUS=.023*Math.sqrt(10);
-const CANDIDATE_DIAMETER={evaluated:.05,feasible:.066,recommended:.1};
-const CANDIDATE_OUTLINE='rgba(12,12,12,.7)';
+const CANDIDATE_DIAMETER={evaluated:.064,feasible:.088,recommended:.106};
+const CANDIDATE_OUTLINE='#17191E';
 
 const terrainEvents:typeof events=store=>{
  const center=new THREE.Vector3();
@@ -432,8 +432,8 @@ function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisibl
  </group>;
 }
 
-// Survey-style crosses rather than discs: a thin plus for every evaluated cell, brighter when feasible,
-// and a bronze square around the recommended one.
+// Crosses with the same footprint, light fills and dark rim as the earlier discs, so every cell stays
+// large and distinguishable on light terrain; the recommended one adds a ring as before.
 function candidateMarkerTexture(fill:string,recommended=false){
  const canvas=document.createElement('canvas');
  canvas.width=canvas.height=128;
@@ -443,11 +443,14 @@ function candidateMarkerTexture(fill:string,recommended=false){
   ctx.fillRect(64-arm,64-width/2,arm*2,width);
   ctx.fillRect(64-width/2,64-arm,width,arm*2);
  };
- cross(recommended?34:40,16,CANDIDATE_OUTLINE);
- cross(recommended?30:36,7,fill);
  if(recommended){
-  ctx.strokeStyle=CANDIDATE_OUTLINE;ctx.lineWidth=14;ctx.strokeRect(14,14,100,100);
-  ctx.strokeStyle=C.recommended;ctx.lineWidth=7;ctx.strokeRect(14,14,100,100);
+  ctx.beginPath();ctx.arc(64,64,62,0,Math.PI*2);ctx.fillStyle=CANDIDATE_OUTLINE;ctx.fill();
+  ctx.beginPath();ctx.arc(64,64,53,0,Math.PI*2);ctx.fillStyle=C.recommended;ctx.fill();
+  ctx.beginPath();ctx.arc(64,64,40,0,Math.PI*2);ctx.fillStyle=CANDIDATE_OUTLINE;ctx.fill();
+  cross(30,16,fill);
+ } else {
+  cross(63,58,CANDIDATE_OUTLINE);
+  cross(53,36,fill);
  }
  const texture=new THREE.CanvasTexture(canvas);
  texture.colorSpace=THREE.SRGBColorSpace;

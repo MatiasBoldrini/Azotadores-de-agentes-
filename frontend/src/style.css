@@ -808,9 +808,9 @@ select{border-radius:var(--radius-sm);background:var(--surface);border-color:var
 .metric-label svg,.mission-ops .ops-row dt svg,.joint dt svg{display:none}
 .metric-label{font:500 13px var(--sans)!important;letter-spacing:-.005em!important;text-transform:none}
 /* Map legend matches the survey crosses on the terrain. */
-.lg-cell,.lg-feasible{border-radius:0;background:linear-gradient(currentColor,currentColor) center/1.5px 100% no-repeat,linear-gradient(currentColor,currentColor) center/100% 1.5px no-repeat}
-.lg-cell{width:9px;height:9px;color:var(--muted)}
-.lg-feasible{width:11px;height:11px;color:var(--text)}
+.lg-cell,.lg-feasible{border-radius:0;background:linear-gradient(currentColor,currentColor) center/3px 100% no-repeat,linear-gradient(currentColor,currentColor) center/100% 3px no-repeat}
+.lg-cell{width:11px;height:11px;color:#C7C9CD}
+.lg-feasible{width:13px;height:13px;color:var(--text)}
 .map-label{border-radius:6px;border-color:var(--line);font-family:var(--mono);font-size:11px}
 .demo-segments i{border-radius:1px}
 
