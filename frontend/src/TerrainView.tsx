@@ -293,7 +293,17 @@ function useLevelGeometry(ground:Ground,{tile,surround,regional}:Levels){
 }
 
 function Surface({ground,levels,wireframe,onPick,mosaic}:{ground:Ground;levels:Levels;wireframe:boolean;onPick:(r:number,c:number)=>void;mosaic?:Mosaic}){
- const {terrain}=ground,n=terrain.original_shape[0],gl=useThree(s=>s.gl);
+ const {terrain}=ground,n=terrain.original_shape[0],{gl,camera,scene}=useThree();
+ // The levels' two programs are ready as soon as the imagery is, so the levels' first draw only uploads their
+ // meshes. These materials hold the programs until then; released, the same programs would compile again.
+ const warm=useMemo(()=>mosaic?[terrainMaterial(null,0,mosaic),terrainMaterial([0,0,0,0],1,mosaic)]:[],[mosaic]);
+ useLayoutEffect(()=>{
+  if(!warm.length)return;
+  const g=new THREE.BufferGeometry(),root=new THREE.Group();
+  for(const m of warm)root.add(new THREE.Mesh(g,m));
+  warmPrograms(gl,root,camera,scene);
+  return()=>{g.dispose();warm.forEach(m=>m.dispose());};
+ },[warm,gl,camera,scene]);
  const coarse=useMemo(()=>snapshotGeometry(ground),[ground]);
  const meshes=useLevelGeometry(ground,levels);
  const materials=useMemo(()=>meshes?.map(m=>terrainMaterial(m.hole,m.offset,mosaic))??[],[meshes,mosaic]);
