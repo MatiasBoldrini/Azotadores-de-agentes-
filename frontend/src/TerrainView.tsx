@@ -1,4 +1,4 @@
-import {Component,createRef,useMemo,useRef,useEffect,useLayoutEffect,useState,memo,Suspense,type ComponentRef,type ReactNode,type RefObject} from 'react';
+import {Component,createRef,useMemo,useRef,useEffect,useLayoutEffect,useState,memo,Suspense,type ComponentProps,type ComponentRef,type ReactNode,type RefObject} from 'react';
 import {Canvas,ThreeEvent,useFrame,useLoader,useThree} from '@react-three/fiber';
 import {Billboard,Html,OrbitControls,Line,useCursor} from '@react-three/drei';
 import * as THREE from 'three';
@@ -440,6 +440,15 @@ function SkyBodies({rays}:{rays:Ray[]}){
  </group>;
 }
 
+type Point3=[number,number,number];
+// drei's Line rebuilds its geometry and disposes its material whenever `points` is a new array, so every
+// re-render recompiled the line shaders. This one keeps its first array and moves the vertices in place.
+function SteadyLine({points,line,...rest}:Omit<ComponentProps<typeof Line>,'points'|'ref'>&{points:Point3[];line?:TerrainLine}){
+ const own=useRef<ComponentRef<typeof Line>|null>(null),[first]=useState(points),flat=points.flat(),key=flat.join();
+ useLayoutEffect(()=>{const l=own.current;if(!l)return;l.geometry.setPositions(flat);l.computeLineDistances();},[key]);
+ return <Line ref={l=>{own.current=l;if(line)line.current=l;}} points={first} {...rest}/>;
+}
+
 // A thin ray from the mast head to where the body's disc sits on the sky shell around the camera. A body well
 // away from the view direction keeps a short ray pointing at it instead.
 function SkyRay({dir,color,line}:{dir:[number,number,number];color:string;line:TerrainLine}){
@@ -450,7 +459,7 @@ function SkyRay({dir,color,line}:{dir:[number,number,number];color:string;line:T
   else{l.parent.getWorldPosition(from);to.copy(camera.position).addScaledVector(d,SKY_KM).sub(from);}
   l.geometry.setPositions([0,0,0,to.x,to.y,to.z]);
  });
- return <Line ref={line} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
+ return <SteadyLine line={line} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
 }
 
 function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
@@ -471,14 +480,14 @@ function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[nu
     const color=visible?C[body]:BLOCKED_COLOR;
     // In-view rays run out to the body's disc on the sky; blocked rays stay short and draw over the terrain.
     return visible?<SkyRay key={body} dir={dir} color={color} line={lines[body]}/>:<group key={body}>
-     <Line ref={lines[body]} points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
+     <SteadyLine line={lines[body]} points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
      <mesh position={dir} renderOrder={71}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={false} transparent/></mesh>
      <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · BLOCKED`}/>
     </group>;
    })}
    <Label position={[0,.09,0]} color={C.station} text={label}/>
   </group>
-  {linkTo&&<Line ref={lines.link} points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:BLOCKED_COLOR} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
+  {linkTo&&<SteadyLine line={lines.link} points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:BLOCKED_COLOR} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
  </group>;
 }
 
@@ -553,7 +562,7 @@ function Scene(p:SceneProps){
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
   <Station ground={ground} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
   <group position={compass}>
-   <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
+   <SteadyLine points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
    <Label position={[nx*.24,.03,nz*.24]} text="N · LOCAL" size={.016} color="#D4D4D4"/>
   </group>
