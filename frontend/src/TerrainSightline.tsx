@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useRef, type RefObject} from 'react';
 import {useFrame} from '@react-three/fiber';
 import {Line} from '@react-three/drei';
-import {GreaterDepth, type Group, type Material} from 'three';
+import {GreaterDepth, Vector3, type Group, type Material} from 'three';
 import type {TerrainLine} from './TerrainRayHover';
 
 type Point = [number, number, number];
@@ -61,9 +61,12 @@ function OccludedSightline({line, points, color, width}: {line: TerrainLine; poi
 export function TerrainSightline({line, start, end, color, width, blocked, worldEndFrom}: Props) {
  const occluded = useRef<NonNullable<TerrainLine['current']>>(null);
  const points = useMemo<[Point, Point]>(() => [start, end], [start, end]);
+ const origin = useMemo(() => new Vector3(), []);
  useFrame(() => {
-  const origin = worldEndFrom?.current?.position;
-  if (!origin || !line.current) return;
+  const source = worldEndFrom?.current;
+  if (!source || !line.current) return;
+  source.updateWorldMatrix(true, false);
+  source.getWorldPosition(origin);
   const x = end[0] - origin.x, y = end[1] - origin.y, z = end[2] - origin.z;
   // Both render passes must use the same world endpoint while the station moves.
   for (const part of [line.current, occluded.current]) {
