@@ -292,6 +292,17 @@ function useLevelGeometry(ground:Ground,{tile,surround,regional}:Levels){
  },[ground,tile,surround,regional]);
 }
 
+// Sends the levels' buffers to the GPU in one go, with empty draws into a 1 px target. Left to the levels' first
+// frame, each upload would wait for the shadow pass to draw the level before it, holding the page that long.
+function uploadLevels(gl:THREE.WebGLRenderer,camera:THREE.Camera,chunks:THREE.BufferGeometry[]){
+ const scene=new THREE.Scene(),material=new THREE.MeshBasicMaterial(),target=new THREE.WebGLRenderTarget(1,1),ranges=chunks.map(c=>({...c.drawRange}));
+ for(const c of chunks){c.setDrawRange(0,0);scene.add(Object.assign(new THREE.Mesh(c,material),{frustumCulled:false}));}
+ const before=gl.getRenderTarget();
+ gl.setRenderTarget(target);gl.render(scene,camera);gl.setRenderTarget(before);
+ chunks.forEach((c,i)=>c.setDrawRange(ranges[i].start,ranges[i].count));
+ material.dispose();target.dispose();
+}
+
 function Surface({ground,levels,wireframe,onPick,mosaic}:{ground:Ground;levels:Levels;wireframe:boolean;onPick:(r:number,c:number)=>void;mosaic?:Mosaic}){
  const {terrain}=ground,n=terrain.original_shape[0],{gl,camera,scene}=useThree();
  // The levels' two programs are ready as soon as the imagery is, so the levels' first draw only uploads their
@@ -312,6 +323,7 @@ function Surface({ground,levels,wireframe,onPick,mosaic}:{ground:Ground;levels:L
  const raycast=useMemo(()=>tile&&surround?levelRaycast(ground,[tile,...surround,...regional??[]]):THREE.Mesh.prototype.raycast,[ground,tile,surround,regional]);
  useEffect(()=>()=>coarse.dispose(),[coarse]);
  useEffect(()=>()=>{meshes?.forEach(m=>m.chunks.forEach(c=>c.dispose()));materials.forEach(m=>m.dispose());},[meshes,materials]);
+ useLayoutEffect(()=>{if(meshes)uploadLevels(gl,camera,meshes.map(m=>m.chunks[0]));},[meshes,gl,camera]);
  // The light never moves, so the shadow map is drawn once per terrain.
  useEffect(()=>{gl.shadowMap.autoUpdate=false;gl.shadowMap.needsUpdate=true;},[gl,meshes,coarse]);
  const pick=(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onPick(e.point.z*1000/terrain.pixel_size_m+n/2,e.point.x*1000/terrain.pixel_size_m+n/2);};
