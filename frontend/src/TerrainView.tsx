@@ -1,8 +1,10 @@
 import {useMemo,useRef,useEffect,Suspense} from 'react';
-import {Canvas,ThreeEvent,useThree} from '@react-three/fiber';
-import {OrbitControls,Line} from '@react-three/drei';
+import {Canvas,ThreeEvent,useThree,useFrame} from '@react-three/fiber';
+import {OrbitControls,Line,Stars} from '@react-three/drei';
 import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
+
+export const VERTICAL_EXAGGERATION = 4;
 
 type Props={terrain:Terrain;analyses:Analysis[];selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean};
 function Label({text,position,color='#dce7d8'}:{text:string;position:[number,number,number];color?:string}){
@@ -18,7 +20,7 @@ function Surface({terrain,wireframe,onPick}:{terrain:Terrain;wireframe:boolean;o
   const pos:number[]=[],indices:number[]=[],colors:number[]=[];
   for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
    const h=terrain.elevation_m[r][c]??mean;
-   pos.push((c*terrain.stride-terrain.original_shape[1]/2)*terrain.pixel_size_m/1000,(h-mean)/1000,(r*terrain.stride-terrain.original_shape[0]/2)*terrain.pixel_size_m/1000);
+   pos.push((c*terrain.stride-terrain.original_shape[1]/2)*terrain.pixel_size_m/1000,(h-mean)*VERTICAL_EXAGGERATION/1000,(r*terrain.stride-terrain.original_shape[0]/2)*terrain.pixel_size_m/1000);
    const shade=.22+Math.max(-.07,Math.min(.1,(h-mean)/1600)); colors.push(shade*.93,shade*.97,shade);
    if(r<rows-1&&c<cols-1){const i=r*cols+c;indices.push(i,i+cols,i+1,i+1,i+cols,i+cols+1);}
   }
@@ -31,19 +33,53 @@ function Surface({terrain,wireframe,onPick}:{terrain:Terrain;wireframe:boolean;o
 function Camera({mapView,reset}:{mapView:boolean;reset:number}){
  const {camera}=useThree();useEffect(()=>{camera.position.set(...(mapView?[0,4.2,.001]:[2.5,1.9,2.65]) as [number,number,number]);camera.lookAt(0,0,0);},[camera,mapView,reset]);return null;
 }
+function Mast({base,height}:{base:[number,number,number];height:number}){
+ const shaft=useRef<THREE.Mesh>(null);
+ useFrame((_, delta) => {
+  if (!shaft.current) return;
+  const target = height * VERTICAL_EXAGGERATION / 1000;
+  const length = THREE.MathUtils.damp(shaft.current.scale.y, target, 13, delta);
+  shaft.current.scale.y = length;
+  shaft.current.position.y = length / 2;
+  shaft.current.visible = length > .0001;
+ });
+ return <group position={base}><mesh ref={shaft} scale={[1,0,1]} visible={false}>
+  <cylinderGeometry args={[.003,.004,1,10]}/>
+  <meshStandardMaterial color="#efbd75" emissive="#5c3a12"/>
+ </mesh></group>;
+}
+
+function bodyDirection(body:'sun'|'earth', analysis:Analysis, time:number){
+ const az = THREE.MathUtils.degToRad(analysis.series[`${body}_azimuth_deg`][time]);
+ const el = THREE.MathUtils.degToRad(analysis.series[`${body}_elevation_deg`][time]);
+ const lon = THREE.MathUtils.degToRad(analysis.position.longitude_deg);
+ // The scene uses projected X eastward and negative projected Y as Z.
+ return new THREE.Vector3(
+  Math.sin(az + lon) * Math.cos(el),
+  Math.sin(el),
+  -Math.cos(az + lon) * Math.cos(el),
+ );
+}
+
 function Scene(p:Props){
  const controls=useRef<any>(null);
  const mean=useMemo(()=>{const z=p.terrain.elevation_m.flat().filter((x):x is number=>x!==null);return z.reduce((a,b)=>a+b,0)/z.length;},[p.terrain]);
- const point=(pos:Site|Analysis['position'],height=0):[number,number,number]=>[(pos.col-p.terrain.original_shape[1]/2)*p.terrain.pixel_size_m/1000,(pos.elevation_m-mean+height)/1000,(pos.row-p.terrain.original_shape[0]/2)*p.terrain.pixel_size_m/1000];
+ const point=(pos:Site|Analysis['position'],height=0):[number,number,number]=>[(pos.col-p.terrain.original_shape[1]/2)*p.terrain.pixel_size_m/1000,(pos.elevation_m-mean+height)*VERTICAL_EXAGGERATION/1000,(pos.row-p.terrain.original_shape[0]/2)*p.terrain.pixel_size_m/1000];
  const station=point(p.selected.position,p.selected.height_m),lander=point(p.lander,2);
  const candidates=useMemo(()=>p.analyses.filter(a=>a.height_m===0),[p.analyses]);
  const pick=(r:number,c:number)=>{const nearest=candidates.reduce((best,a)=>Math.hypot(a.position.row-r,a.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?a:best);p.onSelect(nearest.candidate_id);};
- const direction=(body:'sun'|'earth')=>{const az=p.selected.series[`${body}_azimuth_deg`][p.time]*Math.PI/180,el=p.selected.series[`${body}_elevation_deg`][p.time]*Math.PI/180,lon=p.selected.position.longitude_deg*Math.PI/180;const x=Math.sin(az)*Math.cos(lon)+Math.cos(az)*Math.sin(lon),z=Math.sin(az)*Math.sin(lon)-Math.cos(az)*Math.cos(lon);return [station[0]+x*.75*Math.cos(el),station[1]+Math.sin(el)*.75,station[2]+z*.75*Math.cos(el)] as [number,number,number];};
+ const sunDirection = bodyDirection('sun',p.selected,p.time);
+ const direction = (body:'sun'|'earth') => bodyDirection(body,p.selected,p.time)
+  .multiplyScalar(.75).add(new THREE.Vector3(...station)).toArray();
  useEffect(()=>{controls.current?.target.set(0,0,0);controls.current?.update();},[p.reset,p.mapView]);
- return <><Camera mapView={p.mapView} reset={p.reset}/><ambientLight intensity={.4}/><directionalLight position={[-3,4,1]} intensity={2.1}/><directionalLight position={[3,1,-3]} intensity={.45} color="#b3c2dc"/>
+ return <><Camera mapView={p.mapView} reset={p.reset}/><Stars radius={25} depth={10} count={450} factor={1.1} saturation={0} fade speed={0}/>
+ <ambientLight intensity={.48}/>
+ <directionalLight position={sunDirection.clone().multiplyScalar(4)} intensity={1.9} color="#ffe3be"/>
+ <directionalLight position={[3,4,-3]} intensity={.25} color="#b3c2dc"/>
  <Surface terrain={p.terrain} wireframe={p.wireframe} onPick={pick}/>
  {candidates.map(a=><mesh key={a.candidate_id} position={point(a.position,2)} onClick={e=>{e.stopPropagation();p.onSelect(a.candidate_id);}}><sphereGeometry args={[a.candidate_id===p.selected.candidate_id?.035:.012,12,12]}/><meshBasicMaterial color={a.candidate_id===p.selected.candidate_id?'#f4bd68':'#a6b5ac'} transparent opacity={.9}/></mesh>)}
  <group position={lander}><mesh position={[0,.024,0]}><boxGeometry args={[.04,.045,.04]}/><meshStandardMaterial color="#e7ece7"/></mesh>{(p.selected.position.row!==p.lander.row||p.selected.position.col!==p.lander.col)&&<Label position={[0,.12,0]} text={`LANDER / ${p.lander.name}`}/>}</group>
+ <Mast base={point(p.selected.position)} height={p.selected.height_m}/>
  <group position={station}><mesh position={[0,.035,0]}><octahedronGeometry args={[.045]}/><meshBasicMaterial color="#f4bd68"/></mesh><Label position={[0,.17,0]} color='#efbd75' text={`${p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col?'LANDER + STATION':'STATION'} / ${p.selected.height_m} M`}/></group>
  <Line points={[lander,station]} color={p.linkVisible?'#a7d8b9':'#e68d7c'} lineWidth={1.5} dashed={!p.linkVisible} dashSize={.03} gapSize={.02}/>
  {(['sun','earth'] as const).map(body=><group key={body}><Line points={[station,direction(body)]} color={body==='sun'?'#f2bd68':'#8cb4de'} lineWidth={1} dashed dashSize={.03} gapSize={.025}/><mesh position={direction(body)}><sphereGeometry args={[.018,16,16]}/><meshBasicMaterial color={body==='sun'?'#f2bd68':'#8cb4de'}/></mesh></group>)}

@@ -71,3 +71,18 @@ The first local-only results were retained in `docs/LOCAL_ONLY_EXPERIMENT.md`. T
 ## Published illumination context, not a direct benchmark
 
 NASA PGDA product 78 describes areas of Site01 with average illumination above 70% at 1 m over 2024-01-01 to 2026-01-01, and improved illumination at 5 m. That area-based, two-year result uses different positions, heights and dates from this point-specific November 2026 experiment. It supports investigating height sensitivity, but is not an independent numerical validation of our reported hours. A matched coordinate/time/method comparison remains future work.
+
+## Ridge A solar-center sensitivity
+
+The published 1° horizon gives 426 h at ground level and 720 h at 5, 10, and 20 m. The 720 h refers to November 1 through December 1, 2026 UTC at this one coordinate. It counts half-hour intervals whose opening sample has the **center** of the Sun above the modeled horizon. At 5 m, the smallest sampled clearance is +0.799° with the production settings.
+
+| Azimuth resolution | Ground-level Sun (h) | Sun at 5 m (h) | Minimum center clearance at 5 m |
+|---:|---:|---:|---:|
+| 2° | 411 | 720 | +0.798° |
+| 1° (production) | 426 | 720 | +0.799° |
+| 0.5° | 443.5 | 720 | +0.797° |
+| 0.25° | 470.5 | 720 | +0.800° |
+
+The 720 h result also holds at 10 and 20 m in all four runs. Ground-level hours are sensitive to azimuth resolution. These checks use the same NASA local and regional DEMs and JPL samples as production. They measure sensitivity to angular resolution while retaining the 150 km coverage, 30-minute cadence and terrain sampling limits. Solar disk coverage, eclipses and panel output are outside the model. The published PGDA two-year, area-based result above has different dates, heights and spatial aggregation, so it provides context rather than a matched benchmark.
+
+Reproduce the table inputs with `.venv/bin/python scripts/check_ridge_solar.py`.
