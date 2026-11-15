@@ -1,17 +1,14 @@
 import {useState,type ReactNode} from 'react';
 import {Check,Minus,Radio,Sun,Globe2,X,Info,ArrowUpRight} from 'lucide-react';
 import {keyFor,percent,type Analysis,type Constraints,type Link} from './lib/science';
-import {hours,pct,signed,type ConstraintRow,type Search,type Segment} from './lib/story';
+import {hours,pct,type ConstraintRow,type Search,type Segment} from './lib/story';
 import {Segments} from './Story';
 
 function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analysis:Analysis;baseline:Analysis;threshold:number}){
- const m=analysis.metrics[body],b=baseline.metrics[body],delta=m.total_hours-b.total_hours,same=keyFor(analysis)===keyFor(baseline);
+ const m=analysis.metrics[body],b=baseline.metrics[body],same=keyFor(analysis)===keyFor(baseline);
  const Icon=body==='sun'?Sun:Globe2;
  return <div className={`metric-card ${body}`}>
-  <div className="metric-head">
-   <span className="metric-label"><Icon size={14}/>{body==='sun'?'Solar exposure':'Earth visibility'}</span>
-   {!same&&<span key={delta} className={`delta ${delta>0?'up':delta<0?'down':''}`} title="Versus ground level at the lander">{signed(delta)} h</span>}
-  </div>
+  <span className="metric-label"><Icon size={14}/>{body==='sun'?'Solar exposure':'Earth visibility'}</span>
   <div className="metric-value"><b key={m.total_hours}>{hours(m.total_hours)}</b><small>h</small><span className="metric-pct">{pct(percent(m))}% of window</span></div>
   <div className="meter" role="img" aria-label={`${pct(percent(m))} percent; ground level ${pct(percent(b))} percent; requirement ${threshold} percent`}>
    <span className="meter-fill" style={{width:`${percent(m)}%`}}/>
