@@ -15,7 +15,7 @@
 html,body{height:100%;background:#000;color:var(--ink);font-family:var(--sans);overflow:hidden}
 #viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
 #stage{width:1920px;height:1080px;position:relative;transform-origin:center center;flex:none}
-.slide{position:absolute;inset:0;padding:110px 140px;display:none;flex-direction:column;overflow:hidden;
+.slide{position:absolute;inset:0;padding:90px 120px 100px;display:none;flex-direction:column;overflow:hidden;
   background:
     radial-gradient(1px 1px at 12% 18%,rgba(255,255,255,.7),transparent 60%),
     radial-gradient(1px 1px at 27% 72%,rgba(255,255,255,.5),transparent 60%),
@@ -31,62 +31,61 @@ html,body{height:100%;background:#000;color:var(--ink);font-family:var(--sans);o
     radial-gradient(80% 70% at 0% -10%,rgba(255,179,71,.07),transparent 60%),
     var(--bg);}
 .slide.active{display:flex}
-.kicker{font-family:var(--mono);font-size:24px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:28px}
-h1{font-size:150px;font-weight:800;letter-spacing:-.03em;line-height:1}
-h2{font-size:72px;font-weight:750;letter-spacing:-.02em;line-height:1.08;max-width:1500px}
-.lead{font-size:36px;line-height:1.4;color:var(--mute);max-width:1400px;margin-top:28px}
-.foot{position:absolute;left:140px;right:140px;bottom:56px;display:flex;justify-content:space-between;
-  font-family:var(--mono);font-size:20px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.slide.split{padding:0;flex-direction:row}
+.kicker{font-family:var(--mono);font-size:22px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:22px}
+h1{font-size:128px;font-weight:800;letter-spacing:-.03em;line-height:1}
+h2{font-size:64px;font-weight:750;letter-spacing:-.02em;line-height:1.08;max-width:1680px}
+.lead{font-size:32px;line-height:1.4;color:var(--mute);max-width:1400px;margin-top:24px}
+.foot{position:absolute;left:120px;right:120px;bottom:36px;display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:18px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;z-index:3}
 .slash{color:var(--accent)}
 .e{color:var(--earth)} .a{color:var(--accent)} .g{color:var(--ok)}
-.grid{display:grid;gap:36px;margin-top:64px}
-.card{border:1px solid var(--line);border-radius:20px;padding:40px 44px;background:rgba(255,255,255,.025)}
-.card .t{font-family:var(--mono);font-size:22px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:18px}
-.card .v{font-size:40px;font-weight:700;line-height:1.2}
-.card .s{font-size:26px;color:var(--mute);margin-top:14px;line-height:1.4}
-/* title */
-.title-wrap{margin:auto 0}
-.tagline{font-size:56px;font-weight:300;margin-top:44px;line-height:1.2}
+.grid{display:grid;gap:32px;margin-top:56px}
+.card{border:1px solid var(--line);border-radius:20px;padding:36px 40px;background:rgba(255,255,255,.025)}
+.card .t{font-family:var(--mono);font-size:20px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:16px}
+.card .v{font-size:36px;font-weight:700;line-height:1.2}
+.card .s{font-size:24px;color:var(--mute);margin-top:12px;line-height:1.4}
+.title-col{width:820px;flex:none;padding:100px 64px 80px 100px;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
+.art{flex:1;position:relative;overflow:hidden;background:#000}
+.art img{width:100%;height:100%;object-fit:cover;object-position:center center;display:block}
+.capbar{position:absolute;left:0;right:0;bottom:0;padding:16px 28px 20px;background:rgba(5,7,13,.94);
+  font-family:var(--mono);font-size:16px;line-height:1.45;color:#c5cddb;z-index:2}
+.tagline{font-size:42px;font-weight:300;margin-top:36px;line-height:1.25}
 .tagline b{font-weight:700;color:var(--accent)}
-.meta{margin-top:70px;font-family:var(--mono);font-size:26px;letter-spacing:.1em;color:var(--mute);line-height:1.8;text-transform:uppercase}
+.meta{margin-top:48px;font-family:var(--mono);font-size:22px;letter-spacing:.1em;color:var(--mute);line-height:1.7;text-transform:uppercase}
 .meta span{color:var(--ink)}
-.horizon{position:absolute;left:0;right:0;bottom:0;height:300px;opacity:.9;pointer-events:none}
-/* pipeline */
-.pipe{display:flex;align-items:stretch;gap:0;margin-top:90px}
-.step{flex:1;border:1px solid var(--line);border-radius:18px;padding:34px 26px;background:rgba(255,255,255,.025);position:relative}
-.step .n{font-family:var(--mono);font-size:22px;color:var(--accent);letter-spacing:.1em}
-.step .h{font-size:34px;font-weight:700;margin-top:16px;line-height:1.15}
-.step .d{font-size:23px;color:var(--mute);margin-top:14px;line-height:1.4}
-.arrow{width:44px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:36px}
-.band{margin-top:48px;display:flex;gap:40px;font-family:var(--mono);font-size:22px;color:var(--mute);letter-spacing:.06em}
+.pipe{display:flex;align-items:stretch;gap:0;margin-top:72px}
+.step{flex:1;border:1px solid var(--line);border-radius:18px;padding:30px 22px;background:rgba(255,255,255,.025);position:relative}
+.step .n{font-family:var(--mono);font-size:20px;color:var(--accent);letter-spacing:.1em}
+.step .h{font-size:28px;font-weight:700;margin-top:14px;line-height:1.15;hyphens:none}
+.step .d{font-size:21px;color:var(--mute);margin-top:12px;line-height:1.4}
+.arrow{width:36px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:32px}
+.band{margin-top:40px;display:flex;gap:28px;flex-wrap:nowrap;font-family:var(--mono);font-size:18px;color:var(--mute);letter-spacing:.04em;align-items:baseline}
 .band .lbl{color:var(--dim)}
-/* hero chart */
-.hero{display:flex;gap:110px;margin-top:50px;align-items:flex-end;flex:1}
+.hero{display:flex;gap:64px;margin-top:28px;align-items:flex-start;flex:1;min-height:0}
 .chart{flex:none}
-.side{flex:1;padding-bottom:80px}
-.big{font-size:120px;font-weight:800;letter-spacing:-.03em;line-height:1}
-/* optimizer */
-.funnel{display:flex;gap:30px;margin-top:50px;align-items:stretch}
-.funnel .card{flex:1;text-align:left}
-.num{font-size:110px;font-weight:800;letter-spacing:-.03em;line-height:1}
-.vs{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:30px}
-.vs .card{padding:30px 40px}
-.funnel .card{padding:32px 40px}
-.num{font-size:96px!important}
-.pill{display:inline-block;font-family:var(--mono);font-size:20px;letter-spacing:.14em;text-transform:uppercase;padding:8px 16px;border-radius:999px;border:1px solid currentColor;margin-bottom:22px}
-/* honesty */
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:64px}
-ul.clean{list-style:none}
-ul.clean li{font-size:32px;line-height:1.35;padding:20px 0;border-bottom:1px solid var(--line);display:flex;gap:22px}
-ul.clean li:last-child{border-bottom:none}
-ul.clean li i{font-style:normal;font-family:var(--mono);flex:none;width:36px}
-/* close */
-.beats{margin-top:60px;font-size:48px;line-height:1.5;font-weight:300}
+.side{flex:1;padding-top:8px}
+.big{font-size:92px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.stat{margin-top:22px;font-size:26px;line-height:1.45;color:var(--mute)}
+.stat b{color:var(--ink);font-weight:700}
+.funnel{display:flex;gap:28px;margin-top:40px;align-items:stretch}
+.funnel .card{flex:1;text-align:left;padding:28px 36px}
+.num{font-size:92px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:28px}
+.vs .card{padding:28px 36px}
+.pill{display:inline-block;font-family:var(--mono);font-size:18px;letter-spacing:.14em;text-transform:uppercase;padding:8px 16px;border-radius:999px;border:1px solid currentColor;margin-bottom:18px}
+.figwrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:16px}
+.figwrap img{width:100%;height:100%;object-fit:contain;object-position:center;display:block;border-radius:12px;background:#000}
+.caption{font-family:var(--mono);font-size:18px;line-height:1.45;color:var(--mute);margin-top:10px}
+.strip{display:flex;gap:22px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:18px;color:var(--mute);letter-spacing:.04em}
+.strip span{border:1px solid var(--line);border-radius:999px;padding:8px 16px;background:rgba(255,255,255,.03)}
+.strip .ok{color:var(--ok);border-color:rgba(126,224,161,.35)}
+.beats{margin-top:24px;font-size:42px;line-height:1.45;font-weight:300}
 .beats b{font-weight:700}
-.url{margin-top:70px;display:inline-flex;align-items:center;gap:28px;font-family:var(--mono);font-size:40px;
-  border:1px solid rgba(255,179,71,.5);border-radius:18px;padding:26px 40px;color:var(--accent)}
-.url small{font-size:22px;color:var(--mute);letter-spacing:.14em;text-transform:uppercase}
-/* notes */
+.url{margin-top:44px;display:inline-flex;align-items:center;gap:24px;font-family:var(--mono);font-size:32px;
+  border:1px solid rgba(255,179,71,.5);border-radius:18px;padding:22px 34px;color:var(--accent)}
+.url small{font-size:18px;color:var(--mute);letter-spacing:.14em;text-transform:uppercase}
+.repo{margin-top:18px;font-family:var(--mono);font-size:20px;color:var(--dim)}
 aside.notes{display:none}
 #notes{position:fixed;left:0;right:0;bottom:0;max-height:42vh;overflow:auto;background:rgba(8,10,18,.96);
   border-top:1px solid var(--line);padding:20px 28px 26px;font-size:17px;line-height:1.55;color:#cfd6e4;display:none;z-index:10}
@@ -108,22 +107,18 @@ aside.notes{display:none}
 <div id="viewport"><div id="stage">
 
 <!-- 1 TITLE -->
-<section class="slide" data-time="0:00–0:25">
-  <svg class="horizon" viewBox="0 0 1920 300" preserveAspectRatio="none" aria-hidden="true">
-    <defs><linearGradient id="hz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2030"/><stop offset="1" stop-color="#05070d"/></linearGradient></defs>
-    <path d="M0 230 L120 210 L220 222 L340 180 L430 196 L560 150 L640 170 L760 160 L880 196 L1010 172 L1120 120 L1200 140 L1310 132 L1420 176 L1540 158 L1660 190 L1780 170 L1920 186 L1920 300 L0 300Z" fill="url(#hz)" stroke="rgba(255,179,71,.45)" stroke-width="2"/>
-    <line x1="1310" y1="132" x2="1310" y2="40" stroke="#ffb347" stroke-width="3"/>
-    <circle cx="1310" cy="40" r="6" fill="#ffb347"/>
-  </svg>
-<div style="position:absolute;right:48px;bottom:24px;font-size:18px;opacity:.6;letter-spacing:.05em">Illustrative drawing, not terrain data</div>
-
-  <div class="title-wrap">
+<section class="slide split" data-time="0:00–0:25">
+  <div class="title-col">
     <div class="kicker">NASA Space Apps Challenge 2026 · Lunar Landing Site Navigator</div>
     <h1>SITE<span class="slash">//</span>FORGE</h1>
     <div class="tagline">Don't find the perfect landing site. <b>Engineer one.</b></div>
-    <div class="meta">Team <span>Azotadores de Agentes</span> &nbsp;·&nbsp; Buenos Aires local judging</div>
+    <div class="meta">Team <span>Azotadores de Agentes</span><br>Buenos Aires local judging</div>
   </div>
-  <aside class="notes">[0:00–0:25 · Presentation — hook] “We’re Azotadores de Agentes, and this is SITE//FORGE: Don't find the perfect landing site. Engineer one. The official Lunar Landing Site Navigator challenge asks for a clear way to compare south-pole sites and dates, and to see the Sun and Earth against the horizon. We built that — and then asked a harder question: what is the minimum mast that actually improves the site?”</aside>
+  <div class="art">
+    <img src="visuals/hero_terrain_panel.png" alt="LOLA 5 meters per pixel terrain of Connecting Ridge at the lunar south pole, lit by the real Sun position from JPL Horizons on 1 November 2026. Markers A and B are independent cross-check points, not the app's Ridge A.">
+    <div class="capbar">Real NASA LOLA 5 m/px terrain (PGDA Site01), lit by the JPL Horizons Sun on 1 Nov 2026, 10:00 UTC. 2× vertical exaggeration; marker poles not to scale. Markers A and B are independent cross-check points — not the app’s Ridge A.</div>
+  </div>
+  <aside class="notes">[0:00–0:25 · Presentation — hook] “We’re Azotadores de Agentes, and this is SITE//FORGE: Don't find the perfect landing site. Engineer one. The official Lunar Landing Site Navigator challenge asks for a clear way to compare south-pole sites and dates, and to see the Sun and Earth against the horizon. We built that — and then asked a harder question: what is the minimum mast that actually improves the site?” The terrain image is real LOLA data. Markers A and B on the image are independent cross-check points, not Ridge A.</aside>
 </section>
 
 <!-- 2 PROBLEM / RELEVANCE -->
@@ -146,117 +141,113 @@ aside.notes{display:none}
   <div class="pipe">
     <div class="step"><div class="n">01</div><div class="h">LOLA DEMs</div><div class="d">5 m/px Site01 Connecting Ridge + regional 80 m/px out to 150 km</div></div>
     <div class="arrow">→</div>
-    <div class="step"><div class="n">02</div><div class="h">Horizon ray-march</div><div class="d">360°, with lunar curvature, at mast heights 0–20 m</div></div>
+    <div class="step"><div class="n">02</div><div class="h">Ray-march horizon</div><div class="d">360°, with lunar curvature, at mast heights 0–20 m</div></div>
     <div class="arrow">→</div>
-    <div class="step"><div class="n">03</div><div class="h">JPL Horizons</div><div class="d">Sun &amp; Earth azimuth / elevation, two sites, Nov 2026</div></div>
+    <div class="step"><div class="n">03</div><div class="h">JPL Horizons</div><div class="d">Sun &amp; Earth az/el, 1 Nov–1 Dec 2026 (720 h)</div></div>
     <div class="arrow">→</div>
     <div class="step"><div class="n">04</div><div class="h">Windows</div><div class="d">Visible when elevation clears the horizon. Outages, overlaps.</div></div>
     <div class="arrow">→</div>
-    <div class="step"><div class="n">05</div><div class="h">Optimizer</div><div class="d">Discrete search over mast configurations</div></div>
+    <div class="step"><div class="n">05</div><div class="h">Optimizer</div><div class="d">Discrete search over 130 mast configurations</div></div>
     <div class="arrow">→</div>
-    <div class="step"><div class="n">06</div><div class="h">Static 3D app</div><div class="d">Next.js + Three.js on precomputed output</div></div>
+    <div class="step"><div class="n">06</div><div class="h">Static 3D app</div><div class="d">Precomputed output. No live API needed.</div></div>
   </div>
-  <div class="band"><span><span class="lbl">ENGINE</span> Python · NumPy · rasterio</span><span><span class="lbl">DATA</span> PGDA 78 · PGDA 90 · JPL Horizons</span><span><span class="lbl">RUNTIME</span> no live API dependency</span></div>
+  <div class="band"><span><span class="lbl">ENGINE</span>&nbsp; Python · NumPy · rasterio</span><span><span class="lbl">DATA</span>&nbsp; PGDA 78 · PGDA 90 · JPL Horizons</span><span><span class="lbl">VISIBILITY</span>&nbsp; geometric line of sight only, not a link budget or power</span></div>
   <div class="foot"><span>SITE//FORGE</span><span>Relevance</span><span>03 / 07</span></div>
-  <aside class="notes">[0:50–1:20 · Relevance] “Every window you will see is computed from NASA data. Near terrain is LOLA 5 meters/pixel for Site01 Connecting Ridge. Far terrain, out to 150 kilometers, is the regional LOLA 80-meter map, because at the pole a distant ridge can block a low Sun or Earth. Sun and Earth positions come from JPL Horizons, for two sites in November 2026. The app compares sites and dates, plots both bodies against the horizon, and reports illumination and Earth-visibility windows. That is the challenge, answered directly.”</aside>
+  <aside class="notes">[0:50–1:20 · Relevance] “Every window you will see is computed from NASA data. Near terrain is LOLA 5 meters/pixel for Site01 Connecting Ridge. Far terrain, out to 150 kilometers, is the regional LOLA 80-meter map, because at the pole a distant ridge can block a low Sun or Earth. Sun and Earth positions come from JPL Horizons, for two sites in the app, from 1 November to 1 December 2026 — 720 hours. Visibility is geometric line of sight only, not a radio link budget or electrical power.”</aside>
 </section>
 
 <!-- 4 HERO RESULT -->
 <section class="slide" data-time="1:20–1:45">
-  <div class="kicker">Hero result · Ridge A, Connecting Ridge · November 2026</div>
-  <h2>A mast changes the horizon. <span class="mute" style="color:var(--mute)">Up to a point.</span></h2>
+  <div class="kicker">Hero result · Ridge A, Connecting Ridge · 1 Nov–1 Dec 2026 · 720 h</div>
+  <h2>A mast changes the horizon. <span style="color:var(--mute)">Up to a point.</span></h2>
   <div class="hero">
-    <svg class="chart" width="900" height="560" viewBox="0 0 900 560" role="img" aria-label="Modeled Earth visibility at Ridge A: 199 hours at 0 m, 382 hours at 10 m, 382 hours at 20 m">
-      <!-- scale: 382 h = 400 px; baseline y=480 -->
-      <line x1="40" y1="480" x2="880" y2="480" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
-      <!-- 0 m: 199 h -> 208.4 px -->
-      <rect x="90" y="271.6" width="180" height="208.4" rx="10" fill="#5ec8ff" fill-opacity=".35" stroke="#5ec8ff" stroke-width="2"/>
-      <text x="180" y="245" text-anchor="middle" fill="#e9edf5" font-size="58" font-weight="800" font-family="Inter,Segoe UI,system-ui,sans-serif">199 h</text>
-      <text x="180" y="530" text-anchor="middle" fill="#8b95a8" font-size="30" font-family="ui-monospace,Menlo,Consolas,monospace">0 m</text>
-      <!-- 10 m: 382 h -> 400 px -->
-      <rect x="360" y="80" width="180" height="400" rx="10" fill="#5ec8ff" stroke="#5ec8ff" stroke-width="2"/>
-      <text x="450" y="54" text-anchor="middle" fill="#e9edf5" font-size="58" font-weight="800" font-family="Inter,Segoe UI,system-ui,sans-serif">382 h</text>
-      <text x="450" y="530" text-anchor="middle" fill="#8b95a8" font-size="30" font-family="ui-monospace,Menlo,Consolas,monospace">10 m</text>
-      <!-- 20 m: 382 h -->
-      <rect x="630" y="80" width="180" height="400" rx="10" fill="#5ec8ff" fill-opacity=".12" stroke="#5ec8ff" stroke-width="2" stroke-dasharray="10 8"/>
-      <text x="720" y="54" text-anchor="middle" fill="#8b95a8" font-size="58" font-weight="800" font-family="Inter,Segoe UI,system-ui,sans-serif">382 h</text>
-      <text x="720" y="530" text-anchor="middle" fill="#8b95a8" font-size="30" font-family="ui-monospace,Menlo,Consolas,monospace">20 m</text>
-      <text x="720" y="290" text-anchor="middle" fill="#ffb347" font-size="28" font-family="ui-monospace,Menlo,Consolas,monospace">no gain</text>
+    <svg class="chart" width="1040" height="620" viewBox="0 0 1040 620" role="img" aria-label="Modeled Earth visibility at Ridge A: 199 hours at 0 meters, 359.5 hours at 5 meters, 382 hours at 10 meters, 382 hours at 20 meters">
+      <line x1="40" y1="520" x2="1000" y2="520" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
+      <!-- scale: 382 h = 400 px; baseline y=520. 199->208.4; 359.5->376.4; 382->400 -->
+      <rect x="70" y="311.6" width="160" height="208.4" rx="10" fill="#5ec8ff" fill-opacity=".35" stroke="#5ec8ff" stroke-width="2"/>
+      <text x="150" y="286" text-anchor="middle" fill="#e9edf5" font-size="44" font-weight="800" font-family="Inter,Segoe UI,system-ui,sans-serif">199 h</text>
+      <text x="150" y="566" text-anchor="middle" fill="#8b95a8" font-size="28" font-family="ui-monospace,Menlo,Consolas,monospace">0 m</text>
+      <rect x="310" y="143.6" width="160" height="376.4" rx="10" fill="#ffb347" fill-opacity=".85" stroke="#ffb347" stroke-width="2"/>
+      <text x="390" y="118" text-anchor="middle" fill="#e9edf5" font-size="44" font-weight="800" font-family="Inter,Segoe UI,system-ui,sans-serif">359.5 h</text>
+      <text x="390" y="566" text-anchor="middle" fill="#ffb347" font-size="28" font-family="ui-monospace,Menlo,Consolas,monospace">5 m</text>
+      <text x="390" y="598" text-anchor="middle" fill="#ffb347" font-size="20" font-family="ui-monospace,Menlo,Consolas,monospace">recommended</text>
+      <rect x="550" y="120" width="160" height="400" rx="10" fill="#5ec8ff" stroke="#5ec8ff" stroke-width="2"/>
+      <text x="630" y="94" text-anchor="middle" fill="#e9edf5" font-size="44" font-weight="800" font-family="Inter,Segoe UI,system-ui,sans-serif">382 h</text>
+      <text x="630" y="566" text-anchor="middle" fill="#8b95a8" font-size="28" font-family="ui-monospace,Menlo,Consolas,monospace">10 m</text>
+      <rect x="790" y="120" width="160" height="400" rx="10" fill="#5ec8ff" fill-opacity=".12" stroke="#5ec8ff" stroke-width="2" stroke-dasharray="10 8"/>
+      <text x="870" y="94" text-anchor="middle" fill="#8b95a8" font-size="44" font-weight="800" font-family="Inter,Segoe UI,system-ui,sans-serif">382 h</text>
+      <text x="870" y="566" text-anchor="middle" fill="#8b95a8" font-size="28" font-family="ui-monospace,Menlo,Consolas,monospace">20 m</text>
+      <text x="870" y="330" text-anchor="middle" fill="#ffb347" font-size="24" font-family="ui-monospace,Menlo,Consolas,monospace">no gain</text>
     </svg>
     <div class="side">
-      <div class="t" style="font-family:var(--mono);font-size:22px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase">Modeled Earth visibility</div>
-      <div class="big e" style="margin-top:20px;font-size:100px;white-space:nowrap">199 → 382 h</div>
-      <div class="lead" style="margin-top:24px">Surface to a 10 m mast.<br>20 m adds <b style="color:var(--accent)">nothing</b>.</div>
-      <div class="lead" style="font-size:26px;margin-top:40px;color:var(--dim)">Mast height on x-axis · geometric line of sight</div>
+      <div class="t" style="font-family:var(--mono);font-size:20px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase">Modeled Earth visibility · Ridge A</div>
+      <div class="big e" style="margin-top:12px;white-space:nowrap">199 → 382 h</div>
+      <div class="stat">Surface to a 10 m mast. 20 m adds <b style="color:var(--accent)">nothing</b>. The 5 m mast already reaches <b>359.5 h</b>.</div>
+      <div class="stat">Sun: <b>426 h (59.2%)</b> at 0 m, then <b>100%</b> from 5 m — the mast clears the local horizon in this window.</div>
+      <div class="stat">Longest joint Sun+Earth outage: <b>465 h</b> at 0 m · <b>391 h</b> at 2 m · <b>342.5 h</b> at 5 m · <b>320 h</b> at 10 m and 20 m. Simultaneous at 0 m: <b>54 h</b>.</div>
+      <div class="stat" style="color:var(--dim);font-size:22px">Geometric line of sight only — not a link budget or power. Earth caps near 53% of the month due to libration.</div>
     </div>
   </div>
-  <div class="foot"><span>SITE//FORGE</span><span>Validity · live demo</span><span>04 / 07</span></div>
-  <aside class="notes">[1:20–1:45 · Validity — show the live result] Open Ridge A at 0 meters, then 10 meters, then 20 meters. “Here is the evidence, not a slide claim. At Ridge A, modeled Earth visibility goes from 199 hours at the surface to 382 hours at 10 meters, in November 2026. Twenty meters adds nothing.”</aside>
+  <div class="foot"><span>SITE//FORGE</span><span>Validity · live app engine</span><span>04 / 07</span></div>
+  <aside class="notes">[1:20–1:45 · Validity — show the live result] Open Ridge A at 0 meters, then 5, 10, and 20 meters. “At Ridge A, modeled Earth visibility goes from 199 hours at the surface to 359.5 hours at 5 meters and 382 hours at 10 meters, in November 2026. Twenty meters adds nothing. Sun is 426 hours at the surface and 100 percent from 5 meters. The longest joint outage falls from 465 hours to 342.5 hours at 5 meters, which meets the 360-hour limit.” These numbers are Ridge A only, not Point B.</aside>
 </section>
 
 <!-- 5 OPTIMIZER -->
 <section class="slide" data-time="1:45–2:15">
-  <div class="kicker">Minimum-infrastructure optimizer</div>
+  <div class="kicker">Minimum-infrastructure optimizer · Ridge A search</div>
   <h2>Not the tallest tower. <span class="a">The smallest one that meets the constraint.</span></h2>
   <div class="funnel">
     <div class="card"><div class="t">Searched</div><div class="num">130</div><div class="s">candidate configurations</div></div>
     <div class="card"><div class="t">Feasible</div><div class="num">17</div><div class="s">under a 360-hour outage limit</div></div>
-    <div class="card" style="border-color:rgba(255,179,71,.55);background:rgba(255,179,71,.06)"><div class="t a">Recommended</div><div class="num a">5 m</div><div class="s">mast — minimum infrastructure</div></div>
+    <div class="card" style="border-color:rgba(255,179,71,.55);background:rgba(255,179,71,.06)"><div class="t a">Recommended</div><div class="num a">5 m</div><div class="s">mast at Ridge A — 359.5 h Earth</div></div>
   </div>
   <div class="vs">
-    <div class="card"><span class="pill a">Meets the limit</span><div class="v">5 m mast</div><div class="s">Optimizer recommendation under the 360 h outage limit.</div></div>
-    <div class="card"><span class="pill e">Maximizes visibility</span><div class="v">10 m mast · 382 h</div><div class="s">Most Earth visibility at Ridge A — and 20 m adds nothing more.</div></div>
+    <div class="card"><span class="pill a">Meets the limit</span><div class="v">5 m mast · 359.5 h Earth</div><div class="s">Joint outage 342.5 h, under the 360 h limit. Sun already 100% in this window. Lowest-cost feasible configuration.</div></div>
+    <div class="card"><span class="pill e">Maximizes visibility</span><div class="v">10 m mast · 382 h</div><div class="s">Most Earth visibility at Ridge A — and 20 m adds nothing more (320 h joint outage at both heights).</div></div>
   </div>
   <div class="foot"><span>SITE//FORGE</span><span>Creativity</span><span>05 / 07</span></div>
-  <aside class="notes">[1:45–2:15 · Creativity] “Most landing-site tools stop at ‘this spot gets this much Sun or Earth.’ We treat infrastructure as part of the site. A combined solar-and-communications mast can be moved and raised through 0, 2, 5, 10, and 20 meters, and the engine recalculates the windows. A discrete optimizer then searches 130 configurations. Under a 360-hour outage limit, 17 are feasible, and the recommendation is a 5-meter mast. The creative move is not a taller tower. It is finding the smallest one that meets the constraint.” (If asked: we do not claim a 5-meter Earth-visibility total; that figure was not separately reported.)</aside>
+  <aside class="notes">[1:45–2:15 · Creativity] “A combined solar-and-communications mast can be moved and raised through 0, 2, 5, 10, and 20 meters. A discrete optimizer searches 130 configurations. Under a 360-hour outage limit, 17 are feasible, and the recommendation is a 5-meter mast at Ridge A, with 359.5 hours of Earth visibility. The creative move is not a taller tower. It is finding the smallest one that meets the constraint.”</aside>
 </section>
 
-<!-- 6 HONESTY / VALIDITY -->
-<section class="slide" data-time="2:15–2:40">
-  <div class="kicker">Validity · what the numbers are — and are not</div>
-  <h2>Honest by design.</h2>
-  <div class="cols">
-    <div class="card">
-      <div class="t">What it is not</div>
-      <ul class="clean">
-        <li><i class="a">✕</i>Not a radio link budget — geometric, disk-center line of sight</li>
-        <li><i class="a">✕</i>Not electrical power — no watts, no battery state</li>
-        <li><i class="a">✕</i>Not a safety certification for a real mission</li>
-        <li><i class="a">✕</i>Two sites, November 2026 only — not a multi-year climatology</li>
-      </ul>
-    </div>
-    <div class="card">
-      <div class="t">What backs it</div>
-      <ul class="clean">
-        <li><i class="g">✓</i><span><b>29</b> Python + <b>6</b> Node tests pass</span></li>
-        <li><i class="g">✓</i><span><code style="font-family:var(--mono);font-size:28px">validation_report.md</code> — angular sensitivity documented</span></li>
-        <li><i class="g">✓</i>Athena IM-2 (Mons Mouton) checked: outside Site01 coverage → not used</li>
-        <li><i class="g">✓</i>Missing input? No fabricated numbers</li>
-      </ul>
-    </div>
+<!-- 6 INDEPENDENT CROSS-CHECK / VALIDITY -->
+<section class="slide" data-time="2:15–2:40" style="padding:56px 80px 86px">
+  <div class="kicker">Independent cross-check · Point B is not Ridge A</div>
+  <div class="figwrap">
+    <img src="visuals/horizon_mast.png" alt="360-degree horizon at Point B, a flat shoulder 290 meters from the summit, chosen to show the mast effect. A 10-meter mast takes joint Sun and Earth visibility from 0 hours to 297.5 hours. The figure rounds that value to 298 hours.">
+  </div>
+  <div class="caption">Point B, a flat shoulder 290 m from the summit, chosen to show mast effect — a different point from the app’s Ridge A. Joint Sun+Earth visibility: 0 h at the surface → 297.5 h at 10 m (the figure rounds this to 298 h). Geometric line of sight only; Earth caps near 53% of the month due to libration.</div>
+  <div class="strip">
+    <span class="ok">✓ 35 tests pass</span>
+    <span class="ok">✓ validation_report.md</span>
+    <span class="ok">✓ IM-2 outside Site01 — not used</span>
+    <span class="ok">✓ No fabricated numbers</span>
   </div>
   <div class="foot"><span>SITE//FORGE</span><span>Validity</span><span>06 / 07</span></div>
-  <aside class="notes">[2:15–2:40 · Validity — method] “The method is documented: DEM ray-marched 360-degree horizons with lunar curvature, and a body is visible only when its elevation clears the horizon at its azimuth. That is geometric, disk-center visibility — not a radio link, and not watts from a solar array. Twenty-nine Python tests and six Node tests pass, and validation_report.md documents angular sensitivity. We also checked the Athena IM-2 point on Mons Mouton; it lies outside Site01 coverage, so we did not use it.”</aside>
+  <aside class="notes">[2:15–2:40 · Validity — method and cross-check] “Visibility is geometric line of sight only — not a radio link, and not watts. Earth caps near 53 percent of the month because of libration. Thirty-five tests pass, and validation_report.md documents angular sensitivity. IM-2 lies outside Site01 coverage, so we did not use it. An independent cross-check at Point B — a flat shoulder 290 meters from the summit, chosen to show the mast effect — goes from zero to 297.5 hours of joint Sun and Earth visibility at 10 meters. That is not Ridge A.”</aside>
 </section>
 
 <!-- 7 CLOSE -->
-<section class="slide" data-time="2:40–3:00">
-  <svg class="horizon" viewBox="0 0 1920 300" preserveAspectRatio="none" aria-hidden="true">
-    <path d="M0 230 L120 210 L220 222 L340 180 L430 196 L560 150 L640 170 L760 160 L880 196 L1010 172 L1120 120 L1200 140 L1310 132 L1420 176 L1540 158 L1660 190 L1780 170 L1920 186 L1920 300 L0 300Z" fill="url(#hz)" stroke="rgba(255,179,71,.45)" stroke-width="2"/>
-  </svg>
-<div style="position:absolute;right:48px;bottom:24px;font-size:18px;opacity:.6;letter-spacing:.05em">Illustrative drawing, not terrain data</div>
-
-  <div class="title-wrap">
-    <div class="kicker">SITE//FORGE · Azotadores de Agentes</div>
-    <div class="beats">
-      A real NASA site. <b>A real limit.</b><br>
-      A mast that <b>changes the horizon.</b><br>
-      The <b class="a">minimum infrastructure</b> — and where more height stops helping.
+<section class="slide" data-time="2:40–3:00" style="padding:56px 90px 80px">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:40px">
+    <div style="flex:1">
+      <div class="kicker" style="margin-bottom:14px">SITE//FORGE · Azotadores de Agentes</div>
+      <div class="beats" style="margin-top:0;font-size:36px">
+        A real NASA site. <b>A real limit.</b>
+        A mast that <b>changes the horizon.</b><br>
+        The <b class="a">minimum infrastructure</b> — and where more height stops helping.
+      </div>
     </div>
-    <div class="url"><small>Live demo</small>[DEMO_URL]</div>
+    <div style="flex:none">
+      <div class="url" style="margin-top:0;font-size:28px;padding:18px 28px"><small>Live demo</small>siteforge-moon.vercel.app</div>
+      <div class="repo" style="margin-top:10px;text-align:right">Source · github.com/MatiasBoldrini/Azotadores-de-agentes-</div>
+    </div>
   </div>
-  <div class="foot" style="bottom:330px;display:none"></div>
-  <aside class="notes">[2:40–3:00 · Presentation close] “So the story is simple. A real NASA site. A real limit. A mast that changes the horizon. An optimizer that returns the minimum infrastructure, and a hard stop where more height stops helping. That is SITE//FORGE. I’m happy to take questions, and the public demo is at [DEMO_URL].”</aside>
+  <div class="figwrap" style="margin-top:22px">
+    <img src="visuals/timeline.png" alt="November 2026 timeline at Point B, a flat shoulder 290 meters from the summit, chosen to show the mast effect: from the ground, joint Sun and Earth visibility is 0 hours; on a 10-meter mast it is 297.5 hours, labeled 298 hours on the figure.">
+  </div>
+  <div class="caption">Point B timeline — not Ridge A. Same spot, same month, one mast. Joint Sun+Earth visibility from 0 h to 297.5 h at 10 m (298 h on the figure, rounded). Geometric line of sight only.</div>
+  <div class="foot"><span>SITE//FORGE</span><span>Azotadores de Agentes</span><span>07 / 07</span></div>
+  <aside class="notes">[2:40–3:00 · Presentation close] “So the story is simple. A real NASA site. A real limit. A mast that changes the horizon. An optimizer that returns the minimum infrastructure, and a hard stop where more height stops helping. That is SITE//FORGE. I’m happy to take questions, and the public demo is at siteforge-moon.vercel.app.” The timeline is Point B, not Ridge A.</aside>
 </section>
 
 </div></div>
