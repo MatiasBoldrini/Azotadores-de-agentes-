@@ -139,7 +139,7 @@ footer>button:hover{color:var(--text)}
 .story-actions{display:flex;gap:10px;flex:none}
 .demo-progress{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text-2);flex:none}
 .demo-label{display:flex;align-items:center;gap:8px;white-space:nowrap}
-.rec-dot{width:8px;height:8px;border-radius:50%;background:var(--text);animation:pulse 1.4s ease-in-out infinite}
+.rec-dot{width:8px;height:8px;flex:none;border-radius:50%;background:var(--text);animation:pulse 1.4s ease-in-out infinite}
 .demo-segments{display:flex;gap:4px}
 .demo-segments i{width:42px;height:4px;border-radius:2px;background:var(--line-strong);overflow:hidden;position:relative}
 .demo-segments i.done{background:var(--text)}
@@ -538,6 +538,7 @@ footer>button:hover{color:var(--text)}
  .story-steps li.active{font-size:11px}
  .story-rail{gap:10px}
  .story-rail .demo-progress{width:100%;margin-left:0;flex-wrap:wrap;gap:8px 12px}
+ .demo-label{width:100%;white-space:normal}
  .demo-segments{flex:1}
  .demo-segments i{flex:1;width:auto}
  .is-demo .story-title{font-size:24px}
