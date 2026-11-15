@@ -18,6 +18,7 @@ const FOV=40,HERO_HFOV=72,MIN_FOV=46,MAX_FOV=66,DEG=Math.PI/180,MAX_KM=120,DESCE
 // Frames are drawn on demand, so the first frame of an eased move sees the whole pause before it as its
 // delta; it advances by one 60 Hz step instead.
 const EASE_START=1/60;
+const REGIONAL_WAIT_MS=1500;
 // Hillshade light, as azimuth from local north and altitude above the horizon.
 const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
 // Shadow maps of the key light, finest first, as half-width and half-height (km) seen from the light, depth
@@ -570,7 +571,12 @@ function Scene(p:SceneProps){
  useCursor(hovered!==null);
  const mean=useMemo(()=>terrainMean(p.terrain),[p.terrain]);
  const land=useMemo<Ground>(()=>({terrain:p.terrain,mean,frame:p.frame}),[p.terrain,mean,p.frame]);
- const tileData=useSite01(),surround=useSurround(),regional=useRegional();
+ const tileData=useSite01(),loadedSurround=useSurround(),regional=useRegional();
+ // The Site01 levels wait briefly for the polar grids, so on a normal connection the terrain is built and
+ // uploaded once with every level instead of twice.
+ const [waiting,setWaiting]=useState(true);
+ useEffect(()=>{if(regional||!tileData||!loadedSurround)return;const t=setTimeout(()=>setWaiting(false),REGIONAL_WAIT_MS);return()=>clearTimeout(t);},[regional,tileData,loadedSurround]);
+ const surround=regional||!waiting?loadedSurround:null;
  const n=p.terrain.original_shape[0],px=p.terrain.pixel_size_m;
  const tile=useMemo<DemLevel|null>(()=>tileData&&{data:tileData,n:SITE01_SIZE,px,x0:p.frame.centerPs[0]-(n/2+.5)*px,y0:p.frame.centerPs[1]+(n/2+.5)*px},[tileData,n,px,p.frame]);
  const extentKm=p.terrain.original_shape[1]*px/1000;
