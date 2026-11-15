@@ -101,8 +101,8 @@ export default function MastPanorama({sweep,siteName,initialHeight,initialIndex,
       const anchor=x(az)<left+60?'start':x(az)>w-right-60?'end':'middle';
       return <g key={body}>
        <line x1={x(az)} x2={x(az)} y1={y(el)} y2={plotH-bottom} stroke={color} strokeOpacity=".4" strokeDasharray="1 2"/>
-       <circle cx={x(az)} cy={y(el)} r={body==='sun'?7:6} fill={visible?color:'#0c0c0c'} stroke={color} strokeWidth="2"/>
-       <text x={x(az)} y={below?y(el)+20:y(el)-12} textAnchor={anchor} fill={color} className="body-label" paintOrder="stroke" stroke="#0c0c0c" strokeWidth="3">{body==='sun'?'SUN':'EARTH'}{visible?'':' · BLOCKED'}</text>
+       <circle cx={x(az)} cy={y(el)} r={body==='sun'?7:6} fill={visible?color:'#0e0d0c'} stroke={color} strokeWidth="2"/>
+       <text x={x(az)} y={below?y(el)+20:y(el)-12} textAnchor={anchor} fill={color} className="body-label" paintOrder="stroke" stroke="#0e0d0c" strokeWidth="3">{body==='sun'?'SUN':'EARTH'}{visible?'':' · BLOCKED'}</text>
       </g>;
      })}
     </svg>

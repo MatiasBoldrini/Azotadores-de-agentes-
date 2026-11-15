@@ -198,7 +198,7 @@ export default function MoonLanding(p:Props){
  return <div className={`moon-layer is-${p.mode} ${loaded?'is-loaded':''}`} inert={p.mode==='site'} aria-hidden={p.mode==='site'}>
   <GlobeBoundary onError={()=>{setLoaded(true);setFailed(true);}}>
    <Canvas className="moon-canvas" frameloop={p.mode==='site'?'never':'always'} dpr={[1,2]} camera={{fov:FOV,near:.02,far:80,position:latLonToVec(-36,-18,3.15).toArray()}}
-    gl={{antialias:true,powerPreference:'high-performance'}} onCreated={({gl})=>{gl.setClearColor('#0c0c0c',1);gl.toneMappingExposure=1.05;}}>
+    gl={{antialias:true,powerPreference:'high-performance'}} onCreated={({gl})=>{gl.setClearColor('#0e0d0c',1);gl.toneMappingExposure=1.05;}}>
     <Suspense fallback={null}>
      <Globe sites={p.sites} frame={p.frame} mode={p.mode} pins={pins} tooltip={tooltip} loadingText={loadingText} onLoaded={onLoaded} onFly={p.onFly} onTile={p.onTile} onArrive={p.onArrive} onLeft={p.onLeft}/>
     </Suspense>
@@ -216,7 +216,6 @@ export default function MoonLanding(p:Props){
   <section className="moon-copy" aria-labelledby="moon-title">
    <p className="moon-tagline">{TAGLINE}</p>
    <h2 id="moon-title">A 5 m mast makes Ridge A work.</h2>
-   <p className="lede">Sun and Earth line of sight for a south-pole station, computed on NASA LOLA terrain with JPL Horizons ephemerides.</p>
    <table className="moon-stats">
     <caption className="sr-only">Ridge A, November 2026: ground level compared with a 5 m mast</caption>
     <thead><tr><th scope="col">Ridge A · Nov 2026</th><th scope="col">0 m</th><th scope="col" aria-label="5 m mast">5 m</th><th scope="col"><span className="sr-only">Change</span></th></tr></thead>

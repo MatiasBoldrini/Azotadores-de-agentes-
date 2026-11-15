@@ -51,7 +51,7 @@ function seasonFor(scan: MonthlyScan, sites: Site[]) {
     const ra = mastRank(month.sites[a.id].minimum_height_m), rb = mastRank(month.sites[b.id].minimum_height_m);
     if (ra < rb) aWins++; else if (rb < ra) bWins++; else ties++;
   }
-  return `Across all ${scan.months.length} cached months: ${a.name} needs the shorter mast in ${aWins}, ${b.name} in ${bWins}, equal in ${ties}.`;
+  return `${a.name} needs the shorter mast in ${aWins} of ${scan.months.length} months, ${b.name} in ${bWins}${ties ? `; ${ties} are even` : ''}.`;
 }
 
 export default function MonthlyCompare({ sites, analyses, links, renderTimelines }: { sites: Site[]; analyses: Analysis[]; links: Record<string,Record<string,Link>>; renderTimelines: () => ReactNode }) {
@@ -143,14 +143,13 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
   const season = seasonFor(scan, ridgeSites);
 
   return <div className="monthly-compare">
-    <p className="monthly-context">Fixed landing points on Connecting Ridge. Each height is measured above the terrain at the same point.</p>
     <div className="monthly-controls">
       <label>Month (UTC)
         <select value={month.id} onChange={event => onMonth(event.target.value)}>
           {scan.months.map(item => <option value={item.id} key={item.id}>{labelFor(item)}</option>)}
         </select>
       </label>
-      <label>Mast height at each point
+      <label>Mast height above terrain
         <select value={height} onChange={event => onHeight(Number(event.target.value))}>
           {scan.heights_m.map(item => <option value={item} key={item}>{item === 0 ? '0 m · ground level' : `${item} m`}</option>)}
         </select>
@@ -220,9 +219,10 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
           })}
         </tr>)}</tbody>
       </table>
-      <p id="monthly-limits">
-        Select a cell to load that month. In each calendar month (UTC), qualifying heights need at least {limits.minSun}% Sun and {limits.minEarth}% Earth visibility. The longest Sun outage and the longest Earth outage must each be at most {limits.maxOutage} h. The point also needs at most {limits.maxSlope}° slope and {hourLabel.format(limits.maxDistance)} m installation distance{limits.requireLink && ', with local line of sight'}.
-      </p>
+      <details className="monthly-limits" id="monthly-limits">
+        <summary>Limits used</summary>
+        <p>At least {limits.minSun}% Sun and {limits.minEarth}% Earth visibility in the calendar month (UTC); the longest Sun outage and the longest Earth outage each at most {limits.maxOutage} h; at most {limits.maxSlope}° slope and {hourLabel.format(limits.maxDistance)} m installation distance{limits.requireLink && ', with local line of sight'}.</p>
+      </details>
     </div>
   </div>;
 }

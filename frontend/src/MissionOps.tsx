@@ -24,7 +24,7 @@ export default function MissionOps({analysis,index,onExportCsv,onCopyLink,copied
     <Row c={sun}/>
     <Row c={earth}/>
    </dl>
-   <p className="fine">From the computed {analysis.height_m} m visibility timeline at the cursor time. “≥” marks a run cut by the window edge.</p>
+   <p className="fine">“≥” marks a run cut by the window edge.</p>
    <div className="ops-actions">
     <button type="button" className="text-button" onClick={onExportCsv}><Download size={14} aria-hidden="true"/>Export CSV</button>
     <button type="button" className="text-button" onClick={onCopyLink}><Link2 size={14} aria-hidden="true"/>{copied?'Link copied':'Copy link'}</button>

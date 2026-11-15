@@ -44,7 +44,7 @@ const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-const C={sun:'#E2B06A',earth:'#93B9D6',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#9a9a9a',feasible:'#F2F2F2',recommended:'#B0967F',ok:'#F5F5F5'};
+const C={sun:'#E2B06A',earth:'#93B9D6',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#9a9a9a',feasible:'#F2F2F2',recommended:'#ECE7E0',ok:'#F5F5F5'};
 const SKY_DISC_COLOR={sun:'#f5f5f5',earth:C.earth};
 // Raise the grayscale HMI browse image's exposure without tinting or flattening its limb.
 const SOLAR_EXPOSURE=new THREE.Color(3.5,3.5,3.5);
@@ -583,7 +583,7 @@ function Scene(p:SceneProps){
  </>;
 }
 const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
- return <Canvas shadows events={terrainEvents} frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#0c0c0c',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
+ return <Canvas shadows events={terrainEvents} frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#0e0d0c',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
 export function TerrainScope({terrain,regionalRadiusM,sky}:{terrain:Terrain;regionalRadiusM?:number;sky?:boolean}){
