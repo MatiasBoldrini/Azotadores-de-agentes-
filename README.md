@@ -1,6 +1,6 @@
 # SITE//FORGE
 
-**Don't find the perfect landing site. Engineer one.**
+**Don't find the perfect landing site. Engineer one!**
 
 A working, fully static lunar terrain explorer built around a reproducible NASA-data experiment. Compare two Connecting Ridge locations and dates, change a combined station's position or height, inspect Sun/Earth visibility, and run a constrained discrete search. No live NASA request or Python server is needed during the demo.
 
