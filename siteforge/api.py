@@ -422,7 +422,9 @@ def methodology():
 
 
 from siteforge.hybrid import router as science_router
+from siteforge.agent import router as agent_router
 app.include_router(science_router)
+app.include_router(agent_router)
 
 
 DIST = ROOT / "dist"

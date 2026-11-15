@@ -1,0 +1,8 @@
+{
+  "name": "selenarc-vercel",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/firewall": "1.2.6"
+  }
+}

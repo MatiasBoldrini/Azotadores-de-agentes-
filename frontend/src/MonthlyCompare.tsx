@@ -3,6 +3,8 @@ import CompareUtcWindow from './CompareUtcWindow';
 import { type MonthlyScan, type MonthlyWindow, parseMonthlyScan } from './lib/monthlyScan';
 import {type Site, type Analysis, type Link, keyFor, violations} from './lib/science';
 import {useObservationWindow} from './useObservationWindow';
+import { monthlyAdvice } from './lib/monthlyAdvisor';
+import { AdviceList } from './Advisor';
 import './MonthlyCompare.css';
 
 const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -141,6 +143,11 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
         </article>;
       })}
     </div>}
+
+    <section className="monthly-advice" aria-labelledby="monthly-advice-title">
+      <h2 id="monthly-advice-title">When and where to land</h2>
+      <AdviceList items={monthlyAdvice(scan, ridgeSites, month.id, height)}/>
+    </section>
 
     <div className="monthly-history">
       <h2>Lowest qualifying height by month</h2>
