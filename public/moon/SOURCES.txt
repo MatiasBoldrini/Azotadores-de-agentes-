@@ -1,0 +1,26 @@
+Moon imagery and relief used by the SITE//FORGE landing globe (visual only).
+
+Global color: lroc_wac_gray.jpg
+  NASA SVS CGI Moon Kit, lroc_color_poles_4k.tif (LROC WAC, 2019), 4096x2048.
+  Page: https://svs.gsfc.nasa.gov/4720 (Visualizer: Ernie Wright)
+  Desaturated to neutral gray with modest contrast; format and grade only.
+
+South polar cap: wac_south_summer.jpg
+  LROC WAC South Pole Summer Mosaic, 32 ppd (WAC_ROI_SOUTH_SUMMER_032P).
+  Credit: NASA/GSFC/Arizona State University (LROC)
+  https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/WAC_ROI/WAC_ROI_SOUTH_SUMMER/WAC_ROI_SOUTH_SUMMER_032P.TIF
+  Polar stereographic, lat_0=-90, lon_0=0, R=1737400 m, 947.60470075464 m/px,
+  3038x3038, upper-left (-1439293.09, 1439293.09) m. Brightness matched to the
+  global gray in the 55-62 S overlap.
+
+Relief: ldem_4_displacement.png
+  NASA SVS CGI Moon Kit, ldem_4_uint.tif (LOLA), 1440x720, 4 pixels/degree,
+  unsigned 16-bit half-meters with a +10000 m offset. Retrieved from the Internet
+  Archive snapshot of the official URL:
+  https://web.archive.org/web/20261003175921id_/https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_4_uint.tif
+  (2076866 bytes, SHA-256 e6668bec27fc9b8fbb02d198c7ddfb08eedeeb790167b494f95e6b34201da05e)
+  Converted to 8-bit, linearly stretched to the file range -8878.5 m .. 10504.0 m.
+  The globe shows this relief with the same 4x vertical exaggeration as the site view.
+
+None of these files feed the science engine. Visibility numbers come only from
+public/data/snapshot.json.
