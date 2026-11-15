@@ -1,5 +1,5 @@
 import {Component,createRef,useMemo,useRef,useEffect,useLayoutEffect,useState,memo,Suspense,type ComponentProps,type ComponentRef,type ReactNode,type RefObject} from 'react';
-import {Canvas,ThreeEvent,useFrame,useLoader,useThree} from '@react-three/fiber';
+import {Canvas,ThreeEvent,addAfterEffect,useFrame,useLoader,useThree} from '@react-three/fiber';
 import {Billboard,Html,OrbitControls,Line,useCursor} from '@react-three/drei';
 import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
@@ -19,6 +19,8 @@ const FOV=40,HERO_HFOV=72,MIN_FOV=46,MAX_FOV=66,DEG=Math.PI/180,MAX_KM=120,DESCE
 // delta; it advances by one 60 Hz step instead.
 const EASE_START=1/60;
 const REGIONAL_WAIT_MS=1500;
+// A frame the GPU has not drawn this long after it was sent means the device draws slower than it is asked to.
+const SLOW_GPU_MS=100;
 // Hillshade light, as azimuth from local north and altitude above the horizon.
 const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
 // Shadow maps of the key light, finest first, as half-width and half-height (km) seen from the light, depth
@@ -377,7 +379,40 @@ function Lights({frame,progress}:{frame:SiteFrame;progress:RefObject<number>}){
  </group>;
 }
 
-function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;progress:RefObject<number>}){
+// On demand, each change asks for a frame. On a GPU that falls behind, frames asked for while the last is still
+// being drawn would queue up behind it; there they wait and go out as one once it is drawn, and eased moves
+// cover the real time in one step instead of queuing small ones.
+function usePacedFrames(){
+ const {gl,get,set}=useThree(),slow=useRef(false);
+ useEffect(()=>{
+  const ctx=gl.getContext(),own=get().invalidate;
+  if(!(ctx instanceof WebGL2RenderingContext))return;
+  let fence:WebGLSync|null=null,sent=0,held=false,timer=0;
+  const drawn=(f:WebGLSync)=>ctx.isContextLost()||ctx.getSyncParameter(f,ctx.SYNC_STATUS)===ctx.SIGNALED;
+  const poll=()=>{
+   timer=0;
+   if(fence&&!drawn(fence)){timer=window.setTimeout(poll,10);return;}
+   // The fence stays until the frame asked for here replaces it, so that frame's own requests wait for it too.
+   if(fence)slow.current=performance.now()-sent>SLOW_GPU_MS;
+   if(held){held=false;own();}
+  };
+  // A held frame is asked for from a timer, never from inside the loop, which drops requests while it winds down.
+  set({invalidate:(frames?:number)=>{if(slow.current&&fence){held=true;if(!timer)timer=window.setTimeout(poll,10);return;}own(frames);}});
+  // Only a fence still pending, or drawn soon after it was sent, tells the GPU's pace: frames on demand can be far apart.
+  const off=addAfterEffect(()=>{
+   const now=performance.now();
+   if(fence){
+    if(drawn(fence)){if(now-sent<SLOW_GPU_MS)slow.current=false;ctx.deleteSync(fence);fence=null;}
+    else if(now-sent>SLOW_GPU_MS)slow.current=true;
+   }
+   if(!fence){fence=ctx.fenceSync(ctx.SYNC_GPU_COMMANDS_COMPLETE,0);sent=now;ctx.flush();}
+  });
+  return()=>{off();clearTimeout(timer);if(fence)ctx.deleteSync(fence);set({invalidate:own});if(held)own();};
+ },[gl,get,set]);
+ return slow;
+}
+
+function Camera({mapView,reset,controls,approach,focus,frame,progress,behind}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;progress:RefObject<number>;behind:RefObject<boolean>}){
  const {camera,gl,invalidate,frameloop}=useThree(),cam=camera as THREE.PerspectiveCamera;
  const aspect=useRef(16/9),goal=useRef<Pose>({position:new THREE.Vector3(),target:new THREE.Vector3()}),moving=useRef(false),easing=useRef(false),placed=useRef(false),descent=useRef<number|null>(null),view=useRef('');
  // A slow frame can deliver the tile hand-off and the arrival together, so leaving the hold always descends.
@@ -435,7 +470,7 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:
    if(t>=1){descent.current=null;goal.current=end;moving.current=false;place(end);const c=controls.current;if(c){c.enabled=true;c.update();}}
   }
   else if(moving.current){
-   const step=Math.min(1,(easing.current?dt:EASE_START)*5);
+   const step=Math.min(1,(easing.current||behind.current?dt:EASE_START)*5);
    camera.position.lerp(goal.current.position,step);
    controls.current?.target.lerp(goal.current.target,step);
    if(camera.position.distanceTo(goal.current.position)<.002){place(goal.current);moving.current=false;}
@@ -512,13 +547,13 @@ function SkyRay({dir,color,line,shown}:{dir:[number,number,number];color:string;
  return <SteadyLine self={self} line={shown?line:undefined} visible={shown} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
 }
 
-function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
+function Station({ground,height,label,rays,lines,linkTo,linkVisible,behind}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean;behind:RefObject<boolean>}){
  const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M),easing=useRef(false);
  const target=MAST_BASE+height*MAST_PER_M,invalidate=useThree(s=>s.invalidate);
  useFrame((_,dt)=>{
   const moving=level.current!==target;
   if(moving){
-   level.current+= (target-level.current)*Math.min(1,(easing.current?dt:EASE_START)*6);
+   level.current+= (target-level.current)*Math.min(1,(easing.current||behind.current?dt:EASE_START)*6);
    if(Math.abs(target-level.current)<1e-4) level.current=target;
    invalidate();
   }
@@ -602,11 +637,11 @@ function Scene(p:SceneProps){
  const stars=useMemo(()=>{const s=starfield();s.renderOrder=-1;(s.material as THREE.PointsMaterial).depthTest=false;return s;},[]);
  useEffect(()=>{stars.quaternion.copy(p.frame.rotation);},[stars,p.frame]);
  useFrame(({camera})=>{stars.position.copy(camera.position);});
- const progress=useRef(1);
+ const progress=useRef(1),behind=usePacedFrames();
  const invalidate=useThree(s=>s.invalidate);
  useEffect(()=>{invalidate();});
  const surface=<Surface ground={land} levels={{tile:null,surround:null,regional:null}} wireframe={p.wireframe} onPick={pick}/>;
- return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress}/>
+ return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress} behind={behind}/>
   <primitive object={stars}/>
   <Lights frame={p.frame} progress={progress}/>
   <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} levels={{tile,surround,regional}} progress={progress} wireframe={p.wireframe} onPick={pick}/></Suspense></GlobeFallback>
@@ -623,7 +658,7 @@ function Scene(p:SceneProps){
   </ScreenScale>;})}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
-  <Station ground={ground} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
+  <Station ground={ground} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible} behind={behind}/>
   <group position={compass}>
    <SteadyLine points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
