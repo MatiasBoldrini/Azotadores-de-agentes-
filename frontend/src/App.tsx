@@ -20,6 +20,8 @@ import MoonLanding,{type MoonMode} from './moon/MoonLanding';
 import {Analysis,Bundle,Constraints,Link,keyFor,percent,violations} from './lib/science';
 import {maxObservationHours, observationDays, shardsForWindow} from './lib/observationEphemeris';
 import MissionOps from './MissionOps';
+import Advisor from './Advisor';
+import type {InsightAction} from './lib/advisor';
 import {timelineCsv} from './lib/missionOps';
 import {decodeShareState,encodeShareState,type ShareState,type ShareView} from './lib/shareLink';
 import {useObservationWindow} from './useObservationWindow';
@@ -313,6 +315,7 @@ function App(){
  };
  const runSearch=()=>{if(searching||designer.status==='loading')return;setShowConfigure(false);setDemoStep(null);void performSearch(all,links,constraints);};
  const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else runSearch();};
+ const onAdvice=(a:InsightAction)=>{setDemoStep(null);setRaising(false);if(a.kind==='time'){setPlaying(false);setTime(a.index);setNotice('Timeline cursor moved to the suggested time.');return;}setCandidate(a.candidate);setHeight(a.height);setTab('Infrastructure Designer');setNotice(a.candidate===selected.candidate_id?`Loaded the precomputed ${a.height} m terrain horizon.`:`Station moved to the suggested cell with a ${a.height} m mast.`);};
  const exportCsv=()=>{const csv=timelineCsv(selected,{siteName:site.name,candidateId:selected.candidate_id,heightM:selected.height_m,sources:data.methodology.sources});const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download=`selenarc-${site.id}-${selected.height_m}m-${start.slice(0,10)}_${end.slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);};
  const shareView:ShareView=moon==='globe'?'globe':tab==='Infrastructure Designer'?'designer':tab==='Compare'?'compare':tab==='Science & Sources'?'science':'site';
  const copyLink=()=>{
@@ -404,6 +407,7 @@ function App(){
   </div>
  </div>;
  const results=<ResultsPanel selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} headerAction={showAnalysisDock?configure:undefined}>
+  <Advisor input={{selected,all,links,constraints,index}} onAction={onAdvice} active={moon==='site'&&tab==='Infrastructure Designer'} playing={playing}/>
   <MissionOps analysis={selected} index={index} onExportCsv={exportCsv} onCopyLink={copyLink} copied={linkCopied}/>
  {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;
@@ -465,6 +469,7 @@ function App(){
   moon==='site'&&<button className="text-button" onClick={exportResult}><Download size={14}/>Export</button>);
 }
 function Science({data}:{data:Bundle}){return <section className="science-page"><article><h1>How the numbers are computed</h1><p className="lead">Geometric line of sight at two points on Connecting Ridge, near the lunar south pole, from NASA LOLA terrain and JPL Horizons ephemerides.</p><div className="method-steps"><div><h3>Terrain</h3><p>The 5 m LOLA Site01 model, set inside its 16 km surroundings and the regional terrain that forms the distant horizon. The 3D view exaggerates relief {VERTICAL_EXAGGERATION}×; every calculation uses the original elevations.</p></div><div><h3>Horizon</h3><p>Terrain is placed in body-fixed coordinates with lunar curvature and binned into azimuth sectors around each station.</p></div><div><h3>Visibility</h3><p>The Sun or Earth counts as visible when its centre is above that horizon. Samples are 30 minutes apart.</p></div><div><h3>Search</h3><p>Every cached position and height is checked against your limits. Feasible ones are ranked by height/20 + distance/1000 + slope/90, an engineering preference rather than a cost.</p></div></div><details className="science-more"><summary>What the model does not establish</summary><ul>{data.methodology.limitations.map((t,i)=><li key={i}>{t}</li>)}<li>DEM interpolation and angular sampling introduce uncertainty. Thirty-minute output does not imply thirty-minute accuracy.</li><li>Local links use a 2 m lander reference and terrain clearance. Antenna gain, frequency, Fresnel zones, radio power and station orientation are not modeled.</li><li>Nearby candidate directions are rotated into their own true local frame; small translational parallax is bounded in the exported provenance.</li><li>The IM-2 landing coordinates lie outside this local dataset. Connecting Ridge is not presented as the IM-2 landing location.</li><li>The 3D view applies the same {VERTICAL_EXAGGERATION}× vertical transform to terrain, lunar curvature, mast heights and sightlines. The display uses the centers of the enlarged celestial discs to determine visibility.</li></ul></details><h3>NASA data and primary references</h3><div className="source-list">{data.methodology.sources.map(s=><a key={s.url} href={s.url} target="_blank" rel="noreferrer">{s.name}<ExternalLink size={16}/></a>)}</div>
+ <h3>Use the planner from an AI assistant</h3><p>SELENARC runs as an MCP server, so a compatible local MCP client can plan operations with the same engine and data as this page. Results include their units and time window.</p><pre className="mcp-command" aria-label="Command to add the SELENARC MCP server"><code>{'npm ci --prefix mcp\nclaude mcp add selenarc -- node mcp/server.mjs'}</code></pre><p className="fine">Tools: list sites, evaluate a configuration, plan an operation, mission briefing, find the best configuration, monthly outlook. Run <code>node mcp/server.mjs --http</code> for local Streamable HTTP clients. The tools are read-only and run without a language model.</p>
  <h3>Space imagery credits</h3>
  <div className="source-list">
   {SPACE_IMAGERY_SOURCES.map(source=><a key={source.href} href={source.href} target="_blank" rel="noreferrer">{source.label}<ExternalLink size={16}/></a>)}

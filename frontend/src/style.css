@@ -942,7 +942,55 @@ select{border-radius:var(--radius-sm);background:var(--surface);border-color:var
 @media (prefers-reduced-motion:reduce){.compare-mode-buttons::before{transition:none}.sk{animation:none}}
 .comparison .eyebrow,.comparison-metrics dt{font:500 13px/1.4 var(--sans)!important;letter-spacing:-.005em!important;text-transform:none!important}
 
-/* Mission advisor (lands with #34/#36): same system as the rest. Actions are bone, not a data colour. */
+/* Mission advisor: ranked, actionable suggestions read from engine output. */
+.advisor{padding:10px 0;border-bottom:1px solid var(--hairline);min-width:0}
+.advisor-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.advisor-count.has-risk{color:var(--blocked)}
+.advisor-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
+.advisor-item{position:relative;padding-left:12px;min-width:0}
+.advisor-item::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:2px;border-radius:1px;background:var(--line-strong)}
+.advisor-item.risk::before{background:var(--blocked)}
+.advisor-item.opportunity::before{background:var(--earth)}
+.advisor-title{margin:0;font-size:13px;line-height:1.4;font-weight:600;color:var(--text);text-wrap:pretty}
+.advisor-detail{margin:3px 0 0;font-size:12px;line-height:1.5;color:var(--muted);text-wrap:pretty}
+.advisor-action{min-height:28px;margin-top:2px;padding:2px 0;font-weight:500;color:var(--text);transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.advisor-action svg{transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.advisor-action:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){.advisor-action:hover svg{transform:translateX(2px)}}
+@media (prefers-reduced-motion:reduce){.advisor-action,.advisor-action svg{transition:none}}
+.advisor-brief{display:grid;gap:6px;margin:8px 0 10px;padding:12px;border:1px solid var(--earth-line);border-radius:12px;background:var(--earth-soft)}
+.advisor-picks{display:grid;gap:8px;margin:2px 0 0;padding:0;list-style:none}
+.advisor-picks li{display:grid;gap:2px;padding-left:10px;border-left:2px solid var(--line-strong)}
+.advisor-picks li.risk{border-left-color:var(--blocked)}
+.advisor-picks li.opportunity{border-left-color:var(--earth)}
+.advisor-pick-title{font-size:13px;line-height:1.4;color:var(--text)}
+.advisor-pick-detail{font-size:12px;line-height:1.45;color:var(--text-2)}
+.advisor-ask{display:grid;gap:6px;margin:8px 0 4px}
+.advisor-ask label{font-size:12px;color:var(--muted)}
+.advisor-ask-row{display:flex;gap:8px}
+.advisor-ask input{flex:1;min-width:0;min-height:36px;padding:7px 10px;font:inherit;font-size:13px;color:var(--text);background:var(--fill);border:1px solid var(--line-strong);border-radius:10px}
+.advisor-ask input::placeholder{color:var(--muted)}
+.advisor-ask-go{min-height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--earth-line);background:var(--earth-soft);color:var(--text);font-size:13px;font-weight:500;white-space:nowrap;transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.advisor-ask-go:active:not(:disabled){transform:scale(.97)}
+.advisor-ask-go:disabled{opacity:.5;cursor:default}
+.advisor-reply{display:grid;gap:2px;margin:0;font-size:12px;line-height:1.45;color:var(--text-2)}
+.advisor-reply.is-error{color:var(--blocked)}
+.advisor-source{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.advisor-ask-go{transition:none}}
+.advisor-op{margin:8px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.advisor-op-pick{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
+.advisor-op select{font:inherit;font-size:12px;color:var(--text);background:var(--fill);border:1px solid var(--line);border-radius:8px;padding:3px 6px}
+.advisor-steps{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;counter-reset:step}
+.advisor-steps li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;font-size:12px;color:var(--text-2);counter-increment:step}
+.advisor-steps li>span::before{content:counter(step) '. ';color:var(--muted)}
+.advisor-steps .need{font-style:normal;font-size:11px;color:var(--muted);min-width:64px;text-align:right}
+.advisor-steps .need.sun{color:var(--sun)}.advisor-steps .need.earth{color:var(--earth)}
+.advisor-sub{margin:14px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
+
+.mcp-command{margin:10px 0 6px;padding:12px 14px;overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--fill);font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-2);white-space:pre}
+.science-page p code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-2)}
+
+/* Mission advisor theme */
 .advisor-ask-go{border-color:transparent!important;background:var(--accent)!important;color:var(--accent-ink)!important;border-radius:var(--radius-sm)!important}
 .advisor-ask-go:hover:not(:disabled){background:var(--accent-hover)!important}
 .advisor-ask input,.advisor-op,.advisor-op select{border-radius:var(--radius-sm)!important}
