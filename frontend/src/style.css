@@ -20,6 +20,9 @@
 .ray-marker{display:block;width:7px;height:7px;background:currentColor}
 .ray-marker-sun{border-radius:50%}
 .ray-marker-earth{transform:rotate(45deg)}
+.terrain-ray-tooltip{position:absolute;z-index:1;pointer-events:none;padding:7px 9px;border:1px solid #475047;border-radius:4px;background:#151b18f5;color:#e0e5e1;box-shadow:0 3px 14px #0005;font-size:12px;line-height:1.45}
+.terrain-ray-tooltip>div{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.terrain-ray-tooltip small{display:block;margin-top:3px;color:#a7b1ad;font-size:11px}
 footer .footer-sources{display:flex;gap:12px;flex-wrap:wrap}
 footer .geometry-note{display:block!important;line-height:1.5}
 @media(max-width:900px){.ridge-finding{grid-template-columns:1fr;padding:14px 20px}footer{flex-wrap:wrap}}
