@@ -660,3 +660,19 @@ option{background:#111}
  .method-steps{grid-template-columns:1fr;gap:14px}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;transition-delay:0s!important;scroll-behavior:auto!important}}
+/* Sky paths from the mast top in the 3D scene */
+.sky-panel{position:absolute;left:0;bottom:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:min(520px,calc(100% - 56px));pointer-events:none}
+.sky-panel button{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 11px;border-radius:10px;border:1px solid var(--hairline);background:rgba(12,12,12,.72);backdrop-filter:blur(14px);color:var(--text);font-size:12.5px;font-weight:600}
+.sky-panel button:hover{background:rgba(42,42,42,.93)}
+.sky-panel .sky-toggle[aria-pressed=true]{border-color:var(--earth-line,#8FD3FF66);color:var(--earth,#8FD3FF)}
+.sky-panel .sky-raise:disabled{opacity:.85;cursor:progress}
+.sky-readout{flex-basis:100%;margin:0;padding:6px 9px;border-radius:8px;background:rgba(5,5,5,.76);color:var(--text-2);font-size:12px;line-height:1.45;font-variant-numeric:tabular-nums;width:fit-content}
+.sky-readout b{color:var(--text);font-weight:600}
+.sky-readout .sun{color:var(--sun,#FFC46B)}.sky-readout .earth{color:var(--earth,#8FD3FF)}
+.sky-readout small{display:block;color:var(--muted,#8a8a8a);font-size:11px}
+.lg-sky-track{width:18px;height:0;border-top:2px solid #FFC46B}
+.lg-sky-track.earth{border-top-color:#8FD3FF;margin-left:6px}
+.lg-sky-track.blocked{border-top:2px dashed #ff625e;margin-left:6px}
+.lg-horizon{width:18px;height:0;border-top:1.5px solid #f2f2f2}
+.lg-gained{width:14px;height:9px;background:rgba(124,255,178,.35);border:1px solid #7CFFB2;border-radius:2px;margin-left:6px}
+@media (max-width:640px){.sky-panel{max-width:calc(100% - 50px);gap:4px}.sky-panel button{min-height:40px;padding:0 9px;font-size:12px}.sky-readout{font-size:11px;padding:4px 7px}.sky-readout small{display:none}}

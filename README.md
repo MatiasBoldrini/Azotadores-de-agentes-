@@ -124,7 +124,7 @@ Its OpenAPI interface is at `/docs`; endpoints cover terrain, sites, ephemerides
 
 ```sh
 .venv/bin/python -m unittest discover -s tests -v
-SITEFORGE_TEST_PYTHON=.venv/bin/python node --test tests/test_frontend_brand.mjs tests/test_frontend_science.mjs tests/test_frontend_story.mjs tests/test_observation_ephemeris.mjs
+SITEFORGE_TEST_PYTHON=.venv/bin/python node --test tests/test_frontend_brand.mjs tests/test_frontend_science.mjs tests/test_frontend_story.mjs tests/test_observation_ephemeris.mjs tests/test_mast_panorama.mjs tests/test_sky_dome.mjs
 npm run build --prefix frontend
 ```
 
