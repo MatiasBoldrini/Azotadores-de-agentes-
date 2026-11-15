@@ -1,4 +1,4 @@
-import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
+import {useState,useEffect,useLayoutEffect,useMemo,useRef,Component,ReactNode} from 'react';
 import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,TerrainScope,terrainMean} from './TerrainView';
 import {siteFrame,viewAzimuth} from './moon/frame';
@@ -66,6 +66,7 @@ function App(){
   return()=>query.removeEventListener('change',update);
  },[]);
  const configureRef=useRef<HTMLDivElement>(null),configureButton=useRef<HTMLButtonElement>(null);
+ const configurePanel=useRef<HTMLDivElement>(null);
  const [showConfigure,setShowConfigure]=useState(false);
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
  const searchTimer=useRef<number|undefined>(undefined);
@@ -101,6 +102,37 @@ function App(){
  const focusIndex=useMemo(()=>{const target=siteSweep.find(a=>a.height_m===sitePeak);return target?contrastIndex(siteSweep[0],target):0;},[siteSweep,sitePeak]);
  useEffect(()=>{window.clearTimeout(searchTimer.current);setSearching(false);setTime(focusIndex);setSearch(null);setPlaying(false);},[start,end,siteId,focusIndex]);
  useEffect(()=>{setSearch(null);},[constraints]);
+ useLayoutEffect(()=>{
+  if(!showConfigure||!showAnalysisDock)return;
+  const panel=configurePanel.current,button=configureButton.current;
+  if(!panel||!button)return;
+  const viewport=window.visualViewport;
+  const position=()=>{
+   const anchor=button.getBoundingClientRect();
+   const left=(viewport?.offsetLeft??0)+12;
+   const top=(viewport?.offsetTop??0)+12;
+   const bottom=top+(viewport?.height??window.innerHeight)-24;
+   const right=left+(viewport?.width??document.documentElement.clientWidth)-24;
+   const menuTop=Math.max(top,anchor.bottom+8);
+   panel.style.maxWidth=`${right-left}px`;
+   panel.style.maxHeight=`${Math.max(0,bottom-menuTop)}px`;
+   panel.style.left=`${Math.max(left,Math.min(anchor.right,right)-panel.offsetWidth)}px`;
+   panel.style.top=`${menuTop}px`;
+  };
+  panel.showPopover();
+  position();
+  window.addEventListener('scroll',position,true);
+  window.addEventListener('resize',position);
+  viewport?.addEventListener('scroll',position);
+  viewport?.addEventListener('resize',position);
+  return()=>{
+   if(panel.matches(':popover-open'))panel.hidePopover();
+   window.removeEventListener('scroll',position,true);
+   window.removeEventListener('resize',position);
+   viewport?.removeEventListener('scroll',position);
+   viewport?.removeEventListener('resize',position);
+  };
+ },[showAnalysisDock,showConfigure]);
  useEffect(()=>{
   if(!showConfigure)return;
   const closeOutside=(event:PointerEvent)=>{
@@ -273,7 +305,31 @@ function App(){
  </>}/>;
  const timelineTimestamp=selected.series.timestamp_utc[index];
  const timelineDate=`${utc(timelineTimestamp)} · ${timelineTimestamp.slice(0,4)} UTC`;
- const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}>
+ const configure=
+ <div className="map-config" ref={configureRef}>
+  <button type="button" ref={configureButton} className={showAnalysisDock?'text-button configure-button':'secondary'} aria-expanded={showConfigure} aria-controls="map-configuration" onClick={()=>setShowConfigure(!showConfigure)}><SlidersHorizontal size={14} aria-hidden="true"/>Configure</button>
+  <div ref={configurePanel} className="map-config-panel glass" id="map-configuration"
+   popover={showAnalysisDock?'manual':undefined} hidden={!showConfigure}>
+   {showConfigure&&<>
+    <h2 className="panel-title"><label htmlFor="landing-site">Landing site</label></h2>
+    <select id="landing-site" value={siteId} onChange={e=>chooseSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+    <DateWindowPicker days={observationDays} start={start} end={end} label="Observation window" onChange={setWindow} status={designer.status}/>
+    <div className="section-rule"/>
+    <h2 className="panel-title">Station</h2>
+    <PositionPicker options={positions} value={selected.candidate_id} onPreview={setPositionPreview} onSelect={chooseCandidate}/>
+    <span className="control-label" id="height-label">Mast height</span>
+    <div className="height-buttons" role="group" aria-labelledby="height-label">{heightsTested.map(h=><button key={h} aria-label={`Station height ${h} meters`} aria-pressed={height===h} className={height===h?'selected':''} onClick={()=>chooseHeight(h)}>{h}<small>m</small></button>)}</div>
+    <details className="panel-details">
+     <summary>Station cell details</summary>
+     <p>Cell {selected.position.row}, {selected.position.col} · slope {fmt(selected.position.slope_deg??0)}°</p>
+    </details>
+    <div className="section-rule"/>
+    <button className="constraints-toggle" aria-expanded={showConstraints} aria-controls="search-constraints" onClick={()=>setShowConstraints(!showConstraints)}><SlidersHorizontal size={14}/> Search constraints <ChevronDown size={14}/></button>
+    <div className="constraint-fields" id="search-constraints" hidden={!showConstraints}>{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label><p className="fine">{all.length} precomputed configurations across {positions.length} cells and {heightsTested.length} heights.</p></div>
+   </>}
+  </div>
+ </div>;
+ const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} headerAction={showAnalysisDock?configure:undefined}>
   {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
@@ -289,28 +345,7 @@ function App(){
      <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
     </div>
     <div className="map-actions">
-     <div className="map-config" ref={configureRef}>
-      <button type="button" ref={configureButton} className="secondary" aria-expanded={showConfigure} aria-controls="map-configuration" onClick={()=>setShowConfigure(!showConfigure)}><SlidersHorizontal size={14} aria-hidden="true"/>Configure</button>
-      <div className="map-config-panel glass" id="map-configuration" hidden={!showConfigure}>
-       {showConfigure&&<>
-        <h2 className="panel-title"><label htmlFor="landing-site">Landing site</label></h2>
-        <select id="landing-site" value={siteId} onChange={e=>chooseSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
-        <DateWindowPicker days={observationDays} start={start} end={end} label="Observation window" onChange={setWindow} status={designer.status}/>
-        <div className="section-rule"/>
-        <h2 className="panel-title">Station</h2>
-        <PositionPicker options={positions} value={selected.candidate_id} onPreview={setPositionPreview} onSelect={chooseCandidate}/>
-        <span className="control-label" id="height-label">Mast height</span>
-        <div className="height-buttons" role="group" aria-labelledby="height-label">{heightsTested.map(h=><button key={h} aria-label={`Station height ${h} meters`} aria-pressed={height===h} className={height===h?'selected':''} onClick={()=>chooseHeight(h)}>{h}<small>m</small></button>)}</div>
-        <details className="panel-details">
-         <summary>Station cell details</summary>
-         <p>Cell {selected.position.row}, {selected.position.col} · slope {fmt(selected.position.slope_deg??0)}°</p>
-        </details>
-        <div className="section-rule"/>
-        <button className="constraints-toggle" aria-expanded={showConstraints} aria-controls="search-constraints" onClick={()=>setShowConstraints(!showConstraints)}><SlidersHorizontal size={14}/> Search constraints <ChevronDown size={14}/></button>
-        <div className="constraint-fields" id="search-constraints" hidden={!showConstraints}>{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label><p className="fine">{all.length} precomputed configurations across {positions.length} cells and {heightsTested.length} heights.</p></div>
-       </>}
-      </div>
-     </div>
+     {!showAnalysisDock&&configure}
      <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
     </div>
   <div className="map-tools"><button title="Reset camera" aria-label="Reset camera" onClick={()=>setReset(reset+1)}><RotateCcw size={16}/></button><button title="Toggle top view" aria-label="Toggle top view" aria-pressed={mapView} onClick={()=>setMapView(!mapView)}><Maximize2 size={16}/></button><button title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={wire} onClick={()=>setWire(!wire)}><Layers3 size={16}/></button></div>

@@ -1,5 +1,5 @@
 import {useId,useState,type ReactNode} from 'react';
-import {Check,Minus,Radio,Sun,Globe2,X,Info,ArrowUpRight} from 'lucide-react';
+import {Check,Minus,Radio,Sun,Globe2,X} from 'lucide-react';
 import {keyFor,percent,type Analysis,type Constraints,type Link} from './lib/science';
 import {hours,pct,type ConstraintRow,type Search,type Segment} from './lib/story';
 import {Segments} from './Story';
@@ -118,10 +118,13 @@ function Checks({rows}:{rows:ConstraintRow[]}){
  </section>;
 }
 
-export function ResultsPanel({window,children,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window:ReactNode;children?:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
+export function ResultsPanel({window,children,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,headerAction}:{window:ReactNode;headerAction?:ReactNode;children?:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string}){
  const m=selected.metrics,b=baseline.metrics,same=keyFor(selected)===keyFor(baseline);
  return <aside className="results glass" aria-labelledby="results-title">
-  <div className="panel-heading"><h2 className="panel-title" id="results-title">Results</h2><button className="text-button method-link" onClick={onMethod} title="How these numbers are computed"><Info size={13}/>Method<ArrowUpRight size={12}/></button></div>
+  <div className="panel-heading">
+   <h2 className="panel-title" id="results-title">Results</h2>
+   {headerAction}
+  </div>
   {window}
   <div className="metric-pair" role="group" aria-label="Visibility metrics" aria-describedby="selected-visibility-window">
    <MetricCard body="sun" analysis={selected} baseline={baseline} threshold={constraints.minSun}/>
