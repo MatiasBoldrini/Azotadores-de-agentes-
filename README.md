@@ -4,6 +4,8 @@
 
 A working, fully static lunar terrain explorer built around a reproducible NASA-data experiment. Compare two Connecting Ridge locations and dates, change a combined station's position or height, inspect Sun/Earth visibility, and run a constrained discrete search. No live NASA request or Python server is needed during the demo.
 
+**Live demo:** [siteforge-eight-wine.vercel.app](https://siteforge-eight-wine.vercel.app)
+
 ## Run the application
 
 Requirements: Node.js 22.18+ (Node 26 tested), npm, and Python 3 for a local static server.
@@ -27,6 +29,32 @@ At 5 m, Ridge A has 720 h of solar-center exposure and 359.5 h of Earth-center v
 These are sampled geometric estimates, **not mission certification**. DEM uncertainty, angular resolution, body-center approximation and finite coverage materially limit precision. The 30-minute timestep is not a claim of 30-minute accuracy.
 
 See [scientific report](validation_report.md), [regional method](docs/REGIONAL_HORIZON.md), [IM-2 coverage check](docs/IM2_COVERAGE.md), and [browser verification](docs/BROWSER_VALIDATION.md).
+
+## Prior work
+
+We do not claim to have invented mast-height illumination analysis. SITE//FORGE turns published science into an interactive mission-month mast trade: the 5 m Site01 DEM plus an 80 m regional horizon to 150 km, a joint Sun+Earth outage, a smallest-mast optimizer, and an explicitly geometric line-of-sight scope.
+
+### Foundational science
+
+- Mazarico, E., Neumann, G.A., Smith, D.E., Zuber, M.T., Torrence, M.H. (2011). Illumination conditions of the lunar polar regions using LOLA topography. *Icarus* 211(2), 1066–1081. [doi:10.1016/j.icarus.2010.10.030](https://doi.org/10.1016/j.icarus.2010.10.030). The polar illumination modeling behind the [PGDA product 69](https://pgda.gsfc.nasa.gov/products/69) maps.
+- Gläser, P., Scholten, F., De Rosa, D., Marco Figuera, R., Oberst, J., Mazarico, E., Neumann, G.A., Robinson, M.S. (2014). Illumination conditions at the lunar south pole using high resolution Digital Terrain Models from LOLA. *Icarus* 243, 78–90. [doi:10.1016/j.icarus.2014.08.013](https://doi.org/10.1016/j.icarus.2014.08.013).
+- Barker, M.K., Mazarico, E., Neumann, G.A., Smith, D.E., Zuber, M.T., Head, J.W. (2021). Improved LOLA elevation maps for south pole landing sites: Error estimates and their impact on illumination conditions. *Planetary and Space Science* 203, 105119. [doi:10.1016/j.pss.2020.105119](https://doi.org/10.1016/j.pss.2020.105119). The citation for NASA GSFC [PGDA product 78](https://pgda.gsfc.nasa.gov/products/78), whose 5 m Site01 (Connecting Ridge) DEM is our local terrain.
+- Barker, M.K., Mazarico, E., Neumann, G.A., Smith, D.E., Zuber, M.T., Head, J.W., Sun, X. (2023). A New View of the Lunar South Pole from the Lunar Orbiter Laser Altimeter (LOLA). *The Planetary Science Journal* 4, 183. [doi:10.3847/PSJ/acf3e1](https://doi.org/10.3847/PSJ/acf3e1). The citation for [PGDA product 90](https://pgda.gsfc.nasa.gov/products/90), whose 80 m DEM supplies our regional horizon.
+
+### Related tool for the same challenge
+
+[Lunar Landing Site Navigator](https://esatakkasoglu.github.io/lunar-landing-site-navigator/) ([source](https://github.com/EsatAkkasoglu/lunar-landing-site-navigator)) is a public NASA Space Apps 2026 project for the same challenge. It is a click-anywhere south-pole explorer: users add points on the map, compare sites for Sun and Earth visibility with a 0–20 m mast, and scan landing dates across multiple months. Its terrain horizon uses LOLA topography at about 240 m resolution, and it compares its long-term Sun and Earth averages with the PGDA product 69 maps. It covers far more of the south-polar region than SITE//FORGE. We cover a single 2.56 km Site01 crop, in exchange for 5 m local terrain and the mast trade described above.
+
+### PGDA product 69: context, not paired validation
+
+[PGDA product 69](https://pgda.gsfc.nasa.gov/products/69) publishes long-term average Sun and Earth visibility maps for the lunar poles. At Ridge A, at ground level (0 m):
+
+| Body | PGDA 69 long-term average | SITE//FORGE, November 2026 window |
+|---|---:|---:|
+| Sun | 38.544% | 59.167% (426 of 720 h) |
+| Earth | 33.852% | 27.639% (199 of 720 h) |
+
+These figures are not a paired validation. The two sources use different periods, models and definitions. PGDA 69 averages hourly samples over a lunar cycle of about 18.6 years on a 60 m surface map, and counts a step if any part of the disk is above the terrain. SITE//FORGE covers 2026-11-01 00:00 to 2026-12-01 00:00 UTC in 30-minute steps on the 5 m Site01 DEM with the regional horizon, and counts a step only if the body center is above the horizon. The differences cannot establish November accuracy or isolate a model bias. The [scientific report](validation_report.md#ridge-a-surface-comparison-with-long-term-nasa-maps) documents the raster extraction.
 
 ## Demo walkthrough
 
