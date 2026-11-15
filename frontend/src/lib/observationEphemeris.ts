@@ -44,13 +44,19 @@ export async function decodeObservationShard(spec: ShardSpec, buffer: ArrayBuffe
 }
 
 const cache = new Map<string, Promise<ObservationShard>>();
-export function loadObservationShard(spec: ShardSpec): Promise<ObservationShard> {
+export function loadObservationShard(spec: ShardSpec, timeoutMs = 15_000): Promise<ObservationShard> {
   const cached = cache.get(spec.file);
   if (cached) return cached;
-  const request = fetch(`/data/observation-ephemeris/${spec.file}`).then(async response => {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout>;
+  const deadline = new Promise<never>((_,reject)=>{
+    timer=setTimeout(()=>{controller.abort();reject(new Error('Cached observation request timed out.'));},timeoutMs);
+  });
+  const download = fetch(`/data/observation-ephemeris/${spec.file}`,{signal:controller.signal}).then(async response => {
     if (!response.ok) throw new Error(`Observation data unavailable (${response.status}).`);
     return decodeObservationShard(spec, await response.arrayBuffer());
-  }).catch(error => {
+  });
+  const request = Promise.race([download,deadline]).finally(()=>clearTimeout(timer)).catch(error => {
     cache.delete(spec.file); // A later selection can retry a failed request.
     throw error;
   });

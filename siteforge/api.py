@@ -12,6 +12,8 @@ import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,7 +217,25 @@ def point(request: Point):
 @lru_cache(maxsize=8)
 def ephemeris(site_id: str, body: str):
     site(site_id)
-    return read_json(DATA / "ephemeris" / f"{site_id}_{body}.json")
+    filename = f"{site_id}_{body}.json"
+    result = read_json(DATA / "ephemeris" / filename)
+    try:
+        samples = result["records"]
+        if not isinstance(samples, list) or len(samples) < 2:
+            raise ValueError("At least two observations are required")
+        previous = None
+        for sample in samples:
+            instant = datetime.fromisoformat(sample["timestamp_utc"])
+            if instant.tzinfo is None or (previous is not None and instant <= previous):
+                raise ValueError("Observation timestamps must be aware and strictly increasing")
+            for key in ("azimuth_deg", "elevation_deg"):
+                value = sample[key]
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value):
+                    raise ValueError("Observation directions must be finite numbers")
+            previous = instant
+    except (KeyError, TypeError, ValueError) as error:
+        raise HTTPException(503, f"Required scientific data invalid: {filename}") from error
+    return result
 
 
 def records(request: AnalysisRequest, body: str):
@@ -267,6 +287,13 @@ def analyze(request: AnalysisRequest):
 
 
 app = FastAPI(title="SITE//FORGE", version="0.1.0", description="Reproducible lunar terrain visibility; geometric estimates, not mission certification.")
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=4)
+allowed_origins = [origin.strip() for origin in os.environ.get("SITEFORGE_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
+if allowed_origins:
+    if any(origin == "*" or not origin.startswith(("https://", "http://")) for origin in allowed_origins):
+        raise ValueError("SITEFORGE_ALLOWED_ORIGINS must list exact HTTP(S) origins")
+    app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_methods=["GET", "POST"],
+                       allow_headers=["Content-Type"], allow_credentials=False)
 
 
 @app.exception_handler(ValueError)
@@ -392,6 +419,10 @@ def methodology():
                              "Optimization searches a finite candidate grid; it does not prove a global optimum."],
                 provenance=read_json(DATA / "terrain-metadata.json"),
                 regional_provenance=read_json(DATA / "regional-metadata.json") if (DATA / "regional-metadata.json").exists() else None)
+
+
+from siteforge.hybrid import router as science_router
+app.include_router(science_router)
 
 
 DIST = ROOT / "dist"

@@ -2,7 +2,9 @@
 
 **Lunar Landing Site Navigator**
 
-A working, fully static lunar terrain explorer built around a reproducible NASA-data experiment. Compare two Connecting Ridge locations and dates, change a combined station's position or height, inspect Sun/Earth visibility, and run a constrained discrete search. No live NASA request or Python server is needed during the demo.
+> **Hybrid backend update:** the application now tries the canonical FastAPI science endpoints and falls back to verified NASA-derived data if unavailable. Run the complete app and review the contract/tests in [Hybrid backend](docs/HYBRID_BACKEND.md). Older static-only descriptions below describe the original deployment; the existing Vercel hosting remains static until a backend URL is configured.
+
+A hybrid lunar terrain explorer built around a reproducible NASA-data experiment, with backend calculations and a verified static fallback. Compare two Connecting Ridge locations and dates, change a combined station's position or height, inspect Sun/Earth visibility, and run a constrained discrete search. No live NASA request or Python server is needed during the demo.
 
 **Live demo:** [siteforge-eight-wine.vercel.app](https://siteforge-eight-wine.vercel.app)
 
@@ -16,7 +18,7 @@ npm run build --prefix frontend
 python3 -m http.server 4173 --bind 127.0.0.1 --directory dist
 ```
 
-Open http://127.0.0.1:4173 . For development, `npm run dev --prefix frontend` serves the same cached dataset with live reload. The app has no environment variables or API keys.
+Open http://127.0.0.1:4173 . For development, `npm run dev --prefix frontend` serves the same cached dataset with live reload. No NASA API keys are needed. Same-origin backend operation requires no configuration; separate hosting uses `VITE_API_BASE_URL` and `SITEFORGE_ALLOWED_ORIGINS` as documented above.
 
 The checked-in `public/data/snapshot.json` contains precomputed November 2026 results for 26 candidate positions × 5 heights. Designer and both Compare timelines open on November. Their date pickers cover 2026-11-01 through 2027-05-01 at UTC midnight. May 1 is the endpoint for April 30. Designer evaluates all 130 configurations for the selected window. The Compare timelines each use a fixed ground-level site and have independent date controls. Clicking terrain snaps to the nearest evaluated point. New dates outside this range or positions outside the grid require regenerating the cache.
 
@@ -84,7 +86,7 @@ Regenerate the distant ridge samples after changing the scientific snapshot or r
 - **Sources:** NASA LOLA local Site01 at 5 m; regional LOLA 80 m product with retained peaks beyond 30 km, coverage to 150 km; raw JPL Horizons Sun/Earth observer responses for two verified coordinates.
 - **Static export:** `scripts/export_static.py` validates the result schemas, writes 130 configurations and their links, and records a SHA-256 checksum.
 - **Product:** React, strict TypeScript, Vite, React Three Fiber / Three.js, locally packaged fonts, SVG scientific plots. Time-window integration and deterministic ranking mirror the Python engine and are tested for parity.
-- **Optional API:** FastAPI exposes the scientific engine for development. The delivered frontend does not depend on it.
+- **Scientific API:** FastAPI `/api/science/*` is the primary calculation path, using the same candidates and dates as the frontend fallback. Legacy `/api/*` endpoints remain separate development interfaces.
 
 Vite replaces the initially suggested Next.js because the revised requirement is a completely static Vercel deployment. It avoids unnecessary server behavior while preserving React/TypeScript and the independent Python scientific engine. Plain CSS supplies the custom visual system; no UI template or NASA logo is used.
 
@@ -114,13 +116,13 @@ npm run build --prefix frontend
 
 The original local TIFF (~41 MB) is excluded from Git and reproducibly downloadable. Regional acquisition reads only a bounded window of the NASA cloud-optimized GeoTIFF. Cached raw responses retain exact query parameters and original result text. Provenance includes reference frame, radii, timestamps, source URLs and checksums.
 
-Optional API:
+Backend for the hybrid application (also serves the built frontend):
 
 ```sh
 .venv/bin/python -m uvicorn siteforge.api:app --host 127.0.0.1 --port 8000
 ```
 
-Its OpenAPI interface is at `/docs`; endpoints cover terrain, sites, ephemerides, horizons, visibility, comparison, local links, optimization, scenarios and methodology. Missing required data returns an explicit error, never substitute measurements. `SITEFORGE_DATA_DIR` optionally selects a different complete scientific dataset directory.
+Its OpenAPI interface is at `/docs`. The frontend uses `/api/science/window` and `/api/science/optimize`; older endpoints cover development-only terrain, sites, ephemerides, horizons, visibility, comparison, links and scenarios. Missing required data returns an explicit error, never substitute measurements. `SITEFORGE_DATA_DIR` optionally selects a different complete scientific dataset directory.
 
 ## Verification
 

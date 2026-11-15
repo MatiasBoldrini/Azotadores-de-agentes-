@@ -1,0 +1,8 @@
+{
+  "frontend_html": 200,
+  "built_assets": 2,
+  "gzip": true,
+  "allowed_cors_origin": 200,
+  "unlisted_cors_origin": 400,
+  "transport": "in-process TestClient; no listening socket"
+}
