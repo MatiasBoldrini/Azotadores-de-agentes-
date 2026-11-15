@@ -26,6 +26,7 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
  analysis:Analysis;index:number;baseline:Analysis;onIndex:(index:number)=>void;timeline:RefObject<HTMLElement|null>;
 }){
  const [order,setOrder]=useState<PanelId[]>(['sun','earth','horizon']);
+ const [expanded,setExpanded]=useState<Record<PanelId,boolean>>({sun:true,earth:true,horizon:true});
  // Insertion order doubles as the floating windows' stacking order.
  const [floating,setFloating]=useState(new Map<PanelId,Point>());
  const [dragged,setDragged]=useState<PanelId|null>(null);
@@ -34,6 +35,7 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
  const dock=useRef<HTMLElement>(null);
  const cards=useRef<Partial<Record<PanelId,HTMLElement|null>>>({});
  const handles=useRef<Partial<Record<PanelId,HTMLButtonElement|null>>>({});
+ const pins=useRef<Partial<Record<PanelId,HTMLButtonElement|null>>>({});
  const drag=useRef<PanelId|null>(null);
  const move=useRef<Move|null>(null);
  const suppressClick=useRef<PanelId|null>(null);
@@ -92,17 +94,20 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
 
  function toggleFloating(id:PanelId){
   const card=cards.current[id]?.getBoundingClientRect();
-  const dockBox=dock.current?.getBoundingClientRect();
-  if(!card||!dockBox)return;
+  const resultsBox=dock.current?.parentElement?.getBoundingClientRect();
+  if(!card||!resultsBox)return;
   const wasFloating=floating.has(id);
   setFloating(current=>{
    const next=new Map(current);
    if(wasFloating)next.delete(id);
-   else next.set(id,{x:dockBox.left-FLOATING_WIDTH-12-current.size*16,y:card.top});
+   else next.set(id,{x:resultsBox.left-FLOATING_WIDTH-12-current.size*16,y:card.top});
    return next;
   });
   setAnnouncement(`${titles[id]} ${wasFloating?'docked':'floating'}.`);
-  if(wasFloating)requestAnimationFrame(()=>cards.current[id]?.scrollIntoView({block:'nearest'}));
+  requestAnimationFrame(()=>{
+   if(wasFloating)cards.current[id]?.scrollIntoView({block:'nearest'});
+   pins.current[id]?.focus({preventScroll:true});
+  });
  }
 
  function moveFloating(id:PanelId,point:Point){
@@ -218,21 +223,23 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
    const position=floating.get(id);
    const toggleLabel=position?`Dock ${title}`:`Float ${title}`;
    const handleLabel=position?`Move ${title}`:`Reorder ${title}`;
-   const controls={
+   const controls:DisclosureControls={
+    open:expanded[id],
+    onToggle:()=>setExpanded(current=>({...current,[id]:!current[id]})),
     handle:<button type="button" className="analysis-panel-icon analysis-panel-handle" title={handleLabel} aria-label={handleLabel}
      aria-describedby={instructions} draggable={!position} ref={el=>{handles.current[id]=el;}}
      onDragStart={event=>startDrag(event,id)} onDragEnd={stopDrag}
      onKeyDown={event=>handleKey(event,id)}>
      <GripVertical size={15} aria-hidden="true"/>
     </button>,
-    action:<button type="button" className="analysis-panel-icon" title={toggleLabel} aria-label={toggleLabel} onClick={()=>toggleFloating(id)}>
+    action:<button type="button" className="analysis-panel-icon" title={toggleLabel} aria-label={toggleLabel} ref={el=>{pins.current[id]=el;}} onClick={()=>toggleFloating(id)}>
      {position?<PinOff size={15} aria-hidden="true"/>:<Pin size={15} aria-hidden="true"/>}
     </button>,
    };
    const panel=<section key={id} ref={el=>{cards.current[id]=el;}} aria-label={title}
     className={`analysis-dock-card${position?' is-floating':''}${dragged===id?' is-dragging':''}`}
     data-drop={dropTarget?.id===id?dropTarget.side:undefined}
-    style={position?{left:position.x,top:position.y,width:FLOATING_WIDTH,zIndex:activeWindows.indexOf(id)+10}:undefined}
+    style={position?{left:position.x,top:position.y,width:FLOATING_WIDTH,zIndex:activeWindows.indexOf(id)+6}:undefined}
     onPointerDown={position?event=>{raise(id);startMove(event,id);}:undefined}
     onPointerMove={position?event=>updateMove(event,id):undefined}
     onLostPointerCapture={event=>{if(move.current?.pointer===event.pointerId)move.current=null;}}
@@ -246,7 +253,9 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
     {id==='horizon'?<HorizonPanel analysis={analysis} index={index} baseline={baseline} controls={controls}/>:
      <TimelineChart body={id} analysis={analysis} index={index} onIndex={onIndex} baseline={baseline} baselineLabel="0 m" currentLabel={`${analysis.height_m} m`} collapsible controls={controls} floating={!!position}/>}
    </section>;
-   return position?createPortal(panel,document.body,id):panel;
+   // Render floating plots alongside the timeline, outside the Results scroll container.
+   const workspace=timeline.current?.parentElement;
+   return position&&workspace?createPortal(panel,workspace,id):panel;
   })}
  </aside>;
 }
