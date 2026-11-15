@@ -736,3 +736,6 @@ option{background:#111}
 .advisor-steps .need{font-style:normal;font-size:11px;color:var(--muted);min-width:64px;text-align:right}
 .advisor-steps .need.sun{color:var(--sun)}.advisor-steps .need.earth{color:var(--earth)}
 .advisor-sub{margin:14px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
+
+.mcp-command{margin:10px 0 6px;padding:12px 14px;overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--fill);font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-2);white-space:pre}
+.science-page p code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-2)}

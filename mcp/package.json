@@ -1,0 +1,14 @@
+{
+  "name": "selenarc-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MCP server exposing SELENARC's deterministic lunar visibility planner to AI assistants.",
+  "type": "module",
+  "bin": {"selenarc-mcp": "./server.mjs"},
+  "scripts": {"start": "node server.mjs", "start:http": "node server.mjs --http", "test": "node --test protocol.test.mjs"},
+  "engines": {"node": ">=22.18"},
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.25.0"
+  }
+}
