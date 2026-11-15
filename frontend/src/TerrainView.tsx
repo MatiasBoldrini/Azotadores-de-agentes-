@@ -31,7 +31,7 @@ const DISC_KM=DETAIL_RADIUS_KM;
 const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
 // Schematic marker distance and size. The direction from the mast uses the computed azimuth and elevation.
 const SKY_KM=400,RAY_KM=.85,STATION_TRAVEL_SECONDS=.65;
-// Static photos illustrate the bodies at their computed directions and display sizes.
+// Display diameters in degrees, enlarged for legibility.
 const BODY_PHOTOS={
  sun:{diameter:2.2,url:'/sky/sun-hmi.jpg',repeat:[960/1024,960/1024],offset:[32/1024,32/1024]},
  earth:{diameter:3.2,url:'/earth/apollo-17-blue-marble.jpg',repeat:[424/640,430/640],offset:[109/640,99/640]},
@@ -42,6 +42,7 @@ const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HF
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#A3A3A3',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
+const SKY_DISC_COLOR={sun:'#fff9e6',earth:C.earth};
 const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#ff625e';
@@ -317,6 +318,14 @@ const STATION_LABEL:Point=[0,.13,0];
 const bodyRadius=(body:Ray['body'])=>SKY_KM*Math.tan(BODY_PHOTOS[body].diameter*DEG/2);
 const rayLabel=({end:[x,y,z]}:Ray):Point=>[x,y+.06,z];
 
+const renderSolarContinuum:THREE.MeshBasicMaterial['onBeforeCompile']=shader=>{
+ // The HMI JPEG is colorized. The green channel retains contrast where red clips across the disc.
+ shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+  float intensity = min(1.0, 1.38 * sqrt(diffuseColor.g));
+  diffuseColor.rgb = intensity * vec3(1.0, 0.97, 0.86);
+ `);
+};
+
 function BodyDisc({body,radius,visible}:{body:Ray['body'];radius:number;visible:boolean}){
  const [map,setMap]=useState<THREE.Texture|null>(null);
  useEffect(()=>{
@@ -331,13 +340,14 @@ function BodyDisc({body,radius,visible}:{body:Ray['body'];radius:number;visible:
  },[body]);
  return <mesh renderOrder={60} raycast={noRaycast}>
   <circleGeometry args={[radius,64]}/>
-  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={map?'#ffffff':C[body]}
+  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={map?'#ffffff':SKY_DISC_COLOR[body]}
+   onBeforeCompile={map&&body==='sun'?renderSolarContinuum:undefined}
    depthWrite={false} transparent opacity={visible?1:.22} toneMapped={false}/>
  </mesh>;
 }
 
 function SkyBody({body,sky,visible}:Ray){
- const color=C[body],radius=bodyRadius(body);
+ const color=SKY_DISC_COLOR[body],radius=bodyRadius(body);
  return <Billboard position={sky}>
   <BodyDisc body={body} radius={radius} visible={visible}/>
   {!visible&&<mesh renderOrder={61} raycast={noRaycast}>
