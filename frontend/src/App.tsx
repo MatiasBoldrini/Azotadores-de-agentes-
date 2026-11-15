@@ -163,7 +163,6 @@ function App(){
  const atSiteCell=selected.candidate_id===siteCell;
  const rows=constraintRows(selected,link,constraints);
  const story=buildStory({selected,baseline,sweep:selectedSweep,links,constraints,search,searching,evaluated:all.length});
- const extent=data.terrain.original_shape.map(n=>n*data.terrain.pixel_size_m/1000);
  const peakAnalysis=siteSweep.find(a=>a.height_m===sitePeak);
  const contrast=atSiteCell&&peakAnalysis&&index===focusIndex?(['sun','earth'] as const).filter(b=>!siteSweep[0].series[`${b}_visible`][index]&&peakAnalysis.series[`${b}_visible`][index]):[];
  const chooseSite=(id:string)=>{setDemoStep(null);const s=data.sites.find(s=>s.id===id)!;setSiteId(id);setCandidate(`r${s.row}c${s.col}`);setHeight(0);setSearch(null);};
@@ -259,13 +258,6 @@ function App(){
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}
   {search&&<OptimizerCard search={search} lines={explainRecommendation(search,all,links,constraints,baseline)} links={links} selectedKey={keyFor(selected)} onPick={a=>{setDemoStep(null);setCandidate(a.candidate_id);setHeight(a.height_m);}} onClose={()=>setSearch(null)}/>}
-  <div className="map-foot">
-   <span>Drag to orbit · scroll to zoom · click a cell to move the station</span>
-   <details className="map-source">
-    <summary>NASA LOLA 5 m DEM (PGDA 78)</summary>
-    <p>Region {fmt(extent[1],2)} × {fmt(extent[0],2)} km · {VERTICAL_EXAGGERATION}× vertical exaggeration · mast glyph ×{MAST_EXAGGERATION} · MOON_ME / DE421</p>
-   </details>
-  </div>
   </section>
   <ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>setTab('Science & Sources')}/>
   <section className="timeline glass" aria-label="Sun and Earth over time">
@@ -294,5 +286,8 @@ function Science({data}:{data:Bundle}){return <section className="science-page">
  <div className="source-list">
   {MOON_IMAGERY_SOURCES.map(source=><a key={source.href} href={source.href} target="_blank" rel="noreferrer">{source.label}<ExternalLink size={16}/></a>)}
  </div>
- <details><summary>Inspect dataset provenance</summary><pre>{JSON.stringify(data.methodology.provenance,null,2)}</pre></details><p className="footnote">Implemented with assistance from OpenAI Codex. SITE//FORGE is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>20 m / vertex</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">Every result remains usable without a live NASA API connection. New terrain, dates outside the cache, or new candidate positions require regeneration of the scientific dataset.</p></aside></section>;}
+ <details><summary>Inspect dataset provenance</summary>
+  <p>The local DEM covers {fmt(data.terrain.original_shape[1]*data.terrain.pixel_size_m/1000,2)} × {fmt(data.terrain.original_shape[0]*data.terrain.pixel_size_m/1000,2)} km.</p>
+  <pre>{JSON.stringify(data.methodology.provenance,null,2)}</pre>
+ </details><p className="footnote">Implemented with assistance from OpenAI Codex. SITE//FORGE is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>20 m / vertex</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">Every result remains usable without a live NASA API connection. New terrain, dates outside the cache, or new candidate positions require regeneration of the scientific dataset.</p></aside></section>;}
 export default App;
