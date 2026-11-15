@@ -43,5 +43,73 @@
       "col": 352
     }
   },
-  "note": "Visual only. Visibility numbers come from public/data/snapshot.json."
+  "note": "Visual only. Visibility numbers come from public/data/snapshot.json.",
+  "surround": {
+    "source": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif",
+    "source_sha256": "3ba7b97cb00a2bcf21189c3aeb535f65afc21207154ab9f0d43c5bdc1f7e747e",
+    "source_shape": [
+      3200,
+      3200
+    ],
+    "encoding": "row-major little-endian uint16; elevation_m = offset_m + value * step_m",
+    "offset_m": -1000.0,
+    "step_m": 0.05,
+    "levels": [
+      {
+        "file": "surround-10m.u16",
+        "shape": [
+          800,
+          800
+        ],
+        "pixel_size_m": 10.0,
+        "transform": [
+          10.0,
+          0.0,
+          -15000.0,
+          0.0,
+          -10.0,
+          -8000.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "source_window": [
+          800,
+          800,
+          1600,
+          1600
+        ],
+        "resampling": "mean of 2x2 source pixels",
+        "sha256": "bfffc08a6adbe145e0eaa7072507c218612e075c7fe1440cbc90311773484479"
+      },
+      {
+        "file": "surround-20m.u16",
+        "shape": [
+          800,
+          800
+        ],
+        "pixel_size_m": 20.0,
+        "transform": [
+          20.0,
+          0.0,
+          -19000.0,
+          0.0,
+          -20.0,
+          -4000.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "source_window": [
+          0,
+          0,
+          3200,
+          3200
+        ],
+        "resampling": "mean of 4x4 source pixels",
+        "sha256": "c3cd6b3aa88f2843afa437dcd607e903a4ec41b4ebd65317dc0f710eb9b36df8"
+      }
+    ],
+    "note": "Display mesh only. The evaluated 5 m window above is unchanged and drawn at full resolution."
+  }
 }

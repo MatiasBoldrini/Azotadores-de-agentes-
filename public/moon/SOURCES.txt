@@ -22,5 +22,16 @@ Relief: ldem_4_displacement.png
   Converted to 8-bit, linearly stretched to the file range -8878.5 m .. 10504.0 m.
   The globe shows this relief with the same 4x vertical exaggeration as the site view.
 
+Close-up terrain: public/site01/ (see meta.json)
+  NASA PGDA LOLA product 78, Site01 5 m DEM, the same file the engine uses:
+  https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif
+  (40980810 bytes, SHA-256 3ba7b97cb00a2bcf21189c3aeb535f65afc21207154ab9f0d43c5bdc1f7e747e)
+  elevation.f32: the engine's 5 m window [1344, 1344, 512, 512], every sample.
+  surround-10m.u16: mean of 2x2 source pixels over window [800, 800, 1600, 1600] (8 km),
+    SHA-256 bfffc08a6adbe145e0eaa7072507c218612e075c7fe1440cbc90311773484479
+  surround-20m.u16: mean of 4x4 source pixels over the full extent [0, 0, 3200, 3200] (16 km),
+    SHA-256 c3cd6b3aa88f2843afa437dcd607e903a4ec41b4ebd65317dc0f710eb9b36df8
+  Unsigned 16-bit, elevation = -1000 m + value x 0.05 m. Drawn with the same 4x exaggeration.
+
 None of these files feed the science engine. Visibility numbers come only from
 public/data/snapshot.json.
