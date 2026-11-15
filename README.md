@@ -1,6 +1,6 @@
-# SITE//FORGE
+# SELENARC
 
-**Don't find the perfect landing site. Engineer one.**
+**Lunar Landing Site Navigator**
 
 A working, fully static lunar terrain explorer built around a reproducible NASA-data experiment. Compare two Connecting Ridge locations and dates, change a combined station's position or height, inspect Sun/Earth visibility, and run a constrained discrete search. No live NASA request or Python server is needed during the demo.
 
@@ -32,7 +32,7 @@ See [scientific report](validation_report.md), [regional method](docs/REGIONAL_H
 
 ## Prior work
 
-SITE//FORGE uses published mast-height illumination research as the basis for an interactive mission-month mast trade study. The geometric line-of-sight model uses the 5 m Site01 DEM and an 80 m regional DEM extending the horizon to 150 km. Monthly Compare reports the longest gap with either the Sun or Earth blocked and the lowest tested mast height that meets the limits at each fixed ridge point. The Infrastructure Designer ranks feasible configurations by a cost that combines mast height, installation distance, and terrain slope.
+SELENARC uses published mast-height illumination research as the basis for an interactive mission-month mast trade study. The geometric line-of-sight model uses the 5 m Site01 DEM and an 80 m regional DEM extending the horizon to 150 km. Monthly Compare reports the longest gap with either the Sun or Earth blocked and the lowest tested mast height that meets the limits at each fixed ridge point. The Infrastructure Designer ranks feasible configurations by a cost that combines mast height, installation distance, and terrain slope.
 
 ### Foundational science
 
@@ -43,18 +43,18 @@ SITE//FORGE uses published mast-height illumination research as the basis for an
 
 ### Related tool for the same challenge
 
-[Lunar Landing Site Navigator](https://esatakkasoglu.github.io/lunar-landing-site-navigator/) ([source](https://github.com/EsatAkkasoglu/lunar-landing-site-navigator)) is a public NASA Space Apps 2026 project for the same challenge. It is a click-anywhere south-pole explorer: users add points on the map, compare sites for Sun and Earth visibility with a 0–20 m mast, and scan landing dates across multiple months. Its terrain horizon uses LOLA topography at about 240 m resolution, and it compares its long-term Sun and Earth averages with the PGDA product 69 maps. It covers far more of the south-polar region than SITE//FORGE. We cover a single 2.56 km Site01 crop, in exchange for 5 m local terrain and the mast trade described above.
+[Lunar Landing Site Navigator](https://esatakkasoglu.github.io/lunar-landing-site-navigator/) ([source](https://github.com/EsatAkkasoglu/lunar-landing-site-navigator)) is a public NASA Space Apps 2026 project for the same challenge. It is a click-anywhere south-pole explorer: users add points on the map, compare sites for Sun and Earth visibility with a 0–20 m mast, and scan landing dates across multiple months. Its terrain horizon uses LOLA topography at about 240 m resolution, and it compares its long-term Sun and Earth averages with the PGDA product 69 maps. It covers far more of the south-polar region than SELENARC. We cover a single 2.56 km Site01 crop, in exchange for 5 m local terrain and the mast trade described above.
 
 ### PGDA product 69: context, not paired validation
 
 [PGDA product 69](https://pgda.gsfc.nasa.gov/products/69) publishes long-term average Sun and Earth visibility maps for the lunar poles. At Ridge A, at ground level (0 m):
 
-| Body | PGDA 69 long-term average | SITE//FORGE, November 2026 window |
+| Body | PGDA 69 long-term average | SELENARC, November 2026 window |
 |---|---:|---:|
 | Sun | 38.544% | 59.167% (426 of 720 h) |
 | Earth | 33.852% | 27.639% (199 of 720 h) |
 
-These figures are not a paired validation. The two sources use different periods, models and definitions. PGDA 69 averages hourly samples over a lunar cycle of about 18.6 years on a 60 m surface map, and counts a step if any part of the disk is above the terrain. The SITE//FORGE results in this table cover 2026-11-01 00:00 to 2026-12-01 00:00 UTC in 30-minute steps on the 5 m Site01 DEM with the regional horizon, and counts a step only if the body center is above the horizon. The differences cannot establish November accuracy or isolate a model bias. The [scientific report](validation_report.md#ridge-a-surface-comparison-with-long-term-nasa-maps) documents the raster extraction.
+These figures are not a paired validation. The two sources use different periods, models and definitions. PGDA 69 averages hourly samples over a lunar cycle of about 18.6 years on a 60 m surface map, and counts a step if any part of the disk is above the terrain. The SELENARC results in this table cover 2026-11-01 00:00 to 2026-12-01 00:00 UTC in 30-minute steps on the 5 m Site01 DEM with the regional horizon, and counts a step only if the body center is above the horizon. The differences cannot establish November accuracy or isolate a model bias. The [scientific report](validation_report.md#ridge-a-surface-comparison-with-long-term-nasa-maps) documents the raster extraction.
 
 ## Demo walkthrough
 

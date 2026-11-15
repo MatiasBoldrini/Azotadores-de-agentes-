@@ -6,7 +6,7 @@ import {raiseSequence} from './lib/skyDome';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,TerrainScope,terrainMean} from './TerrainView';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {loadSite01} from './site01';
-import {TAGLINE} from './brand';
+import {PRODUCT_NAME,TAGLINE} from './brand';
 import DateWindowPicker from './DateWindowPicker';
 import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
@@ -257,9 +257,9 @@ function App(){
  const workspaceTab=tab==='Landing Sites'||tab==='Infrastructure Designer';
  const ready=Boolean(data&&selected&&baseline&&site);
  const shell=(content:ReactNode,actions?:ReactNode)=><div className={`app moon-${moon} ${workspaceTab&&moon!=='globe'?'is-workspace':''} ${demoStep!==null?'is-demo':''}`}>
-  <h1 className="sr-only">SITE//FORGE — lunar landing site engineering on real NASA terrain</h1>
+  <h1 className="sr-only">{PRODUCT_NAME} — {TAGLINE}</h1>
   <header className="topbar">
-   <button className="brand" onClick={()=>moon==='site'&&backToMoon()} aria-label="SITE FORGE, back to the Moon">SITE<span>//</span>FORGE</button>
+   <button className="brand" onClick={()=>moon==='site'&&backToMoon()} aria-label={`${PRODUCT_NAME}, back to the Moon`}>{PRODUCT_NAME}</button>
    <nav aria-label="Main navigation">{TABS.map(t=><button className={tab===t?'active':''} aria-label={t} aria-current={tab===t?'page':undefined} key={t} onClick={()=>openTab(t)}><span className="tab-full">{t}</span><span className="tab-short" aria-hidden="true">{SHORT_TABS[t]}</span></button>)}</nav>
    <div className="top-actions">
     {actions}
@@ -270,7 +270,7 @@ function App(){
   {content}
  </div>;
  if(error)return shell(moon==='globe'?null:<div className="loading"><AlertTriangle/><h2>Scientific data unavailable</h2><p>{error}</p><p>No synthetic results have been substituted.</p><button onClick={()=>location.reload()}>Retry loading</button></div>);
- if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">{TAGLINE}</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
+ if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">{PRODUCT_NAME}</div><p className="tagline">{TAGLINE}</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
  const links=data.links[siteId];
  const heightsTested=[...new Set(all.map(a=>a.height_m))].sort((a,b)=>a-b);
  const selectedSweep=heightSweep(all,selected.candidate_id);
@@ -291,7 +291,7 @@ function App(){
  };
  const runSearch=()=>{if(searching||designer.status==='loading')return;setShowConfigure(false);setDemoStep(null);performSearch(all,links,constraints);};
  const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else runSearch();};
- const exportCsv=()=>{const csv=timelineCsv(selected,{siteName:site.name,candidateId:selected.candidate_id,heightM:selected.height_m,sources:data.methodology.sources});const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download=`site-forge-${site.id}-${selected.height_m}m-${start.slice(0,10)}_${end.slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);};
+ const exportCsv=()=>{const csv=timelineCsv(selected,{siteName:site.name,candidateId:selected.candidate_id,heightM:selected.height_m,sources:data.methodology.sources});const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download=`selenarc-${site.id}-${selected.height_m}m-${start.slice(0,10)}_${end.slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);};
  const shareView:ShareView=moon==='globe'?'globe':tab==='Infrastructure Designer'?'designer':tab==='Compare'?'compare':tab==='Science & Sources'?'science':'site';
  const copyLink=()=>{
   const query=encodeShareState({site:siteId,cell:selected.candidate_id===siteCell?undefined:selected.candidate_id,mast:selected.height_m,start,end,at:selected.series.timestamp_utc[index],view:shareView});
@@ -300,7 +300,7 @@ function App(){
   const done=()=>{setLinkCopied(true);setNotice('Link copied: site, station, mast height, window, time and view.');window.setTimeout(()=>setLinkCopied(false),2400);};
   if(navigator.clipboard?.writeText)navigator.clipboard.writeText(url).then(done,()=>setNotice(`Copy this link: ${url}`));else setNotice(`Copy this link: ${url}`);
  };
- const exportResult=()=>{const blob=new Blob([JSON.stringify({analysis:selected,baseline,local_link:link,constraints,optimizer:search?{evaluated:search.evaluated,feasible:search.feasible,objective:'height/20 + distance/1000 + slope/90'}:null,methodology:data.methodology},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='site-forge-analysis.json';a.click();URL.revokeObjectURL(url);};
+ const exportResult=()=>{const blob=new Blob([JSON.stringify({analysis:selected,baseline,local_link:link,constraints,optimizer:search?{evaluated:search.evaluated,feasible:search.feasible,objective:'height/20 + distance/1000 + slope/90'}:null,methodology:data.methodology},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='selenarc-analysis.json';a.click();URL.revokeObjectURL(url);};
 
  const demo=demoStep===null?null:{step:demoStep,total:plan.length,label:plan[demoStep].label,ms:plan[demoStep].ms};
  const stage=moon==='globe'?'hidden':moon==='in'?(descend?'descend':'arrive'):moon==='out'?'leave':'on';
@@ -449,5 +449,5 @@ function Science({data}:{data:Bundle}){return <section className="science-page">
  <details><summary>Inspect dataset provenance</summary>
   <p>The local DEM covers {fmt(data.terrain.original_shape[1]*data.terrain.pixel_size_m/1000,2)} × {fmt(data.terrain.original_shape[0]*data.terrain.pixel_size_m/1000,2)} km.</p>
   <pre>{JSON.stringify(data.methodology.provenance,null,2)}</pre>
- </details><p className="footnote">Implemented with assistance from OpenAI Codex. SITE//FORGE is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>5 m / vertex, 10–20 m around</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Cached observation window</dt><dd>Nov 2026 – Apr 2027 UTC</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">Every result remains usable without a live NASA API connection. New terrain, dates outside the cache, or new candidate positions require regeneration of the scientific dataset.</p></aside></section>;}
+ </details><p className="footnote">Implemented with assistance from OpenAI Codex. {PRODUCT_NAME} is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>5 m / vertex, 10–20 m around</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Cached observation window</dt><dd>Nov 2026 – Apr 2027 UTC</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">Every result remains usable without a live NASA API connection. New terrain, dates outside the cache, or new candidate positions require regeneration of the scientific dataset.</p></aside></section>;}
 export default App;

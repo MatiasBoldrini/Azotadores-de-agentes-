@@ -1,3 +1,4 @@
+import {PRODUCT_NAME} from '../brand.ts';
 import type {Analysis, Metric} from './science.ts';
 
 export type Body = 'sun' | 'earth';
@@ -62,7 +63,7 @@ const csvCell = (value: string | number | boolean) => {
 export function timelineCsv(analysis: Analysis, context: CsvContext): string {
  const s = analysis.series, times = s.timestamp_utc;
  const header = [
-  '# SITE//FORGE per-step visibility timeline',
+  `# ${PRODUCT_NAME} per-step visibility timeline`,
   `# Site: ${context.siteName} · station cell ${context.candidateId} · mast ${context.heightM} m above ground`,
   `# Window (UTC): ${times[0]} to ${times[times.length - 1]} · ${times.length} samples`,
   '# Method: geometric line of sight; a body is visible when its center clears the terrain horizon at its azimuth.',
