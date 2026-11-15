@@ -298,6 +298,7 @@ option{background:#111}
 .joint dd{margin:0;text-align:right;font-weight:600}
 .joint dd small{margin-left:8px;font-size:12px;font-weight:400;color:var(--muted)}
 .block-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.analysis-disclosure-title-row{min-width:0}
 .analysis-disclosure-title{min-width:0;font:inherit}
 .analysis-disclosure-toggle{display:flex;align-items:center;gap:6px;max-width:100%;padding:0;border-radius:3px;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .analysis-disclosure-toggle svg{color:var(--muted);transition:transform .18s,color .18s}
@@ -422,12 +423,14 @@ option{background:#111}
 }
 .analysis-dock-card.is-floating .timeline-plot{cursor:inherit}
 .analysis-dock-card.is-floating:active{cursor:grabbing}
-.analysis-panel-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 5px}
+.analysis-panel-heading{flex-direction:column;align-items:stretch;gap:2px}
+.analysis-panel-heading .analysis-disclosure-title-row{display:flex;align-items:center;gap:5px}
 .analysis-panel-heading .analysis-disclosure-toggle{font-size:11px;letter-spacing:.055em;line-height:1.3}
+.analysis-panel-heading .analysis-disclosure-toggle svg{flex:none}
 .analysis-panel-heading .chart-title{white-space:normal;letter-spacing:inherit}
-.analysis-panel-heading .chart-readout{grid-column:1/-1;font-size:11px}
+.analysis-panel-heading .chart-readout{font-size:11px}
 .analysis-panel-icon{
- display:grid;place-items:center;width:25px;height:26px;padding:0;border-radius:4px;
+ flex:none;display:grid;place-items:center;width:25px;height:26px;padding:0;border-radius:4px;
  color:var(--muted);background:transparent;
 }
 .analysis-panel-icon:hover,.analysis-panel-icon:focus-visible{color:var(--text)}
