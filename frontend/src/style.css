@@ -941,3 +941,14 @@ select{border-radius:var(--radius-sm);background:var(--surface);border-color:var
 .moon-layer.is-site{transition:opacity var(--dur-deliberate) var(--ease),visibility 0s linear var(--dur-deliberate)}
 @media (prefers-reduced-motion:reduce){.compare-mode-buttons::before{transition:none}.sk{animation:none}}
 .comparison .eyebrow,.comparison-metrics dt{font:500 13px/1.4 var(--sans)!important;letter-spacing:-.005em!important;text-transform:none!important}
+
+/* Mission advisor (lands with #34/#36): same system as the rest. Actions are bone, not a data colour. */
+.advisor-ask-go{border-color:transparent!important;background:var(--accent)!important;color:var(--accent-ink)!important;border-radius:var(--radius-sm)!important}
+.advisor-ask-go:hover:not(:disabled){background:var(--accent-hover)!important}
+.advisor-ask input,.advisor-op,.advisor-op select{border-radius:var(--radius-sm)!important}
+.advisor-item.opportunity::before{background:var(--accent)!important}
+.advisor-list{gap:16px!important}
+.advisor-title{font-weight:500!important}
+.advisor-sub{font-weight:500!important;color:var(--text-2)!important}
+.monthly-advice{margin-top:var(--space-5)!important;padding:24px 0 0!important;border:0!important;border-top:1px solid var(--line)!important;border-radius:0!important}
+.monthly-advice h2{font-size:18px!important;font-weight:500!important;margin-bottom:12px!important}
