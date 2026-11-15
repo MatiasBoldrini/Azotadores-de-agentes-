@@ -101,7 +101,7 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
   </div>
  </>;
  return <div className="time-chart" ref={ref}>
-  {collapsible?<AnalysisDisclosure title={title} headingClassName="chart-head" titleClassName={titleClassName} summary={readout} controls={controls}>
+  {collapsible?<AnalysisDisclosure title={title} headingClassName="chart-head" titleClassName={titleClassName} summary={controls?undefined:readout} controls={controls}>
    {plot}
   </AnalysisDisclosure>:<>
    <div className="chart-head"><span className={titleClassName}>{title}</span>{readout}</div>
