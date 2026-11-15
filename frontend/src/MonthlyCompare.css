@@ -9,35 +9,44 @@
 }
 
 .compare-mode h1 {
-  font-size: 24px;
-  font-weight: 450;
-  letter-spacing: -.45px;
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.028em;
 }
 
 .compare-mode-buttons {
   display: flex;
   gap: 4px;
   padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
 }
 
 .compare-mode-buttons button {
-  padding: 8px 10px;
-  border-radius: 3px;
-  color: #a8b5ac;
-  font-size: 12px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.compare-mode-buttons button:hover {
+  color: var(--text);
 }
 
 .compare-mode-buttons button[aria-pressed="true"] {
-  background: var(--green);
-  color: #172019;
+  background: var(--earth-soft);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(143,211,255,.45);
 }
 
 .compare-state,
 .monthly-context {
   margin: 16px 0;
-  color: #a7b5aa;
+  color: var(--text-2);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -51,7 +60,7 @@
 }
 
 .monthly-controls label {
-  color: #a7b5aa;
+  color: var(--text-2);
   font-size: 12px;
 }
 
@@ -64,8 +73,8 @@
 .monthly-height {
   margin-left: auto;
   text-align: right;
-  color: #a7b5aa;
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .monthly-metrics {
@@ -78,7 +87,7 @@
 }
 
 .monthly-metrics :is(dt, .metric-detail) {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .monthly-metrics dd {
@@ -99,24 +108,24 @@
 }
 
 .monthly-lowest h3 {
-  color: #a7b5aa;
-  font-size: 12px;
-  font-weight: 400;
+  color: var(--text-2);
+  font: 400 13px var(--sans);
 }
 
 .monthly-lowest strong {
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 600;
   text-align: right;
 }
 
 .monthly-history {
   margin-top: 22px;
+  padding: 22px;
 }
 
 .monthly-history h2 {
-  font-size: 17px;
-  font-weight: 500;
+  font-size: 19px;
+  font-weight: 600;
   margin-bottom: 9px;
 }
 
@@ -129,13 +138,14 @@
 
 .monthly-history :is(th, td) {
   width: calc(100% / 7);
-  padding: 9px 4px;
+  padding: 10px 4px;
   text-align: center;
   border-bottom: 1px solid var(--line);
 }
 
 .monthly-history th {
   font-weight: 500;
+  color: var(--text-2);
 }
 
 .monthly-history th:first-child {
@@ -144,13 +154,13 @@
 }
 
 .monthly-history .current-month {
-  background: #202b23;
-  color: var(--green);
+  background: var(--earth-soft);
+  color: var(--text);
 }
 
 .monthly-history p {
   margin-top: 12px;
-  color: #a7b5aa;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
 }

@@ -5,8 +5,8 @@
   gap: 8px;
   padding: 0;
   text-align: left;
-  color: #a0aaa6;
-  font-size: 10px;
+  color: var(--text-2);
+  font-size: 12px;
 }
 
 .utc-date-trigger > span:last-child {
@@ -14,18 +14,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 2px;
-  min-height: 36px;
-  padding: 4px;
-  border: 1px solid #343b3c;
-  border-radius: 4px;
-  background: #1c2022;
-  color: #dfe5e1;
-  font: 10px 'IBM Plex Mono', monospace;
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--fill);
+  color: var(--text);
+  font: 500 12px var(--sans);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .utc-date-trigger:hover > span:last-child {
-  border-color: #85938a;
+  border-color: rgba(255,255,255,.3);
 }
 
 .utc-calendar-dialog {
@@ -37,15 +38,17 @@
   padding: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  border: 1px solid #56645c;
-  border-radius: 6px;
-  color: #e0e5e1;
-  background: #1c2022;
-  box-shadow: 0 12px 40px #0008;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)), rgba(10,10,10,.92);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(160%);
+  backdrop-filter: blur(var(--blur)) saturate(160%);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 12px 40px rgba(0,0,0,.6);
 }
 
 .utc-calendar {
-  padding: 14px;
+  padding: 16px;
 }
 
 .utc-calendar-header {
@@ -73,7 +76,7 @@
   display: grid;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 10px;
   outline-offset: -2px;
   font-size: 13px;
 }
@@ -84,14 +87,14 @@
 }
 
 .utc-calendar button:enabled:hover:not([aria-disabled='true']) {
-  border-color: #78867c;
-  background: #303c33;
+  border-color: rgba(255,255,255,.28);
+  background: var(--fill-hover);
 }
 
 .utc-calendar button:disabled,
 .utc-calendar button[aria-disabled='true'] {
   opacity: 1;
-  color: #7a8581;
+  color: #8A8A8A;
   cursor: default;
 }
 
@@ -104,8 +107,8 @@
 
 .utc-calendar th {
   padding-bottom: 4px;
-  color: #adb8b1;
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -119,9 +122,9 @@
 }
 
 .utc-calendar td[aria-selected='true'] button {
-  border-color: var(--green);
-  background: #39473a;
-  color: #f0f5ef;
+  border-color: var(--earth-line);
+  background: var(--earth-soft);
+  color: var(--text);
 }
 
 .utc-calendar-sr {

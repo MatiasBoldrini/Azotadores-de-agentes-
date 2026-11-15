@@ -56,7 +56,7 @@ function Checks({rows}:{rows:ConstraintRow[]}){
 
 export function ResultsPanel({window,site,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window?:ReactNode;site:string;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
  const m=selected.metrics,b=baseline.metrics,same=keyFor(selected)===keyFor(baseline);
- return <aside className="results" aria-label="Analysis results">
+ return <aside className="results glass" aria-label="Analysis results">
   <div className="panel-heading"><span className="eyebrow">03 / Result · {site} · {selected.height_m} m mast</span><button className="text-button method-link" onClick={onMethod} title="How these numbers are computed"><Info size={13}/>Method<ArrowUpRight size={12}/></button></div>
   {window}
   <div className="metric-pair" aria-describedby="selected-visibility-window">
