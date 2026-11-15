@@ -18,7 +18,6 @@ const ARC_MS=2000,CROSSFADE_MS=450,RETURN_MS=1800;
 const SITE_RADIUS_DEG=4;
 // The globe zoom stops before the 32 ppd polar mosaic and the equirectangular pole start to smear.
 const MIN_DISTANCE=1.58,MAX_DISTANCE=8;
-const WORDS=['No','One','Two','Three','Four','Five','Six'];
 const coordinate=(n:number)=>Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:5,maximumFractionDigits:5});
 export const siteCoordinates=(s:Site)=>`${coordinate(s.latitude_deg)}° S · ${coordinate(s.longitude_deg)}° W`;
 
@@ -175,7 +174,6 @@ export default function MoonLanding(p:Props){
   if(p.mode==='in'){p.onTile();p.onArrive();}
   else if(p.mode==='out')p.onLeft();
  },[failed,p.mode]);
- const count=WORDS[p.sites.length]??String(p.sites.length);
  return <div className={`moon-layer is-${p.mode} ${loaded?'is-loaded':''}`} inert={p.mode==='site'} aria-hidden={p.mode==='site'}>
   <GlobeBoundary onError={()=>{setLoaded(true);setFailed(true);}}>
    <Canvas className="moon-canvas" frameloop={p.mode==='site'?'never':'always'} dpr={[1,2]} camera={{fov:FOV,near:.02,far:80,position:latLonToVec(-36,-18,3.15).toArray()}}
@@ -195,8 +193,8 @@ export default function MoonLanding(p:Props){
   <div ref={tooltip} className="moon-tooltip glass" role="tooltip" hidden/>
   <section className="moon-copy" aria-labelledby="moon-title">
    <p className="moon-tagline">{TAGLINE}</p>
-   <h2 id="moon-title">{p.sites.length?`${count} analyzed sites on Connecting Ridge.`:'Analyzed sites on Connecting Ridge.'}</h2>
-   <p className="lede">Drag to rotate the whole Moon and scroll to zoom. Click anywhere on the globe to fly to {lead?.name??'Ridge A'}, the working site on Connecting Ridge. Pins mark the sites with cached analysis.</p>
+   <h2 id="moon-title">A 5 m mast makes Ridge A work.</h2>
+   <p className="lede">In the November 2026 model, raising the station from ground level to 5 m increases solar exposure from 426 to 720 h and Earth visibility from 199 to 359.5 h. The longest gap with the Sun or Earth blocked drops from 465 to 342.5 h.</p>
    <div className="moon-actions">
     <button type="button" className="cta" onClick={()=>lead&&p.onFly(lead.id)} disabled={!p.ready}>{p.ready&&lead?`Fly to ${lead.name}`:'Fly to Ridge A'}<ArrowRight size={16}/></button>
     {loadingText&&<p className="moon-progress" role="status">{p.error?<>{loadingText}. {p.error}</>:loadingText}</p>}
