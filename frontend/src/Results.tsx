@@ -69,7 +69,7 @@ function HeightResponse({sweep,selected,onHeight,recommended,constraints}:{sweep
       onPointerEnter={event=>{if(event.pointerType==='mouse'||event.pointerType==='pen')setHovered(height);}}
       onFocus={()=>{setHovered(undefined);setFocused(height);}} onBlur={()=>setFocused(undefined)}
       onClick={()=>{onHeight(height);setFocused(undefined);}}>
-      <span className="hr-height" aria-hidden="true" style={{left:`${(position-left)/(right-left)*100}%`}}>{height} m</span>
+      <span className="hr-height" aria-hidden="true" style={{left:`${(position-left)/(right-left)*100}%`}}>{height}{height===maxHeight?" m":""}</span>
      </button>;
     })}
    </div>

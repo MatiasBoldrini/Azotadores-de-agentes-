@@ -555,6 +555,7 @@ footer>button:hover{color:var(--text)}
  .story-actions button{flex:1}
  .terrain-title h2{font-size:18px}
  .results{display:flex}
+ .results .height-response{align-self:stretch}
  .metric-pair{grid-template-columns:1fr}
  .metric-value b{font-size:48px}
  .workspace>.scene-layer{bottom:auto;height:420px}
