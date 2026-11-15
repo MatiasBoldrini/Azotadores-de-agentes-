@@ -1,5 +1,6 @@
 import {useState,useEffect,useLayoutEffect,useMemo,useRef,Component,ReactNode} from 'react';
-import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Telescope} from 'lucide-react';
+import MastPanorama from './MastPanorama';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,TerrainScope,terrainMean} from './TerrainView';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {loadSite01} from './site01';
@@ -63,6 +64,7 @@ function App(){
  const configurePanel=useRef<HTMLDivElement>(null);
  const [showConfigure,setShowConfigure]=useState(false);
  const [showReferences,setShowReferences]=useState(true);
+ const [showPanorama,setShowPanorama]=useState(false);
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
  const searchTimer=useRef<number|undefined>(undefined);
  useEffect(()=>{const controller=new AbortController();(async()=>{
@@ -335,6 +337,7 @@ function App(){
   <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <div className="workspace-heading">
    <StoryBar story={story} demo={demo} hideSummary={!!search} onAction={onStoryAction} onStopDemo={stopDemo}/>
+   <button type="button" className="secondary view-from-mast" onClick={()=>{setDemoStep(null);setPlaying(false);setShowPanorama(true);}}><Telescope size={15} aria-hidden="true"/>View from mast</button>
    <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
   </div>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
@@ -376,6 +379,7 @@ function App(){
   </div>
   {!showAnalysisDock&&<div className="timeline-horizon"><HorizonPanel compact analysis={selected} index={index} baseline={baseline}/></div>}
  </section>
+ {showPanorama&&<MastPanorama sweep={selectedSweep} siteName={atSiteCell?site.name:`${site.name} · cell ${selected.position.row}, ${selected.position.col}`} initialHeight={selected.height_m} initialIndex={index} onClose={()=>setShowPanorama(false)}/>}
  </main>;
  return shell(workspaceTab?workspace:moon==='site'?<main className="page">{tab==='Science & Sources'?<Science data={data}/>:compare}</main>:null,
   moon==='site'&&<button className="text-button" onClick={exportResult}><Download size={14}/>Export</button>);
