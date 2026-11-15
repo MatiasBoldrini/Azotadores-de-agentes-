@@ -286,6 +286,7 @@ option{background:#111}
 .earth .meter-tooltip{left:auto;right:0}
 .meter-tooltip strong,.meter-tooltip span{display:block}
 .meter-tooltip strong{font-size:12px}
+.meter-tooltip-value{display:block;margin-top:4px;font-size:14px;font-variant-numeric:tabular-nums}
 .meter-tooltip span{color:var(--text-2);margin-top:4px}
 @keyframes meter-tooltip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .tick-base{display:inline-block;width:2px;height:10px;background:var(--text)}
