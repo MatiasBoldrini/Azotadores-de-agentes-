@@ -50,7 +50,7 @@ type ChartProps={analysis:Analysis;index:number;onIndex:(i:number)=>void;baselin
 
 export const timelineTitle=(body:'sun'|'earth')=>`${body==='sun'?'Sun':'Earth'} elevation vs terrain horizon`;
 
-export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel,cursor=true,collapsible=false,controls}:ChartProps&{body:'sun'|'earth';cursor?:boolean;collapsible?:boolean;controls?:DisclosureControls}){
+export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel,cursor=true,collapsible=false,controls,floating=false}:ChartProps&{body:'sun'|'earth';cursor?:boolean;collapsible?:boolean;controls?:DisclosureControls;floating?:boolean}){
  const [ref,width]=useWidth<HTMLDivElement>();
  const s=analysis.series,values=s[`${body}_elevation_deg`],horizon=s[`${body}_horizon_deg`],n=values.length;
  const visibility=s[`${body}_visible`],bodyColor=COLORS[body],gradientId=useId();
@@ -76,7 +76,9 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
  const readout=<span className="chart-readout"><b>{values[index].toFixed(2)}°</b> / horizon {horizon[index].toFixed(2)}° <em className={visible?'in-view':'blocked'}>{visible?'In view':'Blocked'}</em></span>;
  const plot=<>
   <svg className="timeline-plot" role="img" aria-label={`${name} elevation and terrain horizon over time. At the cursor ${name} is ${values[index].toFixed(2)} degrees against a ${horizon[index].toFixed(2)} degree horizon: ${visible?'in view':'blocked'}.`} width={w} height={height} viewBox={`0 0 ${w} ${height}`}
-   onPointerMove={e=>pick(e.clientX,e.currentTarget)} onPointerDown={e=>pick(e.clientX,e.currentTarget)}>
+   onPointerMove={e=>{if(!floating||e.buttons===0)pick(e.clientX,e.currentTarget);}}
+   onPointerDown={floating?undefined:e=>pick(e.clientX,e.currentTarget)}
+   onClick={floating?e=>pick(e.clientX,e.currentTarget):undefined}>
    {colorStops.length>1&&<defs><linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1={left} x2={w-right}>
     {colorStops.map(({offset,color},i)=><stop key={i} offset={offset} stopColor={color}/>)}
    </linearGradient></defs>}

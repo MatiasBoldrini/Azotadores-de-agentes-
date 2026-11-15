@@ -385,32 +385,37 @@ option{background:#111}
 /* ---------- Desktop analysis dock ---------- */
 .workspace.has-analysis-dock{
  position:fixed;inset:var(--header-h) 0 0;min-height:0;padding:14px 24px 16px;gap:12px 18px;
- grid-template-columns:clamp(300px,23vw,360px) minmax(0,1fr) clamp(320px,24vw,372px);
+ grid-template-columns:minmax(0,1fr) clamp(320px,24vw,372px);
  grid-template-rows:auto minmax(0,1fr) auto;
- grid-template-areas:"story story story" "analysis stage results" "timeline timeline results";
+ grid-template-areas:"story story" "stage results" "timeline results";
 }
 .workspace.has-analysis-dock>.scene-layer{inset:0;grid-area:auto}
-.has-analysis-dock .results{overflow-y:auto}
+.results-column{
+ grid-area:results;z-index:4;min-height:0;display:flex;flex-direction:column;gap:10px;
+ padding:2px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;
+ scrollbar-color:var(--line-strong) transparent;
+}
+.results-column>.results{flex:none;overflow:visible}
 .has-analysis-dock .timeline{z-index:5;grid-template-columns:minmax(180px,220px) minmax(0,1fr);align-items:center;padding:10px 14px}
 .has-analysis-dock .time-slider{width:100%;margin:0 0 4px}
 .has-analysis-dock .time-current{margin:4px 0}
 .has-analysis-dock .time-current button{width:30px;height:30px}
 .has-analysis-dock .timeline-side .micro{margin-top:4px}
 .analysis-dock{
- grid-area:analysis;z-index:4;display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0;
- padding:2px 4px 3px 2px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;
- scrollbar-color:var(--line-strong) transparent;pointer-events:none;
+ display:flex;flex:none;flex-direction:column;gap:10px;min-width:0;
 }
-.analysis-dock:has(.is-dragging){pointer-events:auto}
 .analysis-dock-card{
  position:relative;flex:none;min-width:0;padding:8px 10px 10px;border:1px solid var(--glass-border);
  border-radius:var(--radius-sm);background:rgba(15,15,16,.92);pointer-events:auto;
 }
 .analysis-dock-card.is-floating{
- position:fixed;width:min(420px,calc(100dvw - 16px));max-height:calc(100dvh - var(--header-h) - 16px);
+ position:fixed;max-width:calc(100dvw - 16px);max-height:calc(100dvh - var(--header-h) - 16px);
  overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;
  background:var(--bg-elev);box-shadow:0 12px 36px rgba(0,0,0,.65);
+ cursor:grab;touch-action:none;user-select:none;
 }
+.analysis-dock-card.is-floating .timeline-plot{cursor:inherit}
+.analysis-dock-card.is-floating:active{cursor:grabbing}
 .analysis-dock-card.is-dragging{opacity:.52}
 .analysis-dock-card[data-drop]::after{
  content:'';position:absolute;left:4px;right:4px;height:2px;border-radius:1px;
@@ -543,12 +548,12 @@ option{background:#111}
  .tab-short{display:inline}
  .workspace{grid-template-columns:minmax(0,1fr);grid-template-areas:"story" "stage" "results" "timeline"}
  .workspace>.scene-layer{inset:0;grid-area:stage}
- .results{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px 24px;align-items:start}
+ :where(.workspace:not(.has-analysis-dock)) .results{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px 24px;align-items:start}
  .results>.panel-heading,.results>.visibility-window{grid-column:1/-1}
- .results .metric-pair{grid-row:3/5;border-bottom:0}
- .results .joint{border-bottom:0;padding-top:0}
- .results .height-response{grid-column:2;grid-row:4;border-bottom:0}
- .results .checks{grid-column:3;grid-row:3/5;padding-top:0}
+ :where(.workspace:not(.has-analysis-dock)) .results .metric-pair{grid-row:3/5;border-bottom:0}
+ :where(.workspace:not(.has-analysis-dock)) .results .joint{border-bottom:0;padding-top:0}
+ :where(.workspace:not(.has-analysis-dock)) .results .height-response{grid-column:2;grid-row:4;border-bottom:0}
+ :where(.workspace:not(.has-analysis-dock)) .results .checks{grid-column:3;grid-row:3/5;padding-top:0}
  .timeline{grid-template-columns:200px minmax(0,1fr)}
  .timeline-horizon{grid-column:1/-1;padding:12px 0 0;border-left:0;border-top:1px solid var(--hairline)}
  .story-body{flex-wrap:wrap;gap:12px}

@@ -27,7 +27,7 @@ type Tab='Landing Sites'|'Infrastructure Designer'|'Compare'|'Science & Sources'
 const TABS:Tab[]=['Landing Sites','Infrastructure Designer','Compare','Science & Sources'];
 const SHORT_TABS:Record<Tab,string>={'Landing Sites':'Sites','Infrastructure Designer':'Designer','Compare':'Compare','Science & Sources':'Science'};
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
-const ANALYSIS_DOCK_MEDIA='(min-width: 1181px)';
+const ANALYSIS_DOCK_MEDIA='(width > 900px)';
 const MOON_IMAGERY_SOURCES=[
  {href:'https://www.lroc.asu.edu/',label:'NASA/GSFC/Arizona State University (LROC)'},
  {href:'https://svs.gsfc.nasa.gov/4720',label:'NASA SVS CGI Moon Kit'},
@@ -274,10 +274,10 @@ function App(){
   </div>
   <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
  </>}/>;
+ const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}/>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
   <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
-  <DesignerAnalysisPanels enabled={showAnalysisDock} analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
     <div className="terrain-title">
@@ -319,7 +319,10 @@ function App(){
    </div>
   {search&&<OptimizerCard search={search} lines={explainRecommendation(search,all,links,constraints,baseline)} links={links} selectedKey={keyFor(selected)} onPick={a=>{setDemoStep(null);setCandidate(a.candidate_id);setHeight(a.height_m);}} onClose={()=>setSearch(null)}/>}
   </section>
-  <ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}/>
+  {showAnalysisDock?<div className="results-column">
+   {results}
+   <DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>
+  </div>:results}
   <section className="timeline glass" ref={timelineRef} aria-label="Sun and Earth over time">
   <div className="timeline-side">
    <h2 className="panel-title">Timeline</h2>

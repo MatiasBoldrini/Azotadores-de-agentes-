@@ -5,10 +5,11 @@ import {HorizonChart,TimelineChart,timelineTitle} from './Charts';
 import type {Analysis} from './lib/science';
 
 const titles={sun:timelineTitle('sun'),earth:timelineTitle('earth'),horizon:'Horizon from the station'};
+const FLOATING_WIDTH=420;
 type PanelId=keyof typeof titles;
 type Point={x:number;y:number};
 type DropTarget={id:PanelId;side:'before'|'after'};
-type Move={id:PanelId;pointer:number;offset:Point};
+type Move={id:PanelId;pointer:number;origin:Point;position:Point;dragged:boolean};
 
 export function HorizonPanel({analysis,index,baseline,controls}:{
  analysis:Analysis;index:number;baseline:Analysis;controls?:DisclosureControls;
@@ -20,8 +21,8 @@ export function HorizonPanel({analysis,index,baseline,controls}:{
  </AnalysisDisclosure>;
 }
 
-export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,onIndex,timeline}:{
- enabled:boolean;analysis:Analysis;index:number;baseline:Analysis;onIndex:(index:number)=>void;timeline:RefObject<HTMLElement|null>;
+export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,timeline}:{
+ analysis:Analysis;index:number;baseline:Analysis;onIndex:(index:number)=>void;timeline:RefObject<HTMLElement|null>;
 }){
  const [order,setOrder]=useState<PanelId[]>(['sun','earth','horizon']);
  // Insertion order doubles as the floating windows' stacking order.
@@ -34,13 +35,14 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
  const handles=useRef<Partial<Record<PanelId,HTMLButtonElement|null>>>({});
  const drag=useRef<PanelId|null>(null);
  const move=useRef<Move|null>(null);
+ const suppressClick=useRef<PanelId|null>(null);
  const instructions=useId();
  const activeWindows=Array.from(floating.keys());
 
  function constrain(id:PanelId,point:Point):Point{
   const card=cards.current[id];
   if(!card)return point;
-  const top=(dock.current?.parentElement?.getBoundingClientRect().top??0)+8;
+  const top=(timeline.current?.parentElement?.getBoundingClientRect().top??0)+8;
   const bottom=Math.min(window.innerHeight,timeline.current?.getBoundingClientRect().top??window.innerHeight)-8;
   return {
    x:Math.max(8,Math.min(point.x,window.innerWidth-card.offsetWidth-8)),
@@ -49,7 +51,6 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
  }
 
  useLayoutEffect(()=>{
-  if(!enabled)return;
   const fitWindows=()=>{
    if(!dock.current?.getClientRects().length)return;
    setFloating(current=>{
@@ -75,7 +76,7 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
    drag.current=null;
    move.current=null;
   };
- },[enabled,timeline]);
+ },[timeline]);
 
  function raise(id:PanelId){
   setFloating(current=>{
@@ -96,7 +97,7 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
   setFloating(current=>{
    const next=new Map(current);
    if(wasFloating)next.delete(id);
-   else next.set(id,{x:dockBox.right+12+current.size*16,y:card.top});
+   else next.set(id,{x:dockBox.left-FLOATING_WIDTH-12-current.size*16,y:card.top});
    return next;
   });
   setAnnouncement(`${titles[id]} ${wasFloating?'docked':'floating'}.`);
@@ -172,14 +173,27 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
   setDropTarget(null);
  }
 
- function startMove(event:PointerEvent<HTMLButtonElement>,id:PanelId){
+ function startMove(event:PointerEvent<HTMLElement>,id:PanelId){
   const position=floating.get(id);
   if(!position||!event.isPrimary||event.button!==0)return;
-  event.currentTarget.setPointerCapture(event.pointerId);
-  move.current={id,pointer:event.pointerId,offset:{x:event.clientX-position.x,y:event.clientY-position.y}};
+  suppressClick.current=null;
+  const element=event.target;
+  if(!(element instanceof Element)||element.closest('button:not(.analysis-panel-handle), input, a, select, textarea, [contenteditable]'))return;
+  // Keep a short click on the original element, including a point on an SVG plot.
+  element.setPointerCapture(event.pointerId);
+  move.current={id,pointer:event.pointerId,origin:{x:event.clientX,y:event.clientY},position,dragged:false};
  }
 
- if(!enabled)return null;
+ function updateMove(event:PointerEvent<HTMLElement>,id:PanelId){
+  const moving=move.current;
+  if(!moving||moving.id!==id||moving.pointer!==event.pointerId)return;
+  const dx=event.clientX-moving.origin.x,dy=event.clientY-moving.origin.y;
+  if(!moving.dragged&&Math.hypot(dx,dy)<4)return;
+  moving.dragged=true;
+  suppressClick.current=id;
+  moveFloating(id,{x:moving.position.x+dx,y:moving.position.y+dy});
+ }
+
  return <aside className="analysis-dock" ref={dock} aria-label="Analysis plots"
   onDragOver={event=>{
    if(!drag.current)return;
@@ -207,13 +221,7 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
     handle:<button type="button" className="analysis-panel-icon analysis-panel-handle" title={handleLabel} aria-label={handleLabel}
      aria-describedby={instructions} draggable={!position} ref={el=>{handles.current[id]=el;}}
      onDragStart={event=>startDrag(event,id)} onDragEnd={stopDrag}
-     onKeyDown={event=>handleKey(event,id)} onPointerDown={event=>startMove(event,id)}
-     onPointerMove={event=>{
-      const moving=move.current;
-      if(!moving||moving.id!==id||moving.pointer!==event.pointerId)return;
-      moveFloating(id,{x:event.clientX-moving.offset.x,y:event.clientY-moving.offset.y});
-     }}
-     onLostPointerCapture={()=>{if(move.current?.id===id)move.current=null;}}>
+     onKeyDown={event=>handleKey(event,id)}>
      <GripVertical size={15} aria-hidden="true"/>
     </button>,
     action:<button type="button" className="analysis-panel-icon" title={toggleLabel} aria-label={toggleLabel} onClick={()=>toggleFloating(id)}>
@@ -223,10 +231,19 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
    return <section key={id} ref={el=>{cards.current[id]=el;}} aria-label={title}
     className={`analysis-dock-card${position?' is-floating':''}${dragged===id?' is-dragging':''}`}
     data-drop={dropTarget?.id===id?dropTarget.side:undefined}
-    style={position?{left:position.x,top:position.y,zIndex:activeWindows.indexOf(id)+1}:undefined}
-    onPointerDown={position?()=>raise(id):undefined} onFocus={position?()=>raise(id):undefined}>
+    style={position?{left:position.x,top:position.y,width:FLOATING_WIDTH,zIndex:activeWindows.indexOf(id)+1}:undefined}
+    onPointerDown={position?event=>{raise(id);startMove(event,id);}:undefined}
+    onPointerMove={position?event=>updateMove(event,id):undefined}
+    onLostPointerCapture={event=>{if(move.current?.pointer===event.pointerId)move.current=null;}}
+    onClickCapture={event=>{
+     if(suppressClick.current!==id||event.detail===0)return;
+     suppressClick.current=null;
+     event.preventDefault();
+     event.stopPropagation();
+    }}
+    onFocus={position?()=>raise(id):undefined}>
     {id==='horizon'?<HorizonPanel analysis={analysis} index={index} baseline={baseline} controls={controls}/>:
-     <TimelineChart body={id} analysis={analysis} index={index} onIndex={onIndex} baseline={baseline} baselineLabel="0 m" currentLabel={`${analysis.height_m} m`} collapsible controls={controls}/>}
+     <TimelineChart body={id} analysis={analysis} index={index} onIndex={onIndex} baseline={baseline} baselineLabel="0 m" currentLabel={`${analysis.height_m} m`} collapsible controls={controls} floating={!!position}/>}
    </section>;
   })}
  </aside>;
