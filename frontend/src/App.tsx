@@ -281,7 +281,13 @@ function App(){
   <StoryBar story={story} demo={demo} hideSummary={!!search} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
-    <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
+    <div className="map-references">
+     <ul className="map-legend" aria-label="Map legend">
+      <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
+      <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
+     </ul>
+     <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
+    </div>
     <div className="map-actions">
      <div className="map-config" ref={configureRef}>
       <button type="button" ref={configureButton} className="secondary" aria-expanded={showConfigure} aria-controls="map-configuration" onClick={()=>setShowConfigure(!showConfigure)}><SlidersHorizontal size={14} aria-hidden="true"/>Configure</button>
@@ -307,10 +313,6 @@ function App(){
      </div>
      <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
     </div>
-  <ul className="map-legend" aria-label="Map legend">
-   <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
-   <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
-  </ul>
   <div className="map-tools"><button title="Reset camera" aria-label="Reset camera" onClick={()=>setReset(reset+1)}><RotateCcw size={16}/></button><button title="Toggle top view" aria-label="Toggle top view" aria-pressed={mapView} onClick={()=>setMapView(!mapView)}><Maximize2 size={16}/></button><button title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={wire} onClick={()=>setWire(!wire)}><Layers3 size={16}/></button></div>
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}

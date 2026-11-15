@@ -191,10 +191,10 @@ option{background:#111}
 .terrain-panel{grid-area:stage;min-width:0;min-height:0;pointer-events:none!important}
 .terrain-panel:has(.map-config-panel:not([hidden])){z-index:2}
 .terrain-panel>.optimizer-card,.map-actions button,.map-config-panel,.map-tools button{pointer-events:auto}
-.map-frame{position:relative;height:100%}
+.map-frame{position:relative;height:100%;display:grid;grid-template-columns:auto minmax(0,1fr);align-content:start;align-items:start;column-gap:16px}
 .terrain-scope{display:grid;gap:2px;width:fit-content;max-width:100%;padding:5px 8px;border-radius:6px;background:rgba(5,5,5,.76);color:var(--text-2);font-size:12px;line-height:1.4;font-variant-numeric:tabular-nums}
 .terrain-scope strong{color:var(--text);font-weight:600}
-.map-actions{position:relative;z-index:6;display:flex;gap:8px;flex-wrap:wrap;width:fit-content;max-width:100%;margin-top:10px}
+.map-actions{position:relative;grid-area:1/1;z-index:6;display:flex;gap:8px;flex-wrap:wrap;width:fit-content;max-width:100%;margin-top:10px}
 .map-actions>.map-optimize,.map-config>button{min-height:40px;padding-inline:12px;backdrop-filter:blur(14px)}
 .map-optimize{background:linear-gradient(var(--earth-soft),var(--earth-soft)),rgba(5,5,5,.72)}
 .map-optimize:hover:not([aria-disabled=true]){background:linear-gradient(rgba(143,211,255,.24),rgba(143,211,255,.24)),rgba(5,5,5,.72)}
@@ -203,7 +203,8 @@ option{background:#111}
 .map-config>button:hover,.map-config>button[aria-expanded=true]{background:rgba(42,42,42,.93)}
 .map-config-panel{position:absolute;top:calc(100% + 8px);left:0;width:min(334px,calc(100vw - 32px));padding:14px;background:rgba(13,13,14,.94);border-radius:var(--radius-sm);overscroll-behavior:contain}
 .map-config-panel .constraint-fields{max-height:min(270px,38vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
-.map-legend{position:absolute;top:8px;right:0;z-index:2;display:flex;align-items:center;gap:14px;margin:0;padding:0;list-style:none;font-size:12px;color:var(--text);text-shadow:0 1px 3px #000}
+.map-references{grid-area:1/2;z-index:2;display:grid;justify-items:end;gap:8px;min-width:0;margin-top:8px}
+.map-legend{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:4px 14px;margin:0;padding:0;list-style:none;font-size:12px;color:var(--text);text-shadow:0 1px 3px #000}
 .map-legend li{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .map-legend i{display:inline-block;filter:drop-shadow(0 1px 2px #000)}
 .lg-station{width:3px;height:12px;background:var(--text);border-radius:1px}
@@ -548,7 +549,6 @@ option{background:#111}
 @media(max-width:1360px){
  .topbar{gap:14px;padding:0 20px}
  .topbar nav button{padding:8px 11px}
- .map-legend{display:none}
 }
 @media(max-width:1180px){
  .tab-full{display:none}
@@ -575,7 +575,9 @@ option{background:#111}
  .top-actions .text-button{display:none}
  :root{--header-h:110px}
  .workspace{grid-template-columns:1fr;grid-template-rows:none;grid-template-areas:"story" "stage" "results" "timeline";padding:calc(var(--header-h) + 16px) 16px 20px;gap:14px}
- .map-frame{height:420px}
+ .map-frame{display:block;height:420px}
+ .map-references{display:block;justify-items:normal;margin-top:0}
+ .map-legend{display:none}
  .workspace>.scene-layer{bottom:auto;height:420px}
  .optimizer-card{position:relative;bottom:auto;width:auto;max-width:440px;margin-top:12px}
  .results{grid-template-columns:1fr 1fr}
