@@ -23,6 +23,8 @@ const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
 // width in light space, and casters far toward it can still reach the ground around the site.
 const SHADOW_CASCADES=[{wide:12,tall:12,depth:100,map:4096,bias:-.00015,normalBias:.012},
  {wide:60,tall:30,depth:180,map:2048,bias:-.0002,normalBias:.06},{wide:330,tall:110,depth:340,map:4096,bias:-.0003,normalBias:.2}];
+// The outer cascades add two shadow passes and lookups, so they only run with ?hq=1.
+const shadowCascades=new URLSearchParams(location.search).get('hq')==='1'?SHADOW_CASCADES:SHADOW_CASCADES.slice(0,1);
 // Every evaluated cell lies within 0.598 of the half-width, so the tile keeps its own samples well past them.
 const TILE_BLEND=.92,LEVEL_BLEND=.85;
 // Resting view: HERO_BACK km behind the site and HERO_RISE km above its mean level, high enough that the
@@ -157,21 +159,28 @@ const MOSAIC_GLSL=`vec2 polarTexels=fwidth(vPolarUv)*${POLAR_GRID.size.toFixed(1
  float neutral=max(siteMagnified*(1.0-smoothstep(.35,1.0,max(polarTexels.x,polarTexels.y))),smoothstep(.8,1.0,siteMagnified));
  diffuseColor.rgb=mix(texture2D(polarMap,vPolarUv).rgb,diffuseColor.rgb,neutral);`;
 
-// The key light's shadow comes from three nested maps around the site (see SHADOW_CASCADES), finest first,
-// each easing into the next toward its edge, so the terrain out to the horizon is shadowed without a seam.
-const CASCADE_GLSL=`#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS == 3
-float cascadeEdge(vec4 c){vec3 p=c.xyz/c.w;return p.z>1.0?0.0:smoothstep(0.0,.06,min(min(p.x,1.0-p.x),min(p.y,1.0-p.y)));}
+// The key light's shadow comes from the nested maps of SHADOW_CASCADES around the site, finest first, each easing
+// into the next toward its edge; past the last one the terrain keeps only its hillshade, never a straight cut.
+const CASCADE_GLSL=`#if defined( USE_SHADOWMAP ) && ( NUM_DIR_LIGHT_SHADOWS == 1 || NUM_DIR_LIGHT_SHADOWS == 3 )
+#define TERRAIN_CASCADES
+float cascadeEdge(vec4 c,float fade){vec3 p=c.xyz/c.w;return p.z>1.0?0.0:smoothstep(0.0,fade,min(min(p.x,1.0-p.x),min(p.y,1.0-p.y)));}
 #define CASCADE(k) getShadow(directionalShadowMap[k],directionalLightShadows[k].shadowMapSize,directionalLightShadows[k].shadowIntensity,directionalLightShadows[k].shadowBias,directionalLightShadows[k].shadowRadius,vDirectionalShadowCoord[k])
 float cascadeShadow(){
- float fine=cascadeEdge(vDirectionalShadowCoord[0]);
+ #if NUM_DIR_LIGHT_SHADOWS == 3
+ float fine=cascadeEdge(vDirectionalShadowCoord[0],.06);
  if(fine>=1.0)return CASCADE(0);
- float mid=cascadeEdge(vDirectionalShadowCoord[1]);
+ float mid=cascadeEdge(vDirectionalShadowCoord[1],.06);
  float coarse=mid>=1.0?CASCADE(1):mid<=0.0?CASCADE(2):mix(CASCADE(2),CASCADE(1),mid);
+ #else
+ float fine=cascadeEdge(vDirectionalShadowCoord[0],.2);
+ if(fine>=1.0)return CASCADE(0);
+ float coarse=1.0;
+ #endif
  return fine<=0.0?coarse:mix(coarse,CASCADE(0),fine);
 }
 #endif`;
 const DIRECT_SHADOW='directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;';
-const CASCADE_LIGHTS=THREE.ShaderChunk.lights_fragment_begin.replace(DIRECT_SHADOW,`#if NUM_DIR_LIGHT_SHADOWS == 3
+const CASCADE_LIGHTS=THREE.ShaderChunk.lights_fragment_begin.replace(DIRECT_SHADOW,`#ifdef TERRAIN_CASCADES
 		directLight.color *= ( directLight.visible && receiveShadow && UNROLLED_LOOP_INDEX == 0 ) ? cascadeShadow() : 1.0;
 		#else
 		${DIRECT_SHADOW}
@@ -300,7 +309,7 @@ function Lights({frame,progress}:{frame:SiteFrame;progress:RefObject<number>}){
  });
  return <group ref={rig}>
   <hemisphereLight args={['#c3cbd4','#2a2826']} userData={{base:1.1,site:true}}/>
-  {SHADOW_CASCADES.map(({wide,tall,depth,map,bias,normalBias},i)=>{const size=small?map/2:map;return <directionalLight key={i} position={toward.clone().multiplyScalar(depth+10).toArray()} color="#fff4e6"
+  {shadowCascades.map(({wide,tall,depth,map,bias,normalBias},i)=>{const size=small?map/2:map;return <directionalLight key={i} position={toward.clone().multiplyScalar(depth+10).toArray()} color="#fff4e6"
    userData={{base:i?0:3.2,site:true}} castShadow shadow-mapSize={[size,size]} shadow-camera-left={-wide} shadow-camera-right={wide} shadow-camera-top={tall} shadow-camera-bottom={-tall}
    shadow-camera-near={10} shadow-camera-far={2*depth+10} shadow-bias={bias} shadow-normalBias={normalBias*map/size}/>;})}
   <directionalLight position={moonSun} color={MOON_LIGHTS.sun.color} userData={{base:MOON_LIGHTS.sun.intensity,site:false}}/>
