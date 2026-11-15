@@ -271,6 +271,8 @@ function App(){
   </div>
   <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
  </>}/>;
+ const timelineTimestamp=selected.series.timestamp_utc[index];
+ const timelineDate=`${utc(timelineTimestamp)} · ${timelineTimestamp.slice(0,4)} UTC`;
  const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}>
   {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;
@@ -279,10 +281,6 @@ function App(){
   <StoryBar story={story} demo={demo} hideSummary={!!search} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
-    <div className="terrain-title">
-     <h2>Connecting Ridge</h2>
-     <p className="map-coordinates"><span className="sr-only">Landing site coordinates: </span>{fmt(Math.abs(site.latitude_deg),5)}° S · {fmt(Math.abs(site.longitude_deg),5)}° W · {fmt(site.elevation_m,0)} m elevation</p>
-    </div>
     <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
     <div className="map-actions">
      <div className="map-config" ref={configureRef}>
@@ -322,12 +320,21 @@ function App(){
   {results}
   <section className="timeline glass" ref={timelineRef} aria-label="Sun and Earth over time">
   <div className="timeline-side">
-   <h2 className="panel-title">Timeline</h2>
-   <div className="time-current"><button aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button><div><b>{utc(selected.series.timestamp_utc[index])}</b><small>{selected.series.timestamp_utc[index].slice(0,4)} · UTC</small></div>{focusIndex>0&&atSiteCell&&<button className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}</div>
+   <div className="timeline-heading">
+    <h2 className="panel-title">Connecting Ridge</h2>
+    <div className="timeline-controls">
+     <button type="button" aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button>
+     {focusIndex>0&&atSiteCell&&<button type="button" className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}
+    </div>
+   </div>
+   <p className="timeline-coordinates"><span className="sr-only">Landing site coordinates: </span>{fmt(Math.abs(site.latitude_deg),5)}° S · {fmt(Math.abs(site.longitude_deg),5)}° W · {fmt(site.elevation_m,0)} m elevation</p>
   </div>
   <div className="timeline-plots">
    {!showAnalysisDock&&<TimelineStack height={64} analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>}
-   <input className="time-slider" aria-label="Timeline time" type="range" min="0" max={count-1} value={index} onChange={e=>{setTime(Number(e.target.value));setPlaying(false);}}/>
+   <div className="time-scrubber">
+    <input className="time-slider" aria-label="Timeline time" aria-valuetext={timelineDate} type="range" min="0" max={count-1} value={index} onChange={e=>{setTime(Number(e.target.value));setPlaying(false);}}/>
+    <time className="time-tooltip" dateTime={timelineTimestamp} aria-hidden="true" style={{left:`clamp(min(86px, 50%), ${index/Math.max(1,count-1)*100}%, max(50%, 100% - 86px))`}}>{timelineDate}</time>
+   </div>
    <DateWindowPicker compact days={observationDays} start={start} end={end} label="Timeline observation window" onChange={setWindow} status={designer.status}/>
   </div>
   {!showAnalysisDock&&<div className="timeline-horizon"><HorizonPanel compact analysis={selected} index={index} baseline={baseline}/></div>}
