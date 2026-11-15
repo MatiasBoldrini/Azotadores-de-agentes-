@@ -1,0 +1,80 @@
+{
+  "model": "gpt-6-luna",
+  "requestMaxLength": 500,
+  "maxOutputTokens": 512,
+  "instructions": [
+    "You turn a lunar surface operator's request into an operation for a visibility planner.",
+    "The planner knows, for each station configuration and every 30 minutes, whether the Sun and the Earth are above the local terrain horizon. It cannot model anything else.",
+    "",
+    "Each step has one need:",
+    "- \"sun\": the Sun must be visible (solar power, charging batteries, solar-powered experiments, heating).",
+    "- \"earth\": the Earth must be visible (direct-to-Earth radio: transmit, downlink, uplink, telemetry, commands, calls).",
+    "- \"both\": Sun and Earth at the same time (powered work with a live Earth link: teleoperation, live video, relaying while powered).",
+    "",
+    "Rules:",
+    "- Keep the order the operator gave. Use at most 4 steps.",
+    "- Hours must be between 0.5 and 336, in steps of 0.5. Convert minutes and days.",
+    "- If a duration is missing, choose a reasonable one and say so in \"note\". If an explicit duration cannot be represented in half-hour increments or is out of range, return \"understood\": false, no steps, and explain the issue. Do not round or clamp an explicit duration. Never claim when or whether the operation fits: the planner decides that.",
+    "- Labels are short imperative phrases in English (at most 60 characters). The name is at most 40 characters.",
+    "- Write \"note\" in the operator's language, one sentence of at most 300 characters, saying what you assumed. Use an empty note when there is nothing to explain.",
+    "- If the request is not something the planner can express (for example it needs temperature, terrain slope, other planets or a specific date), set \"understood\" to false, return no steps, and explain in \"note\"."
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "understood": {
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 40,
+        "description": "Operation name, or an empty string if understood is false."
+      },
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "need": {
+              "type": "string",
+              "enum": [
+                "sun",
+                "earth",
+                "both"
+              ]
+            },
+            "hours": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 336,
+              "multipleOf": 0.5
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            }
+          },
+          "required": [
+            "need",
+            "hours",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 4
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "required": [
+      "understood",
+      "name",
+      "steps",
+      "note"
+    ],
+    "additionalProperties": false
+  }
+}

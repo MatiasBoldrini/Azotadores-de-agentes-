@@ -1,87 +1,99 @@
-"""Language agent endpoint: request shape, validation and failure behaviour.
-
-Claude is replaced by a stub here; the endpoint's contract is that it returns only an
-operation (needs and hours) and never visibility figures, which the planner computes.
-"""
+"""FastAPI operation endpoint with stubbed OpenAI Responses API."""
 import json
 import os
 import unittest
-from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 from fastapi.testclient import TestClient
+
 from siteforge import agent, api
 
 
-def reply(payload, stop_reason="end_turn"):
+GOOD = {
+    "understood": True, "name": "Charge then call", "note": "Asumí media hora de transmisión.",
+    "steps": [
+        {"need": "sun", "hours": 24, "label": "Charge batteries"},
+        {"need": "earth", "hours": 0.5, "label": "Call Earth"},
+    ],
+}
+REFUSAL = {"type": "refusal", "refusal": "I can't help."}
+
+
+def reply(payload, status="completed", *, refusal=False):
     text = payload if isinstance(payload, str) else json.dumps(payload)
-    return SimpleNamespace(stop_reason=stop_reason, content=[SimpleNamespace(type="thinking", thinking=""), SimpleNamespace(type="text", text=text)])
-
-
-class StubClient:
-    def __init__(self, response):
-        self.calls = []
-        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self.create))
-        self.response = response
-
-    def create(self, **kwargs):
-        self.calls.append(kwargs)
-        return self.response
-
-
-GOOD = {"understood": True, "name": "Charge then call", "note": "Asumí 1 h.",
-        "steps": [{"need": "sun", "hours": 24, "label": "Charge batteries"}, {"need": "earth", "hours": 0.75, "label": "Call Earth"}]}
+    content = REFUSAL if refusal else {"type": "output_text", "text": text}
+    return httpx.Response(
+        200,
+        json={"status": status, "output": [{"type": "message", "content": [content]}]},
+        request=httpx.Request("POST", "https://api.openai.com/v1/responses"),
+    )
 
 
 class AgentApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(api.app)
 
-    def post(self, stub, text="cargar un día y llamar a la Tierra"):
-        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test"}), patch.object(agent, "client", return_value=stub):
-            return self.client.post("/api/agent/operation", json={"text": text})
+    def post(self, upstream, text="cargar un día y llamar a la Tierra"):
+        with (
+            patch.dict(os.environ, {"OPENAI_API_KEY": "fake-api-key", "OPENAI_MODEL": ""}),
+            patch.object(agent.httpx, "post", return_value=upstream) as post,
+        ):
+            return self.client.post("/api/agent/operation", json={"text": text}), post
 
-    def test_unconfigured_server_answers_503_so_the_browser_uses_its_parser(self):
-        env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
-        with patch.dict(os.environ, env, clear=True):
+    def test_unconfigured_server_answers_503(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": ""}):
             response = self.client.post("/api/agent/operation", json={"text": "transmitir 1 h"})
         self.assertEqual(response.status_code, 503)
 
     def test_request_uses_structured_output_and_returns_only_an_operation(self):
-        stub = StubClient(reply(GOOD))
-        response = self.post(stub)
+        response, post = self.post(reply(GOOD))
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertTrue(body["understood"])
-        self.assertEqual([(s["need"], s["hours"]) for s in body["operation"]["steps"]], [("sun", 24), ("earth", 1.0)])
-        self.assertEqual(body["source"], "claude")
-        call = stub.calls[0]
-        self.assertEqual(call["model"], "claude-opus-5-5")
-        self.assertEqual(call["output_config"]["format"]["type"], "json_schema")
-        self.assertEqual(call["messages"], [{"role": "user", "content": "cargar un día y llamar a la Tierra"}])
-        self.assertNotIn("hours of", json.dumps(call["messages"]), "no visibility data is sent to the model")
+        self.assertEqual(body["operation"]["steps"], GOOD["steps"])
+        self.assertEqual(body["source"], "openai")
+        self.assertEqual(body["model"], "gpt-6-luna")
+        self.assertEqual(post.call_args.args, ("https://api.openai.com/v1/responses",))
+        call = post.call_args.kwargs["json"]
+        self.assertEqual(call["model"], "gpt-6-luna")
+        self.assertEqual(call["text"]["format"]["type"], "json_schema")
+        self.assertTrue(call["text"]["format"]["strict"])
+        self.assertFalse(call["store"])
+        self.assertEqual(call["input"], "cargar un día y llamar a la Tierra")
+        self.assertNotIn("tools", call)
 
     def test_not_understood_is_returned_without_steps(self):
-        stub = StubClient(reply({"understood": False, "name": "", "steps": [], "note": "Necesita datos de temperatura."}))
-        body = self.post(stub, "mantener la batería sobre 0 °C").json()
-        self.assertFalse(body["understood"])
-        self.assertIsNone(body["operation"])
+        response, _ = self.post(reply({
+            "understood": False, "name": "", "steps": [], "note": "Necesita datos de temperatura.",
+        }))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["understood"])
+        self.assertIsNone(response.json()["operation"])
 
-    def test_out_of_range_or_malformed_answers_are_rejected_not_repaired(self):
-        for bad in ({**GOOD, "steps": [{"need": "mars", "hours": 2, "label": "x"}]},
-                    {**GOOD, "steps": [{"need": "sun", "hours": 1000, "label": "x"}]},
-                    {**GOOD, "steps": GOOD["steps"] * 3},
-                    "not json"):
-            self.assertEqual(self.post(StubClient(reply(bad))).status_code, 502, bad)
+    def test_out_of_range_or_malformed_answers_are_rejected(self):
+        for step in (
+            {"need": "mars", "hours": 2, "label": "x"},
+            {"need": "sun", "hours": 1000, "label": "x"},
+            {"need": "sun", "hours": 0.75, "label": "x"},
+            {"need": "sun", "hours": 0.49, "label": "x"},
+            {"need": "sun", "hours": "2", "label": "x"},
+            {"need": "sun", "hours": True, "label": "x"},
+        ):
+            with self.subTest(step=step):
+                self.assertEqual(self.post(reply({**GOOD, "steps": [step]}))[0].status_code, 502)
+        for bad in ({**GOOD, "steps": []}, {**GOOD, "steps": GOOD["steps"] * 3},
+                    {**GOOD, "understood": False}, "not json"):
+            self.assertEqual(self.post(reply(bad))[0].status_code, 502, bad)
 
     def test_refusal_and_truncation_are_errors(self):
-        self.assertEqual(self.post(StubClient(reply(GOOD, "refusal"))).status_code, 422)
-        self.assertEqual(self.post(StubClient(reply(GOOD, "max_tokens"))).status_code, 502)
+        self.assertEqual(self.post(reply(GOOD, refusal=True))[0].status_code, 422)
+        self.assertEqual(self.post(reply(GOOD, "incomplete"))[0].status_code, 502)
 
     def test_text_length_is_bounded(self):
-        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test"}):
-            self.assertEqual(self.client.post("/api/agent/operation", json={"text": "x" * 501}).status_code, 422)
-            self.assertEqual(self.client.post("/api/agent/operation", json={"text": ""}).status_code, 422)
+        for text in ("", " ", "x" * 501):
+            response, post = self.post(reply(GOOD), text)
+            self.assertEqual(response.status_code, 422)
+            post.assert_not_called()
 
 
 if __name__ == "__main__":

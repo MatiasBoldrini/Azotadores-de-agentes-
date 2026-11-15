@@ -51,15 +51,15 @@ test('requests the planner cannot express are rejected instead of guessed', () =
 });
 
 const answer = body => ({ok: true, status: 200, json: async () => body});
-const claude = {understood: true, note: 'Asumí 1 h de transmisión.', model: 'claude-opus-5-5', source: 'claude',
+const openai = {understood: true, note: 'Asumí 1 h de transmisión.', model: 'gpt-6-luna', source: 'openai',
   operation: {name: 'Charge then talk', steps: [{need: 'sun', hours: 24, label: 'Charge batteries'}, {need: 'earth', hours: 1, label: 'Call Earth'}]}};
 
 test('the client uses the backend agent when it answers with a valid operation', async () => {
   let called;
-  const r = await askAgent('cargar un día y llamar a la Tierra', {fetchImpl: async (url, init) => { called = {url, body: JSON.parse(init.body)}; return answer(claude); }});
+  const r = await askAgent('cargar un día y llamar a la Tierra', {fetchImpl: async (url, init) => { called = {url, body: JSON.parse(init.body)}; return answer(openai); }});
   assert.equal(called.url, '/api/agent/operation');
   assert.equal(called.body.text, 'cargar un día y llamar a la Tierra');
-  assert.equal(r.source, 'claude');
+  assert.equal(r.source, 'openai');
   assert.deepEqual(r.op.steps.map(s => [s.need, s.hours]), [['sun', 24], ['earth', 1]]);
 });
 
@@ -74,7 +74,7 @@ test('the client falls back to the offline parser when the agent is missing, fai
     assert.ok(r.fallbackReason);
     assert.deepEqual(r.op.steps.map(s => [s.need, s.hours]), [['sun', 24], ['earth', 1]]);
   }
-  const bad = await askAgent(text, {fetchImpl: async () => answer({...claude, operation: {...claude.operation, steps: [{need: 'mars', hours: 2, label: 'x'}]}})});
+  const bad = await askAgent(text, {fetchImpl: async () => answer({...openai, operation: {...openai.operation, steps: [{need: 'mars', hours: 2, label: 'x'}]}})});
   assert.equal(bad.source, 'local', 'invalid payloads are never shown as agent output');
   assert.equal(bad.fallbackReason, 'language agent answer failed validation');
   assert.deepEqual(bad.op.steps.map(s => s.need), ['sun', 'earth']);
@@ -82,10 +82,10 @@ test('the client falls back to the offline parser when the agent is missing, fai
 
 test('agent payloads outside the planner limits are refused', () => {
   for (const hours of [0, 0.49, 0.6, 336.1, Infinity, '2']) {
-    assert.throws(() => validateAgentPayload({...claude, operation: {...claude.operation, steps: [{need: 'sun', hours, label: 'x'}]}}));
+    assert.throws(() => validateAgentPayload({...openai, operation: {...openai.operation, steps: [{need: 'sun', hours, label: 'x'}]}}));
   }
-  assert.throws(() => validateAgentPayload({...claude, operation: {...claude.operation, steps: Array(5).fill(claude.operation.steps[0])}}));
-  const unclear = validateAgentPayload({understood: false, operation: null, note: 'Needs temperature data.'});
+  assert.throws(() => validateAgentPayload({...openai, operation: {...openai.operation, steps: Array(5).fill(openai.operation.steps[0])}}));
+  const unclear = validateAgentPayload({understood: false, operation: null, note: 'Needs temperature data.', source: 'openai'});
   assert.equal(unclear.ok, false);
 });
 

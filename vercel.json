@@ -1,7 +1,11 @@
 {
   "buildCommand": "npm ci --prefix frontend && npm run build --prefix frontend",
+  "installCommand": "npm ci",
   "outputDirectory": "dist",
   "framework": null,
+  "functions": {
+    "api/agent/operation.mjs": {"maxDuration": 20}
+  },
   "git": {
     "deploymentEnabled": false
   },

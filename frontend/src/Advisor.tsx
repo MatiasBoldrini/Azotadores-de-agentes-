@@ -31,7 +31,7 @@ function loadOperation():Operation {
 const toSaved = (op:Operation):Saved => op.id==='custom'?{id:'custom',name:op.name,steps:op.steps}:{id:op.id,hours:op.steps.map(s=>s.hours)};
 
 type Reply = {text:string;source:AgentSource;fallback?:string;error?:boolean};
-const SOURCE_LABEL:Record<AgentSource,string> = {claude:'Read by Claude',local:'Read by the offline parser'};
+const SOURCE_LABEL:Record<AgentSource,string> = {openai:'Read by OpenAI',local:'Read by the offline parser'};
 
 export default function Advisor({input,onAction}:{input:AdvisorInput;onAction:(action:InsightAction)=>void}){
  const [op,setOp] = useState<Operation>(loadOperation);
