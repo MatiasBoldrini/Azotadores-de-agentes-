@@ -1,38 +1,41 @@
-# Proactive language agent (OpenAI)
+# Proactive language agent
 
-The "What to do next" panel in Designer has three proactive parts and one input:
+The **What to do next** panel in Designer briefs the operator when the station, mast, operation, constraints or timeline cursor changes. It requests a ranking after a pause in changes while the panel is open in Designer. The automatic briefing is available during playback and when the model is unavailable. **Right now** alerts come from the computed Sun and Earth visibility intervals.
 
-1. **Briefing** (top card). Every time the station, mast height, operation, constraints or timeline cursor change, the agent reviews the findings the deterministic advisor computed and says the single most important thing to do, with up to three findings ranked and explained. Nobody has to ask. It is refreshed after 1.2 s without changes and paused while the timeline plays.
-2. **Right now** alerts. The next Sun or Earth rise or set within 12 h of the cursor ("Earth sets in 7 h: transmit now"). Read directly from the visibility intervals on every cursor move, including during playback. No model involved.
-3. **Your operation** and **Watching this configuration**: the planner and advisor findings (when to start, slack, fallback, better configuration, blackouts, margins, cheapest fix).
-4. **Tell the agent what you need to do**: a request in Spanish or English ("cargar un día y después transmitir 1 h") becomes an ordered operation and goes through the same planner as the presets.
+The panel also accepts an operation in Spanish or English. For example, “cargar dos horas y después transmitir media hora” becomes a solar power step of two hours followed by an Earth link step of half an hour. The planner uses the engine output to determine possible start times, outages and station configurations.
 
-## Division of work
+The two endpoints use OpenAI Structured Outputs. `POST /api/agent/operation` receives the operator's text and returns one to four steps in half-hour increments from 0.5 to 336 hours. `POST /api/agent/briefing` receives up to 12 computed findings and returns up to three distinct finding IDs in priority order. The panel renders the titles and details from those findings. The browser uses the offline parser or automatic briefing when a model request fails.
 
-| Part | Does | Never does |
-| --- | --- | --- |
-| OpenAI `POST /api/agent/operation` (`siteforge/agent.py`) | Turns words into steps: need (`sun`, `earth`, `both`), hours, label, one sentence saying what it assumed | See or produce visibility figures |
-| OpenAI `POST /api/agent/briefing` | Chooses and explains up to 3 of the computed findings, plus a one-line headline | Add facts or numbers: the server rejects any number not present in the findings it was given, and any unknown finding id |
-| Offline parser and automatic briefing (`frontend/src/lib/intent.ts`, `localBriefing`) | Same jobs without a model: keyword parsing; the most urgent finding first | Guess a request that names no Sun or Earth need |
-| Planner, advisor, alerts (`planner.ts`, `advisor.ts`, `alerts.ts`) | Every time, duration, outage and configuration shown, from the engine output | Use anything a model wrote except the steps |
+## Enable OpenAI in Vercel production
 
-Both calls use Chat Completions with strict JSON-schema structured output. Answers are validated on the server and again in the browser; invalid answers are rejected, never repaired, and the browser falls back. The panel always labels the source: "Briefing by OpenAI, checked against the computed findings" or "Automatic briefing (reason)", "Read by OpenAI" or "Read by the offline parser (reason)". When the server shows it has no agent (404, 405, 501, 503) the page stops asking for the rest of the session.
-
-## Enable OpenAI on the backend
-
-The static Vercel deployment has no backend, so it always uses the offline parser and the automatic briefing. To use OpenAI, run the FastAPI backend (see [HYBRID_BACKEND.md](HYBRID_BACKEND.md)) with the key in its environment, and build the frontend with `VITE_API_BASE_URL` pointing at it when it is on another origin:
+Vercel serves the static frontend and two Node.js functions. Confirm that the CLI is linked to the intended project and that the project exposes the Vercel system environment variables. Publish the programmatic firewall rule before deploying with an API key.
 
 ```sh
-pip install -r requirements.txt
-OPENAI_API_KEY=... .venv/bin/python -m uvicorn siteforge.api:app --host 127.0.0.1 --port 8000
+vercel firewall rules add 'SiteForge operation rate limit' \
+  --condition '{"type":"rate_limit_api_id","op":"eq","value":"siteforge-operation"}' \
+  --action rate_limit --rate-limit-window 60 --rate-limit-requests 6 \
+  --rate-limit-keys ip --rate-limit-action rate_limit --yes
+vercel firewall diff
+vercel firewall publish --yes
+vercel env add OPENAI_API_KEY production --sensitive
 ```
 
-- Model: `gpt-5-mini` by default; set `SITEFORGE_AGENT_MODEL` to any OpenAI model that supports structured outputs.
-- The key stays on the server; the frontend never holds it. Requests are size-limited (500 characters; 12 findings). There is no per-user rate limit: each pause or scrub of the timeline can trigger one briefing call, cached per set of findings.
+Enter the key when prompted and redeploy production. The functions read the key at runtime. Preview deployments and deployments without a key use the offline parser and automatic briefing. [Vercel Firewall SDK](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting-sdk) · [Vercel environment variables](https://vercel.com/docs/cli/env)
+
+Both endpoints share the firewall allowance of six requests per minute per IP. They return an error if the firewall check fails. Each OpenAI request allows up to 512 output tokens. Operation text is capped at 500 characters and briefing input includes up to 12 bounded findings. An OpenAI project-level limit can cap usage across IP addresses. [OpenAI rate and spend limits](https://developers.openai.com/api/docs/guides/rate-limits)
+
+## Local FastAPI
+
+Export `OPENAI_API_KEY` and set `SITEFORGE_AGENT_LOCAL=1` in your shell before running the local backend. Start it on `127.0.0.1` as described in [Hybrid backend](HYBRID_BACKEND.md). FastAPI serves these language endpoints only for loopback clients with the local opt-in. Use the Vercel functions to enable the agent on the public site.
+
+Both runtimes default to `gpt-6-luna` with reasoning disabled. The optional server variable `OPENAI_MODEL` selects a different model. An existing `SITEFORGE_AGENT_MODEL` value still works when `OPENAI_MODEL` is unset. The model must support Structured Outputs in the Responses API. [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) · [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 
 ## Verification
 
-- `tests/test_agent.mjs` (11): offline parser in Spanish and English, sequences, simultaneous and live operations, assumed and rounded durations, rejection of requests it cannot express; client fallback on 503, network failure and invalid payloads; a parsed request plans exactly like the matching preset on Ridge A; right-now alerts match the Ridge A Earth interval (Earth up at 1 Nov 00:00 UTC, sets 07:00 UTC); briefing validation and fallback.
-- `tests/test_agent_api.py` (9): both endpoints with the OpenAI client stubbed: strict structured output, only the operator text or the findings are sent, out-of-range operations rejected (502), briefings with an invented number or finding rejected (502), refusal (422), truncation (502), size limits, 503 without a key.
-- The real OpenAI SDK requests were checked against a local stub server, and the full page was driven in a browser against the real FastAPI backend with that stub in place of OpenAI: briefing shown as "Briefing by OpenAI", typed request read by the OpenAI path, no agent calls while the timeline plays.
-- **No live OpenAI call was made**: no API key was available in the build environment.
+```sh
+npm ci
+node --test tests/test_agent.mjs tests/test_vercel_agent.mjs
+python -m unittest discover -s tests -p test_agent_api.py
+```
+
+The tests cover operation validation, the offline parser, briefing order and fallback, visibility alerts, and both backend endpoints with stubbed upstream traffic.

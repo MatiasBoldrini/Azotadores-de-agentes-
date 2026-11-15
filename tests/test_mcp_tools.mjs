@@ -54,7 +54,10 @@ test('plan_operation runs the planner on given steps or a plain-language request
 
 test('mission_briefing leads with the most urgent finding and every time action is a real sample', () => {
   const r = missionBriefing({site_id: 'ridge-a', mast_height_m: 0, cursor_utc: '2026-11-01T00:00:00Z'});
-  assert.equal(r.headline, r.findings.find(f => f.tone === 'risk').title);
+  const mostUrgent = r.findings.find(f => f.tone === 'risk');
+  assert.equal(r.headline, mostUrgent.title);
+  assert.equal(r.priorities[0], mostUrgent.id);
+  assert.ok(r.priorities.every(id => r.findings.some(f => f.id === id)));
   for (const f of r.findings) if (f.suggested_action?.type === 'go_to_time') assert.ok(ridgeA0.series.timestamp_utc.includes(f.suggested_action.utc));
 });
 

@@ -188,11 +188,12 @@ export function betterPosition({selected,all,links,constraints}:AdvisorInput):In
   .filter(a=>{const l=links[keyFor(a)];return l&&l.distance_m<=constraints.maxDistance&&(!constraints.requireLink||l.visible)&&a.position.slope_deg!==null&&a.position.slope_deg<=constraints.maxSlope;})
   .sort((a,b)=>b.metrics.both.total_hours-a.metrics.both.total_hours)[0];
  if(!best) return null;
+ const link = links[keyFor(best)];
  const gain = best.metrics.both.total_hours-base;
  if(gain<Math.max(MOVE_MIN_GAIN_HOURS,base*0.1)) return null;
  return {id:'move',tone:'alternative',
-  title:`Moving ${where(links[keyFor(best)])} adds +${hours(gain)} h of Sun + Earth together`,
-  detail:`Same ${best.height_m} m mast: overlap ${hours(base)} → ${hours(best.metrics.both.total_hours)} h, longest gap with either blocked ${hours(selected.metrics.both.longest_outage_hours)} → ${hours(best.metrics.both.longest_outage_hours)} h. Slope ${pct(best.position.slope_deg!)}°, lander line of sight clear.`,
+  title:`Moving ${where(link)} adds +${hours(gain)} h of Sun + Earth together`,
+  detail:`Same ${best.height_m} m mast: overlap ${hours(base)} → ${hours(best.metrics.both.total_hours)} h, longest gap with either blocked ${hours(selected.metrics.both.longest_outage_hours)} → ${hours(best.metrics.both.longest_outage_hours)} h. Slope ${pct(best.position.slope_deg!)}°, lander line of sight ${link.visible?'clear':'blocked'}.`,
   action:{kind:'config',candidate:best.candidate_id,height:best.height_m,label:'Move station'}};
 }
 

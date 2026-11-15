@@ -708,13 +708,12 @@ option{background:#111}
 @media (hover:hover) and (pointer:fine){.advisor-action:hover svg{transform:translateX(2px)}}
 @media (prefers-reduced-motion:reduce){.advisor-action,.advisor-action svg{transition:none}}
 .advisor-brief{display:grid;gap:6px;margin:8px 0 10px;padding:12px;border:1px solid var(--earth-line);border-radius:12px;background:var(--earth-soft)}
-.advisor-headline{margin:0;font-size:14px;font-weight:600;line-height:1.4;color:var(--text);text-wrap:pretty}
 .advisor-picks{display:grid;gap:8px;margin:2px 0 0;padding:0;list-style:none}
 .advisor-picks li{display:grid;gap:2px;padding-left:10px;border-left:2px solid var(--line-strong)}
 .advisor-picks li.risk{border-left-color:var(--blocked)}
 .advisor-picks li.opportunity{border-left-color:var(--earth)}
 .advisor-pick-title{font-size:13px;line-height:1.4;color:var(--text)}
-.advisor-pick-reason{font-size:12px;line-height:1.45;color:var(--text-2)}
+.advisor-pick-detail{font-size:12px;line-height:1.45;color:var(--text-2)}
 .advisor-ask{display:grid;gap:6px;margin:8px 0 4px}
 .advisor-ask label{font-size:12px;color:var(--muted)}
 .advisor-ask-row{display:flex;gap:8px}

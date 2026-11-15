@@ -154,8 +154,8 @@ export function missionBriefing({site_id, mast_height_m, station, cursor_utc, st
   const brief = localBriefing(items);
   return {
     site: s.name, station: a.candidate_id, mast_height_m: a.height_m, cursor_utc: a.series.timestamp_utc[index],
-    headline: brief?.headline ?? null,
-    priorities: brief ? brief.picks.map(p => p.id) : [],
+    headline: items.find(item => item.id === brief?.picks[0])?.title ?? null,
+    priorities: brief?.picks ?? [],
     findings: items.map(i => finding(i, a)),
     provenance: PROVENANCE,
   };

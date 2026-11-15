@@ -3,6 +3,7 @@
 // operations with the same deterministic engine and NASA-derived data as the web app.
 //   stdio (default):   node mcp/server.mjs
 //   Streamable HTTP:   node mcp/server.mjs --http [port]   → POST http://127.0.0.1:<port>/mcp
+import {once} from 'node:events';
 import {createServer} from 'node:http';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -103,15 +104,37 @@ async function main() {
   }
   const port = Number(process.argv[httpAt + 1] ?? process.env.PORT ?? 8765);
   const host = process.env.SELENARC_MCP_HOST ?? '127.0.0.1';
-  createServer(async (req, res) => {
-    if (new URL(req.url, 'http://x').pathname !== '/mcp') { res.writeHead(404).end(); return; }
-    // Stateless: a fresh server and transport per request, so no session state is kept.
+  const loopback = ['127.0.0.1', 'localhost', '::1'];
+  if (!loopback.includes(host)) throw new Error('The MCP HTTP server must bind to a loopback address.');
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid MCP HTTP port.');
+
+  const http = createServer(async (req, res) => {
+    if (req.url?.split('?', 1)[0] !== '/mcp') { res.writeHead(404).end(); return; }
+
+    const {port} = http.address();
+    const allowedHosts = ['127.0.0.1', 'localhost', '[::1]'].map(name => `${name}:${port}`);
+    // Each request gets a fresh server and transport, so there is no session to retain.
     const server = buildServer();
-    const transport = new StreamableHTTPServerTransport({sessionIdGenerator: undefined});
-    res.on('close', () => { transport.close(); server.close(); });
-    await server.connect(transport);
-    await transport.handleRequest(req, res);
-  }).listen(port, host, () => console.error(`SELENARC MCP listening on http://${host}:${port}/mcp`));
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableDnsRebindingProtection: true,
+      allowedHosts,
+      allowedOrigins: allowedHosts.map(name => `http://${name}`),
+      maxRequestBodySize: 16 * 1024,
+    });
+    res.once('close', () => { void server.close(); });
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+    } catch {
+      if (!res.headersSent) res.writeHead(500);
+      res.end();
+    }
+  });
+  http.listen(port, host);
+  await once(http, 'listening');
+  const address = host === '::1' ? '[::1]' : host;
+  console.error(`SELENARC MCP listening on http://${address}:${http.address().port}/mcp`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('server.mjs')) main().catch(error => { console.error(error); process.exit(1); });
+if (import.meta.main) main().catch(error => { console.error(error.message); process.exitCode = 1; });
