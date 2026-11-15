@@ -46,6 +46,46 @@ class Site01TileTest(unittest.TestCase):
    self.assertEqual((c,r),(int(c),int(r)),'block edges align with the 5 m window')
    expected=engine.reshape(n//b,b,n//b,b).mean(axis=(1,3))
    np.testing.assert_allclose(z[int(r):int(r)+n//b,int(c):int(c)+n//b],expected,atol=self.meta['surround']['step_m']/2+1e-6)
+ def regional(self):
+  s=self.meta['regional']
+  for level in s['levels']:
+   raw=(ROOT/'public/site01'/level['file']).read_bytes()
+   self.assertEqual(hashlib.sha256(raw).hexdigest(),level['sha256'],level['file'])
+   yield level,(np.frombuffer(raw,'<i2').astype(np.float64)*s['scale_m']).reshape(level['shape'])
+ def test_regional_levels_are_recorded_pds_products(self):
+  sources=(ROOT/'public/moon/SOURCES.txt').read_text()
+  for level,_ in self.regional():
+   self.assertTrue(level['source'].startswith('https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/'),level['source'])
+   self.assertIn(level['sha256'],sources);self.assertIn(level['source_sha256'],sources)
+ def test_regional_levels_nest_around_the_tile(self):
+  t=self.meta['transform'];half=self.meta['shape'][0]*self.meta['pixel_size_m']/2;cx,cy=t[2]+half,t[5]-half
+  levels=[l for l,_ in self.surround()]+[l for l,_ in self.regional()]
+  for inner,outer in zip(levels,levels[1:]):
+   a,b=inner['transform'],outer['transform']
+   self.assertGreater(a[2],b[2]);self.assertLess(a[5],b[5])
+   self.assertLess(a[2]+a[0]*inner['shape'][1],b[2]+b[0]*outer['shape'][1])
+   self.assertGreater(a[5]+a[4]*inner['shape'][0],b[5]+b[4]*outer['shape'][0])
+  for level,_ in self.regional():
+   p=level['transform'];n=level['shape'][0]
+   self.assertLessEqual(abs(p[2]+p[0]*n/2-cx),p[0]/2);self.assertLessEqual(abs(p[5]+p[4]*n/2-cy),p[0]/2)
+ def test_regional_grid_agrees_with_the_site01_geotiff(self):
+  # The 40 m PDS grid shares the GeoTIFF's cell edges: compare it with 2x2 means of the 20 m block means.
+  (level,z),=[(l,z) for l,z in self.regional() if l['pixel_size_m']==40]
+  (fine,f),=[(l,z) for l,z in self.surround() if l['pixel_size_m']==20]
+  n=fine['shape'][0]//2;means=f.reshape(n,2,n,2).mean(axis=(1,3))
+  c=(fine['transform'][2]-level['transform'][2])/40;r=(level['transform'][5]-fine['transform'][5])/40
+  self.assertEqual((c,r),(int(c),int(r)))
+  d=z[int(r):int(r)+n,int(c):int(c)+n]-means
+  self.assertLess(abs(d.mean()),1.0);self.assertLess(d.std(),3.0)
+ @unittest.skipUnless(all((ROOT/'data'/f'{g}.img').exists() for g in ('ldem_85s_40m','ldem_80s_80m','ldem_75s_240m')),'PDS polar grids not downloaded')
+ def test_regional_levels_are_windows_of_the_pds_grids(self):
+  for level,z in self.regional():
+   name=level['source'].rsplit('/',1)[1];c0,r0,span,_=level['source_window'];n=level['shape'][0];b=span//n
+   with open(ROOT/'data'/name,'rb') as f:size=int(round((f.seek(0,2)//2)**.5))
+   self.assertEqual(hashlib.sha256((ROOT/'data'/name).read_bytes()).hexdigest(),level['source_sha256'])
+   dn=np.memmap(ROOT/'data'/name,'<i2','r',shape=(size,size))
+   expected=dn[r0:r0+span,c0:c0+span].astype(np.float64).reshape(n,b,n,b).mean(axis=(1,3))*.5
+   np.testing.assert_allclose(z,expected,atol=.25+1e-9)
  def test_surround_covers_the_full_source_extent(self):
   levels=[l for l,_ in self.surround()]
   outer=levels[-1];shape=self.meta['surround']['source_shape']

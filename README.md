@@ -104,7 +104,7 @@ To acquire fresh source data (requires internet):
 npm run build --prefix frontend
 ```
 
-The original local TIFF (~41 MB) is excluded from Git and reproducibly downloadable. Regional acquisition reads only a bounded window of the NASA cloud-optimized GeoTIFF. Cached raw responses retain exact query parameters and original result text. Provenance includes reference frame, radii, timestamps, source URLs and checksums.
+The original local TIFF (~41 MB) is excluded from Git and reproducibly downloadable. `download_lola.py` also fetches three PDS LOLA south polar grids (~260 MB, checksummed) that only the 3D close-up draws beyond the Site01 DEM; `scripts/export_site01_tile.py` writes the close-up terrain in `public/site01/` from them. Regional acquisition reads only a bounded window of the NASA cloud-optimized GeoTIFF. Cached raw responses retain exact query parameters and original result text. Provenance includes reference frame, radii, timestamps, source URLs and checksums.
 
 Optional API:
 

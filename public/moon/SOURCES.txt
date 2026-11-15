@@ -32,6 +32,26 @@ Close-up terrain: public/site01/ (see meta.json)
   surround-20m.u16: mean of 4x4 source pixels over the full extent [0, 0, 3200, 3200] (16 km),
     SHA-256 c3cd6b3aa88f2843afa437dcd607e903a4ec41b4ebd65317dc0f710eb9b36df8
   Unsigned 16-bit, elevation = -1000 m + value x 0.05 m. Drawn with the same 4x exaggeration.
+  Beyond the GeoTIFF, out past the close-up's horizon: PDS LOLA Gridded Data Record, south polar
+  stereographic grids (LRO-L-LOLA-4-GDR-V1.0, product version V2.0), same projection and 1737.4 km
+  sphere as the GeoTIFF (the 40 m grid matches its 40 m block means to -0.27 m mean, 1.2 m RMS):
+  https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/
+    ldem_85s_40m.img (115034112 bytes, SHA-256 1609e9b860748e0b9952a7239c51b37d3b2a799d35e9fc3c258526711cc1e51d)
+    ldem_80s_80m.img (115520000 bytes, SHA-256 e6591eeea35402ca5e124ca00f5bf0774381a2d4fa919144b455d82b8ff65fdc)
+    ldem_75s_240m.img (29062688 bytes, SHA-256 d031efe2611b17dfbf3c158f5e15dc04cd5719349dcbf6384bb21fd97697c490)
+  lola-40m.i16: ldem_85s_40m.img, source samples over window [3261, 3836, 512, 512] (20.48 km),
+    SHA-256 d6018d0abc6df2619154fde750bd685d7582c365b1769bdb36f9be4a6710b84f
+  lola-80m.i16: ldem_80s_80m.img, source samples over window [3406, 3694, 512, 512] (40.96 km),
+    SHA-256 3244559cf786d2443bce20b5830a17bc6dee267993d895a576d4e915babb4ffd
+  lola-160m.i16: ldem_80s_80m.img, mean of 2x2 source pixels over window [3150, 3438, 1024, 1024] (81.92 km),
+    SHA-256 25886566b3368d4ceaa0ce050a3e21d9b404da21d816a25c43a1a856982670b6
+  lola-320m.i16: ldem_80s_80m.img, mean of 4x4 source pixels over window [2638, 2926, 2048, 2048] (163.84 km),
+    SHA-256 5ff45a0496970ce3c73cee497646d044a39379d5f46cbd376b6344f468b396fb
+  lola-640m.i16: ldem_80s_80m.img, mean of 8x8 source pixels over window [1614, 1902, 4096, 4096] (327.68 km),
+    SHA-256 5846feb41528ae01ecd8be8ff6a6343bc1c7cb1b4a40c81fcfa00a7fe8d35b60
+  lola-1200m.i16: ldem_75s_240m.img, mean of 5x5 source pixels over window [580, 676, 2560, 2560] (614.4 km),
+    SHA-256 3901ca5d599e7941ee74f78d5f3c3e5a62e2db344e4f279ccb78e2066e51ecbd
+  Signed 16-bit, elevation = value x 0.5 m (the PDS DN scale). Drawn with the same 4x exaggeration.
 
 None of these files feed the science engine. Visibility numbers come only from
 public/data/snapshot.json.
