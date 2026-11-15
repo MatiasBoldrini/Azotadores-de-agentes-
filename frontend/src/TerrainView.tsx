@@ -1,9 +1,10 @@
-import {useMemo,useRef,useEffect,useState,Suspense} from 'react';
+import {useMemo,useRef,useEffect,useState,memo,Suspense} from 'react';
 import {Canvas,ThreeEvent,useThree,useFrame} from '@react-three/fiber';
 import {Billboard,Html,OrbitControls,Line,Stars,useCursor} from '@react-three/drei';
 import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
 import type {EvaluatedPosition} from './PositionPicker';
+import {TerrainRayHover, TerrainRayTooltip, TERRAIN_LABEL_SIZE, type TerrainRay, type TerrainRayTip} from './TerrainRayHover';
 
 export const VERTICAL_EXAGGERATION = 4;
 
@@ -31,7 +32,7 @@ export function CelestialRayLegend({selected, time}: Pick<Props, 'selected' | 't
 function Label({text,position,color='#dce7d8'}:{text:string;position:[number,number,number];color?:string}){
  const texture=useMemo(()=>{const canvas=document.createElement('canvas');canvas.width=768;canvas.height=96;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#151d18';ctx.fillRect(0,0,768,96);ctx.strokeStyle=color;ctx.lineWidth=2;ctx.strokeRect(2,2,764,92);ctx.fillStyle=color;ctx.font='42px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,384,48);return new THREE.CanvasTexture(canvas);},[text,color]);
  useEffect(()=>()=>texture.dispose(),[texture]);
- return <sprite position={position} scale={[.8,.1,1]} renderOrder={100}><spriteMaterial map={texture} depthTest={false} transparent/></sprite>;
+ return <sprite position={position} scale={TERRAIN_LABEL_SIZE} renderOrder={100}><spriteMaterial map={texture} depthTest={false} transparent/></sprite>;
 }
 function Surface({terrain,wireframe,onPick}:{terrain:Terrain;wireframe:boolean;onPick:(r:number,c:number)=>void}){
  const geometry=useMemo(()=>{
@@ -96,7 +97,9 @@ function PositionHighlight({label, position}: {label: string; position: [number,
  </group>;
 }
 
-function Scene(p:Props){
+type SceneProps = Props & {onRayHover: (tip: TerrainRayTip | null) => void};
+
+function Scene(p:SceneProps){
  const controls=useRef<any>(null);
  const [hovered, setHovered] = useState<string | null>(null);
  const orbiting = useRef(false);
@@ -104,6 +107,9 @@ function Scene(p:Props){
  const mean=useMemo(()=>{const z=p.terrain.elevation_m.flat().filter((x):x is number=>x!==null);return z.reduce((a,b)=>a+b,0)/z.length;},[p.terrain]);
  const point=(pos:Site|Analysis['position'],height=0):[number,number,number]=>[(pos.col-p.terrain.original_shape[1]/2)*p.terrain.pixel_size_m/1000,(pos.elevation_m-mean+height)*VERTICAL_EXAGGERATION/1000,(pos.row-p.terrain.original_shape[0]/2)*p.terrain.pixel_size_m/1000];
  const station=point(p.selected.position,p.selected.height_m),lander=point(p.lander,2);
+ const atLander = p.selected.position.row === p.lander.row && p.selected.position.col === p.lander.col;
+ const labelPositions = [[station[0], station[1] + .17, station[2]]] as [number, number, number][];
+ if (!atLander) labelPositions.push([lander[0], lander[1] + .12, lander[2]]);
  const preview = p.positions.find(option => option.id === (p.previewId ?? hovered));
  const selectPoint = (id: string) => {
   setHovered(null);
@@ -116,6 +122,23 @@ function Scene(p:Props){
   selectPoint(nearest.id);
  };
  const sunDirection = bodyDirection('sun',p.selected,p.time);
+ const rays = BODY_KEYS.map((body): TerrainRay => {
+  const visible = p.selected.series[`${body}_visible`][p.time];
+  const elevation = p.selected.series[`${body}_elevation_deg`][p.time];
+  const horizon = p.selected.series[`${body}_horizon_deg`][p.time];
+  const direction = body === 'sun' ? sunDirection.clone() : bodyDirection(body,p.selected,p.time);
+  const end = direction.multiplyScalar(.75).add(new THREE.Vector3(...station)).toArray();
+  return {
+   id: body, points: [station, end], label: `${BODIES[body].label} sightline`, visible,
+   color: visible ? BODIES[body].color : BLOCKED_COLOR,
+   detail: `Elevation ${elevation.toFixed(2)}° · Horizon ${horizon.toFixed(2)}°`,
+  };
+ });
+ const link: TerrainRay = {
+  id: 'link', points: [lander, station], label: 'Lander ↔ station', visible: p.linkVisible,
+  color: p.linkVisible ? '#a7d8b9' : '#e68d7c',
+ };
+ if (!atLander) rays.push(link);
  useEffect(()=>{controls.current?.target.set(0,0,0);controls.current?.update();},[p.reset,p.mapView]);
  return <><Camera mapView={p.mapView} reset={p.reset}/><Stars radius={25} depth={10} count={450} factor={1.1} saturation={0} fade speed={0}/>
  <ambientLight intensity={.48}/>
@@ -147,34 +170,43 @@ function Scene(p:Props){
   </group>;
  })}
  {preview && <PositionHighlight label={preview.label} position={point(preview.position, 2)}/>}
- <group position={lander}><mesh position={[0,.024,0]}><boxGeometry args={[.04,.045,.04]}/><meshStandardMaterial color="#e7ece7"/></mesh>{(p.selected.position.row!==p.lander.row||p.selected.position.col!==p.lander.col)&&<Label position={[0,.12,0]} text={`LANDER / ${p.lander.name}`}/>}</group>
+ <group position={lander}><mesh position={[0,.024,0]}><boxGeometry args={[.04,.045,.04]}/><meshStandardMaterial color="#e7ece7"/></mesh>{!atLander && <Label position={[0,.12,0]} text={`LANDER / ${p.lander.name}`}/>}</group>
  <Mast base={point(p.selected.position)} height={p.selected.height_m}/>
- <group position={station}><mesh position={[0,.035,0]}><octahedronGeometry args={[.045]}/><meshBasicMaterial color="#f4bd68"/></mesh><Label position={[0,.17,0]} color='#efbd75' text={`${p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col?'LANDER + STATION':'STATION'} / ${p.selected.height_m} M`}/></group>
- <Line points={[lander,station]} color={p.linkVisible?'#a7d8b9':'#e68d7c'} lineWidth={1.5} dashed={!p.linkVisible} dashSize={.03} gapSize={.02}/>
- {BODY_KEYS.map(body => {
-  const visible = p.selected.series[`${body}_visible`][p.time];
-  const color = visible ? BODIES[body].color : BLOCKED_COLOR;
-  const direction = body === 'sun' ? sunDirection.clone() : bodyDirection(body, p.selected, p.time);
-  const end = direction.multiplyScalar(.75).add(new THREE.Vector3(...station)).toArray();
+ <group position={station}><mesh position={[0,.035,0]}><octahedronGeometry args={[.045]}/><meshBasicMaterial color="#f4bd68"/></mesh><Label position={[0,.17,0]} color='#efbd75' text={`${atLander?'LANDER + STATION':'STATION'} / ${p.selected.height_m} M`}/></group>
+ {rays.map(({id, points, color, visible}) => {
+  if (id === 'link') return <Line key={id} points={points} color={color} lineWidth={1.5} dashed={!visible} dashSize={.03} gapSize={.02}/>;
   // Visibility accounts for the regional horizon beyond the rendered mesh.
   // Draw blocked rays over the terrain so it cannot hide the visual indicator.
   const renderOrder = visible ? 0 : 20;
-  return <group key={body}>
-   <Line points={[station, end]} color={color} lineWidth={visible ? 1 : 2.5}
+  return <group key={id}>
+   <Line points={points} color={color} lineWidth={visible ? 1 : 2.5}
     dashed={visible} dashSize={.03} gapSize={.025} depthTest={visible} depthWrite={visible}
     transparent={!visible} renderOrder={renderOrder} toneMapped={visible}/>
-   <mesh position={end} renderOrder={renderOrder + 1}>
-    {body === 'sun' ? <sphereGeometry args={[.018,16,16]}/> : <octahedronGeometry args={[.024]}/>}
+   <mesh position={points[1]} renderOrder={renderOrder + 1}>
+    {id === 'sun' ? <sphereGeometry args={[.018,16,16]}/> : <octahedronGeometry args={[.024]}/>}
     <meshBasicMaterial color={color} depthTest={visible} depthWrite={visible} transparent={!visible} toneMapped={visible}/>
    </mesh>
   </group>;
  })}
+ <TerrainRayHover rays={rays} labels={labelPositions} orbiting={orbiting} candidateHovered={Boolean(preview)} onHover={p.onRayHover}/>
  <OrbitControls ref={controls} makeDefault minDistance={.6} maxDistance={7} maxPolarAngle={Math.PI*.49} enableDamping dampingFactor={.1}
   onStart={() => {
    orbiting.current = true;
    setHovered(null);
+   p.onRayHover(null);
   }}
+  onChange={() => p.onRayHover(null)}
   onEnd={() => { orbiting.current = false; }}/>
  </>;
 }
-export default function TerrainView(props:Props){return <Canvas camera={{position:[2.5,1.9,2.65],fov:44,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}}><color attach="background" args={['#141719']}/><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;}
+const TerrainCanvas = memo(function TerrainCanvas(props: SceneProps) {
+ return <Canvas camera={{position:[2.5,1.9,2.65],fov:44,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}}><color attach="background" args={['#141719']}/><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
+});
+
+export default function TerrainView(props: Props) {
+ const [tip, setTip] = useState<TerrainRayTip | null>(null);
+ return <div>
+  <TerrainCanvas {...props} onRayHover={setTip}/>
+  {tip && <TerrainRayTooltip tip={tip}/>}
+ </div>;
+}
