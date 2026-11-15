@@ -299,6 +299,10 @@ function App(){
  </>}/>;
  const timelineTimestamp=selected.series.timestamp_utc[index];
  const timelineDate=`${utc(timelineTimestamp)} · ${timelineTimestamp.slice(0,4)} UTC`;
+ const playback=<div className="timeline-controls">
+  <button type="button" aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button>
+  {focusIndex>0&&atSiteCell&&<button type="button" className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}
+ </div>;
  const configure=
  <div className="map-config" ref={configureRef}>
   <button type="button" ref={configureButton} className={showAnalysisDock?'text-button configure-button':'secondary'} aria-expanded={showConfigure} aria-controls="map-configuration" onClick={()=>setShowConfigure(!showConfigure)}><SlidersHorizontal size={14} aria-hidden="true"/>Configure</button>
@@ -353,14 +357,12 @@ function App(){
   <div className="timeline-side">
    <div className="timeline-heading">
     <h2 className="panel-title">Connecting Ridge</h2>
-    <div className="timeline-controls">
-     <button type="button" aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button>
-     {focusIndex>0&&atSiteCell&&<button type="button" className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}
-    </div>
+    {!showAnalysisDock&&playback}
    </div>
-   <p className="timeline-coordinates"><span className="sr-only">Landing site coordinates: </span>{fmt(Math.abs(site.latitude_deg),5)}° S · {fmt(Math.abs(site.longitude_deg),5)}° W · {fmt(site.elevation_m,0)} m elevation</p>
+   <p className="timeline-coordinates"><span className="sr-only">Landing site coordinates: </span>{fmt(Math.abs(site.latitude_deg),5)}°&nbsp;S · {fmt(Math.abs(site.longitude_deg),5)}°&nbsp;W · {fmt(site.elevation_m,0)}&nbsp;m elevation</p>
   </div>
   <div className="timeline-plots">
+   {showAnalysisDock&&playback}
    {!showAnalysisDock&&<TimelineStack height={64} analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>}
    <div className="time-scrubber">
     <input className="time-slider" aria-label="Timeline time" aria-valuetext={timelineDate} type="range" min="0" max={count-1} value={index} onChange={e=>{setTime(Number(e.target.value));setPlaying(false);}}/>

@@ -416,11 +416,30 @@ option{background:#111}
 .has-analysis-dock>.story{margin-top:14px}
 .workspace.has-analysis-dock>.results{z-index:4;overflow-y:auto;overscroll-behavior:contain;border-radius:0;padding:22px 24px 20px}
 .has-analysis-dock>.results>*{flex-shrink:0}
-.has-analysis-dock .timeline{z-index:5;grid-template-columns:minmax(0,max-content) minmax(min-content,1fr);grid-template-rows:auto auto;row-gap:0;padding:10px 14px;margin-bottom:16px}
-.has-analysis-dock :is(.timeline-side,.timeline-plots){display:grid;grid-row:span 2;grid-template-rows:subgrid;align-items:baseline}
-.has-analysis-dock :is(.timeline-heading,.time-scrubber){align-self:center}
+.has-analysis-dock .timeline{
+ --glass-wash:rgba(5,5,5,.60);
+ z-index:5;grid-template-columns:minmax(0,max-content) minmax(min-content,1fr);
+ grid-template-rows:auto auto;row-gap:2px;padding:10px 16px;margin-bottom:16px;border-radius:var(--radius-sm);
+}
+.has-analysis-dock :is(.timeline-side,.timeline-plots){display:grid;grid-row:span 2;grid-template-rows:subgrid;align-items:center}
+.has-analysis-dock .timeline-side{padding-right:16px;border-right:1px solid var(--line-strong)}
+.has-analysis-dock .timeline-plots{grid-template-columns:auto minmax(min-content,1fr);column-gap:8px}
+.has-analysis-dock .timeline-controls{grid-area:1/1}
+.has-analysis-dock .time-scrubber{grid-area:1/2}
+.has-analysis-dock .timeline-plots>.utc-date-window-compact{grid-area:2/2}
 .has-analysis-dock :is(.timeline-coordinates,.time-scrubber){margin:0}
-.has-analysis-dock .timeline .date-pair{flex-wrap:nowrap;margin-top:0}
+.has-analysis-dock .timeline .date-pair{gap:8px;flex-wrap:nowrap;margin-top:0}
+.has-analysis-dock .timeline .utc-date-trigger{flex-shrink:0;color:var(--text-2)}
+.has-analysis-dock .timeline .utc-date-trigger>span:last-child{color:inherit}
+.has-analysis-dock .timeline .utc-date-trigger:is(:hover,[aria-expanded='true']){color:var(--text)}
+@media(max-width:1100px){
+ .has-analysis-dock .timeline{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
+ .has-analysis-dock .timeline-side{
+  grid-row:1;display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  padding:0 0 6px;border-right:0;border-bottom:1px solid var(--line-strong);
+ }
+ .has-analysis-dock .timeline-plots{grid-row:2/span 2}
+}
 .analysis-dock{
  display:flex;flex:none;flex-direction:column;min-width:0;
 }
