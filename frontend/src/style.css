@@ -787,3 +787,57 @@ select{border-radius:var(--radius-sm);background:var(--surface);border-color:var
  .moon-stats tbody :is(th,td){padding-top:9px;padding-bottom:9px}
 }
 @media(max-width:420px){.moon-stats td{padding-left:10px}}
+
+/* ---------- No decorative dots ---------- */
+/* Globe pins: one thin crosshair at the site, short leaders to the two cards. */
+.pin-dot{display:none}
+.moon-pin:before{left:-7px;top:-7px;width:14px;height:14px;border-radius:0;background:linear-gradient(var(--text),var(--text)) center/1px 100% no-repeat,linear-gradient(var(--text),var(--text)) center/100% 1px no-repeat}
+.pin-a:after,.pin-b:after{width:22px;background:rgba(255,255,255,.35)}
+.pin-a:after{left:-24px}
+.pin-b:after{left:2px}
+.pin-card b{display:block}
+.moon-pin:focus-visible .pin-card{outline:2px solid var(--accent-hover);outline-offset:2px}
+/* Status line, leaders: words only. */
+.story-status::before,.lead-badge::before{content:none}
+.story-status{gap:0}
+.tone-limit .story-status,.tone-infeasible .story-status,.tone-loss .story-status{color:var(--blocked)}
+.tone-gain .story-status,.tone-optimal .story-status{color:var(--accent-hover)}
+/* Labels without the icon in front of every one. */
+.metric-label svg,.mission-ops .ops-row dt svg,.joint dt svg{display:none}
+.metric-label{font:500 13px var(--sans)!important;letter-spacing:-.005em!important;text-transform:none}
+/* Map legend matches the survey crosses on the terrain. */
+.lg-cell,.lg-feasible{border-radius:0;background:linear-gradient(currentColor,currentColor) center/1.5px 100% no-repeat,linear-gradient(currentColor,currentColor) center/100% 1.5px no-repeat}
+.lg-cell{width:9px;height:9px;color:var(--muted)}
+.lg-feasible{width:11px;height:11px;color:var(--text)}
+.map-label{border-radius:6px;border-color:var(--line);font-family:var(--mono);font-size:11px}
+.demo-segments i{border-radius:1px}
+
+/* ---------- Responsive pass ---------- */
+.science-stamp svg,.view-from-mast svg{display:none}
+/* Mid-size landscape: the globe can only move so far, so the copy narrows and the scrim reaches further. */
+@media (min-width:901px) and (max-width:1279px){
+ .moon-copy{width:min(440px,calc(100% - 80px))}
+ .moon-copy h2{font-size:38px}
+ .moon-stats{max-width:380px}
+ .moon-scrim{background:linear-gradient(90deg,rgba(12,12,12,.94) 0,rgba(12,12,12,.8) 32%,rgba(12,12,12,0) 56%)}
+}
+@media (max-width:620px){
+ .top-actions .science-mode{display:none}
+ .workspace-heading>.view-from-mast,.workspace-heading>.map-optimize{flex:1 1 0;margin-left:0;justify-content:center;min-width:0}
+ .compare-mode-buttons{width:100%}
+ .compare-mode-buttons button{flex:1 1 0;padding:8px 6px;white-space:nowrap;font-size:12px}
+}
+@media (max-width:360px){
+ .moon-action-buttons{flex-direction:column;align-items:stretch}
+ .moon-action-buttons>*{flex:none;width:100%;min-height:44px}
+ .moon-copy h2{font-size:27px}
+}
+@media (max-width:480px){
+ .workspace-heading>.view-from-mast,.workspace-heading>.map-optimize{flex-basis:100%}
+}
+/* Narrow desktops: the headline takes the full row, its two actions sit under it. */
+@media (min-width:621px) and (max-width:1180px){
+ .workspace>.workspace-heading{flex-wrap:wrap;gap:12px}
+ .workspace-heading>.story{flex-basis:100%}
+ .workspace-heading>.map-optimize{margin-left:0}
+}
