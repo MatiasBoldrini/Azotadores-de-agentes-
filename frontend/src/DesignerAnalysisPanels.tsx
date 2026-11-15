@@ -180,7 +180,7 @@ export default function DesignerAnalysisPanels({enabled,analysis,index,baseline,
  }
 
  if(!enabled)return null;
- return <aside className="analysis-dock" aria-label="Analysis plots"
+ return <aside className="analysis-dock" ref={dock} aria-label="Analysis plots"
   onDragOver={event=>{
    if(!drag.current)return;
    event.preventDefault();
