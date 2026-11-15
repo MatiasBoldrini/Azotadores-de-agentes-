@@ -30,8 +30,9 @@ const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
 // width in light space, and casters far toward it can still reach the ground around the site.
 const SHADOW_CASCADES=[{wide:12,tall:12,depth:100,map:4096,bias:-.00015,normalBias:.012},
  {wide:60,tall:30,depth:180,map:2048,bias:-.0002,normalBias:.06},{wide:330,tall:110,depth:340,map:4096,bias:-.0003,normalBias:.2}];
+const HQ=new URLSearchParams(location.search).get('hq')==='1';
 // The outer cascades add two shadow passes and lookups, so they only run with ?hq=1.
-const shadowCascades=new URLSearchParams(location.search).get('hq')==='1'?SHADOW_CASCADES:SHADOW_CASCADES.slice(0,1);
+const shadowCascades=HQ?SHADOW_CASCADES:SHADOW_CASCADES.slice(0,1);
 // Every evaluated cell lies within 0.598 of the half-width, so the tile keeps its own samples well past them.
 const TILE_BLEND=.92,LEVEL_BLEND=.85;
 // Resting view: HERO_BACK km behind the site and HERO_RISE km above its mean level, high enough that the
@@ -118,8 +119,9 @@ function release(this:THREE.BufferAttribute){(this as {array:unknown}).array=nul
 // With `clip` (km), samples beyond that radius of the tile centre move onto the circle, giving a round rim.
 // Cells lying a full cell inside `inner` (the finer level, in scene km) are left out. The level comes back as
 // CHUNKS x CHUNKS tiles sharing one set of buffers, so the parts out of view (or out of a shadow map) are culled.
+// With `step` 2 the triangles join every other sample, a quarter as many over the same extent.
 const CHUNKS=8;
-function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number)|null,blend:number,inner:Rect|null,clip=0,skirt=0){
+function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number)|null,blend:number,inner:Rect|null,clip=0,skirt=0,step=1){
  const n=l.n,count=n*n,edge=skirt?4*(n-1):0,pos=new Float32Array((count+edge)*3),half=(n-1)/2,[cx,cy]=ground.frame.centerPs;
  for(let i=0;i<n;i++)for(let j=0;j<n;j++){
   let x=l.x0+(j+.5)*l.px,y=l.y0-(i+.5)*l.px,h=l.data[i*n+j];
@@ -132,8 +134,12 @@ function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number
  const index=new Uint32Array((n-1)*(n-1)*6+edge*6),size=Math.ceil((n-1)/CHUNKS),ranges:{start:number;count:number;box:THREE.Box3}[]=[];let q=0;
  const v=new THREE.Vector3();
  for(let ci=0;ci<n-1;ci+=size)for(let cj=0;cj<n-1;cj+=size){
-  const start=q;
-  for(let i=ci;i<Math.min(ci+size,n-1);i++)for(let j=cj;j<Math.min(cj+size,n-1);j++){const a=i*n+j;if(covered(a)&&covered(a+n+1))continue;index.set([a,a+n,a+1,a+1,a+n,a+n+1],q);q+=6;}
+  const start=q,ie=Math.min(ci+size,n-1),je=Math.min(cj+size,n-1);
+  for(let i=ci;i<ie;i+=step)for(let j=cj;j<je;j+=step){
+   const a=i*n+j,di=Math.min(step,ie-i)*n,dj=Math.min(step,je-j);
+   if(covered(a)&&covered(a+di+dj)&&(step===1||covered(a+di)&&covered(a+dj)))continue;
+   index.set([a,a+di,a+dj,a+dj,a+di,a+di+dj],q);q+=6;
+  }
   if(q===start)continue;
   const box=new THREE.Box3();
   for(let i=ci;i<=Math.min(ci+size,n-1);i++)for(let j=cj;j<=Math.min(cj+size,n-1);j++)box.expandByPoint(v.fromArray(pos,(i*n+j)*3));
@@ -282,15 +288,23 @@ type Levels={tile:DemLevel|null;surround:DemLevel[]|null;regional:DemLevel[]|nul
 // Finest first: the 5 m tile, the rest of the Site01 GeoTIFF, then the PDS polar grids. Each level eases into
 // the next toward its border and is cut where the finer one takes over; the coarsest ends in a round rim.
 function useLevelGeometry(ground:Ground,{tile,surround,regional}:Levels){
+ const gl=useThree(s=>s.gl);
  return useMemo(()=>{
   if(!tile||!surround)return null;
-  const list=[tile,...surround,...regional??[]],last=list.length-1,rim=rimKm(list[last],ground.frame);
+  const list=[tile,...surround,...regional??[]],last=list.length-1,rim=rimKm(list[last],ground.frame),step=!HQ&&softwareWebGL(gl)?2:1;
   return list.map((l,i)=>{
    const inner=i?extent(list[i-1],ground.frame,1.2*list[i-1].px/1000):null;
    const outer=i<last?(x:number,y:number)=>bilinear(list[i+1],x,y):null;
-   return {chunks:demGeometry(l,ground,outer,i?LEVEL_BLEND:TILE_BLEND,inner,i===last?rim:0,i===last?Math.max(1.5,rim*.02):0),hole:inner,offset:i};
+   return {chunks:demGeometry(l,ground,outer,i?LEVEL_BLEND:TILE_BLEND,inner,i===last?rim:0,i===last?Math.max(1.5,rim*.02):0,step),hole:inner,offset:i};
   });
- },[ground,tile,surround,regional]);
+ },[ground,tile,surround,regional,gl]);
+}
+
+// A WebGL implementation that rasterizes on the CPU takes seconds over the levels' 4 M mostly sub-pixel
+// triangles at the resting view, so there the levels are drawn from every other sample (unless ?hq=1).
+function softwareWebGL(gl:THREE.WebGLRenderer){
+ const ctx=gl.getContext(),info=ctx.getExtension('WEBGL_debug_renderer_info');
+ return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(String(ctx.getParameter(info?info.UNMASKED_RENDERER_WEBGL:ctx.RENDERER)));
 }
 
 // Sends the levels' buffers to the GPU in one go, with empty draws into a 1 px target. Left to the levels' first
