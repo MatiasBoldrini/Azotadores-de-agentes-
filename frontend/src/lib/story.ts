@@ -24,7 +24,7 @@ export function constraintRows(a:Analysis,link:Link|undefined,c:Constraints):Con
  return [
   row('Solar exposure','Solar exposure',`${pct(percent(a.metrics.sun))}%`,`≥ ${c.minSun}%`),
   row('Earth visibility','Earth visibility',`${pct(percent(a.metrics.earth))}%`,`≥ ${c.minEarth}%`),
-  row('Maximum outage','Longest Sun or Earth outage',`${hours(outage)} h`,`≤ ${c.maxOutage} h`),
+  row('Maximum outage','Longest individual outage',`${hours(outage)} h`,`≤ ${c.maxOutage} h`),
   row('Installation distance','Distance to lander',link?`${hours(Math.round(link.distance_m))} m`:'—',`≤ ${c.maxDistance} m`),
   row('Terrain slope','Terrain slope',a.position.slope_deg===null?'—':`${pct(a.position.slope_deg)}°`,`≤ ${c.maxSlope}°`),
   row('Local line of sight','Lander line of sight',link?.visible?'Clear':'Obstructed',c.requireLink?'Required':'Not required',c.requireLink),
@@ -83,7 +83,7 @@ export function buildStory({selected,baseline,sweep,links,constraints,search,sea
   const rank = search.alternatives.findIndex(a=>keyFor(a)===keyFor(selected));
   if(rank===0) return {step:5,tone:'optimal',kicker:`Optimizer · ${search.feasible} of ${search.evaluated} configurations feasible`,
    title:[{t:'Recommended: a '},{t:`${selected.height_m} m mast`,c:'strong'},{t:` ${where(link)} — the lowest-cost option that meets all ${checks} constraints.`}],
-   detail:[{t:'Earth '},{t:`${hours(b.earth.total_hours)} → ${hours(m.earth.total_hours)} h`,c:'earth'},{t:' · Sun '},{t:`${hours(b.sun.total_hours)} → ${hours(m.sun.total_hours)} h`,c:'sun'},{t:` · longest joint outage ${hours(b.both.longest_outage_hours)} → ${hours(m.both.longest_outage_hours)} h, versus ground level.`}],
+   detail:[{t:'Earth '},{t:`${hours(b.earth.total_hours)} → ${hours(m.earth.total_hours)} h`,c:'earth'},{t:' · Sun '},{t:`${hours(b.sun.total_hours)} → ${hours(m.sun.total_hours)} h`,c:'sun'},{t:` · longest gap with Sun or Earth blocked ${hours(b.both.longest_outage_hours)} → ${hours(m.both.longest_outage_hours)} h, versus ground level.`}],
    actions:[]};
   if(rank>0) return {step:5,tone:'optimal',kicker:`Optimizer · alternative ${rank} of ${search.feasible - 1}`,
    title:[{t:`Ranked #${rank+1}: a ${selected.height_m} m mast ${where(link)}.`}],
@@ -101,7 +101,7 @@ export function buildStory({selected,baseline,sweep,links,constraints,search,sea
    ? [{t:'At ground level, the Sun clears the horizon only '},{t:`${hours(m.sun.total_hours)} h`,c:'sun'},{t:` of ${hours(window)} h (${pct(percent(m.sun))}%).`}]
    : [{t:`Ground level fails ${failed.length} of ${checks} constraints.`}];
   return {step:2,tone:'limit',kicker:'Limitation found · ground level',title,
-   detail:[{t:`Fails ${failed.length} of ${checks} constraints: `},{t:list(failed),c:'bad'},{t:`. Longest joint Sun + Earth outage: ${hours(m.both.longest_outage_hours)} h.`}],
+   detail:[{t:`Fails ${failed.length} of ${checks} constraints: `},{t:list(failed),c:'bad'},{t:`. Longest gap with Sun or Earth blocked: ${hours(m.both.longest_outage_hours)} h.`}],
    actions:peak?[{kind:'height',height:peak,label:`Raise the mast to ${peak} m`}]:[optimizeAction]};
  }
  const status:Segment = failed.length?{t:`still fails ${list(failed)}`,c:'bad'}:{t:'meets every selected constraint',c:'good'};
@@ -110,7 +110,7 @@ export function buildStory({selected,baseline,sweep,links,constraints,search,sea
   const plateau = lower&&lower.metrics.sun.total_hours===m.sun.total_hours&&lower.metrics.earth.total_hours===m.earth.total_hours&&lower.metrics.both.longest_outage_hours===m.both.longest_outage_hours;
   if(lower&&plateau) return {step:3,tone:'plateau',kicker:`No further gain at ${selected.height_m} m`,
    title:[{t:`${selected.height_m} m adds nothing over ${lower.height_m} m: Earth visibility stays at `},{t:`${hours(m.earth.total_hours)} h`,c:'earth'},{t:'.'}],
-   detail:[{t:`Sun ${hours(m.sun.total_hours)} h and longest joint outage ${hours(m.both.longest_outage_hours)} h are unchanged. A taller mast buys no extra line of sight at this cell.`}],
+   detail:[{t:`Sun ${hours(m.sun.total_hours)} h and longest gap with Sun or Earth blocked ${hours(m.both.longest_outage_hours)} h are unchanged. A taller mast buys no extra line of sight at this cell.`}],
    actions:[optimizeAction]};
   const dE = m.earth.total_hours-b.earth.total_hours, dS = m.sun.total_hours-b.sun.total_hours;
   const title:Segment[] = dE!==0
@@ -120,7 +120,7 @@ export function buildStory({selected,baseline,sweep,links,constraints,search,sea
   const actions:StoryAction[] = peak!==null&&selected.height_m<peak ? [{kind:'height',height:peak,label:`Raise the mast to ${peak} m`},optimizeAction]
    : next ? [optimizeAction,{kind:'height',height:next.height_m,label:`Check ${next.height_m} m`}] : [optimizeAction];
   return {step:3,tone:dE<0||dS<0?'loss':'gain',kicker:`Engine recalculated · ${selected.height_m} m mast`,title,
-   detail:[{t:`Sun ${hours(b.sun.total_hours)} → ${hours(m.sun.total_hours)} h · longest joint outage ${hours(b.both.longest_outage_hours)} → ${hours(m.both.longest_outage_hours)} h · `},status,{t:'.'}],actions};
+   detail:[{t:`Sun ${hours(b.sun.total_hours)} → ${hours(m.sun.total_hours)} h · longest gap with Sun or Earth blocked ${hours(b.both.longest_outage_hours)} → ${hours(m.both.longest_outage_hours)} h · `},status,{t:'.'}],actions};
  }
  const dE = m.earth.total_hours-b.earth.total_hours;
  return {step:3,tone:dE<0?'loss':dE>0?'gain':'neutral',kicker:`Station moved ${where(link)} · ${selected.height_m} m`,
@@ -139,6 +139,6 @@ export function explainRecommendation(search:Search,all:Analysis[],links:Record<
   const failed = violations(lower,links[keyFor(lower)],constraints);
   if(failed.length) lines.push([{t:`A shorter ${lower.height_m} m mast at this cell fails `},{t:list(failed),c:'bad'},{t:'.'}]);
  }
- lines.push([{t:'Versus ground level at the lander: Sun '},{t:`${signed(r.metrics.sun.total_hours-baseline.metrics.sun.total_hours)} h`,c:'sun'},{t:' · Earth '},{t:`${signed(r.metrics.earth.total_hours-baseline.metrics.earth.total_hours)} h`,c:'earth'},{t:` · longest joint outage ${hours(baseline.metrics.both.longest_outage_hours)} → ${hours(r.metrics.both.longest_outage_hours)} h.`}]);
+ lines.push([{t:'Versus ground level at the lander: Sun '},{t:`${signed(r.metrics.sun.total_hours-baseline.metrics.sun.total_hours)} h`,c:'sun'},{t:' · Earth '},{t:`${signed(r.metrics.earth.total_hours-baseline.metrics.earth.total_hours)} h`,c:'earth'},{t:` · longest gap with Sun or Earth blocked ${hours(baseline.metrics.both.longest_outage_hours)} → ${hours(r.metrics.both.longest_outage_hours)} h.`}]);
  return lines;
 }

@@ -26,6 +26,8 @@ for (const site of snapshot.sites) {
       assert.deepEqual(rows.filter(r => !r.pass).map(r => r.name), failed);
       assert.equal(rows[0].value, `${percent(a.metrics.sun).toFixed(1)}%`);
       assert.equal(rows[1].value, `${percent(a.metrics.earth).toFixed(1)}%`);
+      const longestIndividualOutage = Math.max(a.metrics.sun.longest_outage_hours, a.metrics.earth.longest_outage_hours);
+      assert.equal(rows.find(row => row.name === 'Maximum outage').value, `${hours(longestIndividualOutage)} h`);
     }
   });
 

@@ -66,7 +66,7 @@ export function ResultsPanel({window,site,selected,baseline,sweep,link,rows,cons
   </div>
   <dl className="joint">
    <div><dt>Sun + Earth together</dt><dd>{hours(m.both.total_hours)} h{!same&&<small>{hours(b.both.total_hours)} h at ground</small>}</dd></div>
-   <div><dt>Longest joint outage</dt><dd className={m.both.longest_outage_hours<b.both.longest_outage_hours?'good':''}>{hours(m.both.longest_outage_hours)} h{!same&&<small>{hours(b.both.longest_outage_hours)} h at ground</small>}</dd></div>
+   <div><dt>Longest gap with Sun or Earth blocked</dt><dd className={m.both.longest_outage_hours<b.both.longest_outage_hours?'good':''}>{hours(m.both.longest_outage_hours)} h{!same&&<small>{hours(b.both.longest_outage_hours)} h at ground</small>}</dd></div>
    <div><dt><Radio size={12}/>Lander ↔ station</dt><dd className={link?.visible?'good':'warn'}>{link?.visible?'Clear line of sight':'Terrain obstructed'}{link&&link.distance_m>=1&&<small>{hours(Math.round(link.distance_m))} m apart</small>}</dd></div>
   </dl>
   <HeightResponse sweep={sweep} selected={selected} onHeight={onHeight} recommended={recommended} constraints={constraints}/>
