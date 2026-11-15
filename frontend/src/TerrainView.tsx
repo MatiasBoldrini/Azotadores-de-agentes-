@@ -41,12 +41,14 @@ const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#A3A3A3',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
+const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#C7C9CD',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
 const SKY_DISC_COLOR={sun:'#ffe17a',earth:C.earth};
 const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#ff625e';
 const CANDIDATE_HIT_RADIUS=.023*Math.sqrt(10);
+const CANDIDATE_DIAMETER={evaluated:.064,feasible:.088,recommended:.106};
+const CANDIDATE_OUTLINE='#17191E';
 
 const terrainEvents:typeof events=store=>{
  const center=new THREE.Vector3();
@@ -433,11 +435,42 @@ function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisibl
  </group>;
 }
 
+function candidateMarkerTexture(fill:string,recommended=false){
+ const canvas=document.createElement('canvas');
+ canvas.width=canvas.height=128;
+ const ctx=canvas.getContext('2d')!;
+ const disc=(radius:number,color:string)=>{
+  ctx.beginPath();
+  ctx.arc(64,64,radius,0,Math.PI*2);
+  ctx.fillStyle=color;
+  ctx.fill();
+ };
+ disc(62,CANDIDATE_OUTLINE);
+ if(recommended){
+  disc(53,C.recommended);
+  disc(39,CANDIDATE_OUTLINE);
+ }
+ disc(recommended?32:46,fill);
+ const texture=new THREE.CanvasTexture(canvas);
+ texture.colorSpace=THREE.SRGBColorSpace;
+ return texture;
+}
+
+function useCandidateMarkers(){
+ const markers=useMemo(()=>({
+  evaluated:candidateMarkerTexture(C.candidate),
+  feasible:candidateMarkerTexture(C.feasible),
+  recommended:candidateMarkerTexture(C.feasible,true),
+ }),[]);
+ useEffect(()=>()=>Object.values(markers).forEach(texture=>texture.dispose()),[markers]);
+ return markers;
+}
+
 function PositionHighlight({label,position}:{label:string;position:[number,number,number]}){
  return <group position={position}>
   <ScreenScale position={[0,0,0]}><Billboard>
    <mesh renderOrder={90}>
-    <ringGeometry args={[.024,.035,32]}/>
+    <ringGeometry args={[.057,.064,32]}/>
     <meshBasicMaterial color="#F5F5F5" transparent opacity={.95} toneMapped={false} depthTest={false} depthWrite={false}/>
    </mesh>
   </Billboard></ScreenScale>
@@ -454,6 +487,7 @@ function Scene(p:SceneProps){
  const occluder=useRef<THREE.Mesh>(null);
  const lines=useMemo(()=>({sun:createRef<ComponentRef<typeof Line>>(),earth:createRef<ComponentRef<typeof Line>>(),link:createRef<ComponentRef<typeof Line>>()}),[]);
  const [hovered,setHovered]=useState<string|null>(null);
+ const candidateMarkers=useCandidateMarkers();
  const orbiting=useRef(false);
  useCursor(hovered!==null);
  const mean=useMemo(()=>terrainMean(p.terrain),[p.terrain]);
@@ -516,16 +550,22 @@ function Scene(p:SceneProps){
   <Lights frame={p.frame} progress={progress}/>
   <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} tile={tile} surround={surround} progress={progress} wireframe={p.wireframe} onPick={pick} occluder={occluder}/></Suspense></GlobeFallback>
   <DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} hidden={p.mapView||!p.active||p.approach!==null}/>
-  {p.positions.map(o=>{const feasible=p.feasible?.has(o.id),rec=o.id===p.recommended,radius=feasible?.017:.012;return o.id===p.selected.candidate_id?null:<ScreenScale key={o.id} position={point(o.position,2)}>
-   <mesh><sphereGeometry args={[radius,14,14]}/><meshBasicMaterial color={feasible?C.feasible:C.candidate} transparent opacity={feasible?1:.75}/></mesh>
-   <mesh visible={false} userData={{candidateTarget:true}}
-    onPointerMove={e=>{if(orbiting.current||e.pointerType==='touch')return;e.stopPropagation();if(hovered!==o.id)setHovered(o.id);}}
-    onPointerOut={()=>setHovered(h=>h===o.id?null:h)}
-    onClick={e=>{e.stopPropagation();select(o.id,e.nativeEvent);}}>
-    <sphereGeometry args={[CANDIDATE_HIT_RADIUS,12,12]}/><meshBasicMaterial/>
-   </mesh>
-   {rec&&<mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.038,32]}/><meshBasicMaterial color={C.recommended} side={THREE.DoubleSide}/></mesh>}
-  </ScreenScale>;})}
+  {p.positions.map(o=>{
+   if(o.id===p.selected.candidate_id)return null;
+   const marker=o.id===p.recommended?'recommended':p.feasible?.has(o.id)?'feasible':'evaluated';
+   const diameter=CANDIDATE_DIAMETER[marker];
+   return <ScreenScale key={o.id} position={point(o.position,2)}>
+    <sprite scale={[diameter,diameter,1]} raycast={noRaycast}>
+     <spriteMaterial map={candidateMarkers[marker]} alphaTest={.3} alphaToCoverage toneMapped={false}/>
+    </sprite>
+    <mesh visible={false} userData={{candidateTarget:true}}
+     onPointerMove={e=>{if(orbiting.current||e.pointerType==='touch')return;e.stopPropagation();if(hovered!==o.id)setHovered(o.id);}}
+     onPointerOut={()=>setHovered(h=>h===o.id?null:h)}
+     onClick={e=>{e.stopPropagation();select(o.id,e.nativeEvent);}}>
+     <sphereGeometry args={[CANDIDATE_HIT_RADIUS,12,12]}/><meshBasicMaterial/>
+    </mesh>
+   </ScreenScale>;
+  })}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
   <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:lander} linkVisible={p.linkVisible}/>
