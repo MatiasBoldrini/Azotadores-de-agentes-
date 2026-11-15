@@ -1,5 +1,5 @@
 import {useState,useEffect,useLayoutEffect,useMemo,useRef,Component,ReactNode} from 'react';
-import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Telescope,ArrowUp,Orbit} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Telescope,ArrowUp,Eye,EyeOff} from 'lucide-react';
 import MastPanorama from './MastPanorama';
 import {SKY_DOME_CAPTION} from './SkyDome';
 import {raiseSequence} from './lib/skyDome';
@@ -69,9 +69,11 @@ function App(){
  const configureRef=useRef<HTMLDivElement>(null),configureButton=useRef<HTMLButtonElement>(null);
  const configurePanel=useRef<HTMLDivElement>(null);
  const [showConfigure,setShowConfigure]=useState(false);
- const [showReferences,setShowReferences]=useState(true);
+ const [showReferences,setShowReferences]=useState(false);
  const [showPanorama,setShowPanorama]=useState(false);
- const [showSky,setShowSky]=useState(true),[raising,setRaising]=useState(false);
+ const [showSky,setShowSky]=useState(false),[raising,setRaising]=useState(false);
+ const ReferencesIcon=showReferences?Eye:EyeOff;
+ const SkyIcon=showSky?Eye:EyeOff;
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
  const searchTimer=useRef<number|undefined>(undefined);
  const [linkCopied,setLinkCopied]=useState(false);
@@ -403,11 +405,11 @@ function App(){
       </ul>
       <TerrainScope terrain={data.terrain} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m} sky={showSky}/>
      </div>
-     <button type="button" className="map-references-toggle" aria-expanded={showReferences} aria-controls="map-reference-content" onClick={()=>setShowReferences(value=>!value)}><ChevronDown size={14} aria-hidden="true"/>{showReferences?'Hide references':'Show references'}</button>
+     <button type="button" className="map-references-toggle" aria-expanded={showReferences} aria-controls="map-reference-content" title={showReferences?'Hide references':'Show references'} onClick={()=>setShowReferences(value=>!value)}><ReferencesIcon size={14} aria-hidden="true"/>References</button>
     </div>
     {!showAnalysisDock&&<div className="map-actions">{configure}</div>}
   <div className="sky-panel" role="group" aria-label="Sky paths from the mast top">
-   <button type="button" className="sky-toggle" aria-pressed={showSky} onClick={()=>setShowSky(v=>!v)}><Orbit size={14} aria-hidden="true"/>Sky paths</button>
+   <button type="button" className="sky-toggle" aria-pressed={showSky} title={showSky?'Hide sky paths':'Show sky paths'} onClick={()=>setShowSky(value=>!value)}><SkyIcon size={14} aria-hidden="true"/>Sky paths</button>
    <button type="button" className="sky-raise" onClick={raiseMast} disabled={raising}><ArrowUp size={14} aria-hidden="true"/>{raising?`Raising… ${selected.height_m} m`:`Raise mast ${heightsTested[0]??0} → ${heightsTested[heightsTested.length-1]??20} m`}</button>
    {showSky&&<p className="sky-readout" aria-live="polite"><b>{selected.height_m} m mast</b>{selected.height_m>0?<> · sky gained vs 0 m: <span className="sun">Sun +{fmt(gainedSun)} h</span> · <span className="earth">Earth +{fmt(gainedEarth)} h</span></>:<> · Sun {fmt(selected.metrics.sun.total_hours)} h · Earth {fmt(selected.metrics.earth.total_hours)} h</>}<small>{SKY_DOME_CAPTION}; {VERTICAL_EXAGGERATION}× vertical exaggeration in 3D, so sky angles look steeper</small></p>}
   </div>
