@@ -9,6 +9,7 @@ import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
 import PositionPicker,{type EvaluatedPosition} from './PositionPicker';
 import {demoSteps} from './RidgeDemo';
+import AnalysisDisclosure from './AnalysisDisclosure';
 import {TimelineChart,TimelineStack,HorizonChart} from './Charts';
 import {StoryBar} from './Story';
 import {ResultsPanel,OptimizerCard} from './Results';
@@ -320,9 +321,10 @@ function App(){
    <div className="time-labels"><span>{utc(start)} UTC</span><ul className="timeline-legend"><li><i className="lg-line solid"/>Body elevation</li><li><i className="lg-line"/>Terrain horizon at body azimuth</li>{keyFor(selected)!==keyFor(baseline)&&<li><i className="lg-line dotted"/>Ground-level horizon</li>}<li><i className="lg-band"/>Visible intervals</li></ul><span>{utc(end)} UTC</span></div>
   </div>
   <div className="timeline-horizon">
-   <div className="block-head">Horizon from the station</div>
-   <HorizonChart analysis={selected} index={index} baseline={baseline}/>
-   <div className="horizon-legend"><span><i className="lg-line"/>Horizon at {selected.height_m} m</span>{keyFor(selected)!==keyFor(baseline)&&<span><i className="lg-line dotted"/>Ground level</span>}<span><i className="dot-fill"/>In view <i className="dot-ring"/>Blocked</span></div>
+   <AnalysisDisclosure title="Horizon from the station">
+    <HorizonChart analysis={selected} index={index} baseline={baseline}/>
+    <div className="horizon-legend"><span><i className="lg-line"/>Horizon at {selected.height_m} m</span>{keyFor(selected)!==keyFor(baseline)&&<span><i className="lg-line dotted"/>Ground level</span>}<span><i className="dot-fill"/>In view <i className="dot-ring"/>Blocked</span></div>
+   </AnalysisDisclosure>
   </div>
  </section>
  </main>;

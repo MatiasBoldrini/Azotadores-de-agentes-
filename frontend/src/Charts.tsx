@@ -1,4 +1,5 @@
 import {useId,useLayoutEffect,useMemo,useRef,useState} from 'react';
+import AnalysisDisclosure from './AnalysisDisclosure';
 import type {Analysis} from './lib/science';
 
 const COLORS={sun:'#FFC46B',earth:'#8FD3FF'} as const;
@@ -47,7 +48,7 @@ export const PLOT_LEFT=44,PLOT_RIGHT=56;
 
 type ChartProps={analysis:Analysis;index:number;onIndex:(i:number)=>void;baseline?:Analysis;height?:number;currentLabel?:string;baselineLabel?:string};
 
-export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel,cursor=true}:ChartProps&{body:'sun'|'earth';cursor?:boolean}){
+export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel,cursor=true,collapsible=false}:ChartProps&{body:'sun'|'earth';cursor?:boolean;collapsible?:boolean}){
  const [ref,width]=useWidth<HTMLDivElement>();
  const s=analysis.series,values=s[`${body}_elevation_deg`],horizon=s[`${body}_horizon_deg`],n=values.length;
  const visibility=s[`${body}_visible`],bodyColor=COLORS[body],gradientId=useId();
@@ -68,12 +69,11 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
  const pick=(clientX:number,el:Element)=>{const r=el.getBoundingClientRect();onIndex(Math.round(Math.max(0,Math.min(1,(clientX-r.left-left)/(r.width-left-right)))*(n-1)));};
  const tracks:Track[]=compare?[{label:baselineLabel??`${compare.height_m} m`,analysis:compare},{label:currentLabel??`${analysis.height_m} m`,analysis}]:[{label:currentLabel??`${analysis.height_m} m`,analysis}];
  const name=body==='sun'?'Sun':'Earth';
- return <div className="time-chart" ref={ref}>
-  <div className="chart-head">
-   <span className={`chart-title ${body}`}>{name} elevation vs terrain horizon</span>
-   <span className="chart-readout"><b>{values[index].toFixed(2)}°</b> / horizon {horizon[index].toFixed(2)}° <em className={visible?'in-view':'blocked'}>{visible?'In view':'Blocked'}</em></span>
-  </div>
-  <svg role="img" aria-label={`${name} elevation and terrain horizon over time. At the cursor ${name} is ${values[index].toFixed(2)} degrees against a ${horizon[index].toFixed(2)} degree horizon: ${visible?'in view':'blocked'}.`} width={w} height={height} viewBox={`0 0 ${w} ${height}`}
+ const title=`${name} elevation vs terrain horizon`;
+ const titleClassName=`chart-title ${body}`;
+ const readout=<span className="chart-readout"><b>{values[index].toFixed(2)}°</b> / horizon {horizon[index].toFixed(2)}° <em className={visible?'in-view':'blocked'}>{visible?'In view':'Blocked'}</em></span>;
+ const plot=<>
+  <svg className="timeline-plot" role="img" aria-label={`${name} elevation and terrain horizon over time. At the cursor ${name} is ${values[index].toFixed(2)} degrees against a ${horizon[index].toFixed(2)} degree horizon: ${visible?'in view':'blocked'}.`} width={w} height={height} viewBox={`0 0 ${w} ${height}`}
    onPointerMove={e=>pick(e.clientX,e.currentTarget)} onPointerDown={e=>pick(e.clientX,e.currentTarget)}>
    {colorStops.length>1&&<defs><linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1={left} x2={w-right}>
     {colorStops.map(({offset,color},i)=><stop key={i} offset={offset} stopColor={color}/>)}
@@ -95,6 +95,14 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
     <span className="track-total">{track.analysis.metrics[body].total_hours.toLocaleString('en-US',{maximumFractionDigits:1})} h</span>
    </div>)}
   </div>
+ </>;
+ return <div className="time-chart" ref={ref}>
+  {collapsible?<AnalysisDisclosure title={title} headingClassName="chart-head" titleClassName={titleClassName} summary={readout}>
+   {plot}
+  </AnalysisDisclosure>:<>
+   <div className="chart-head"><span className={titleClassName}>{title}</span>{readout}</div>
+   {plot}
+  </>}
  </div>;
 }
 
@@ -105,9 +113,11 @@ export function TimelineStack({analysis,index,...rest}:ChartProps){
  useLayoutEffect(()=>{
   const el=ref.current;if(!el)return;
   const measure=()=>{
-   const box=el.getBoundingClientRect(),plots=el.querySelectorAll('.time-chart svg'),tracks=el.querySelectorAll('.tracks');
-   if(!plots.length)return;
-   const top=plots[0].getBoundingClientRect().top-box.top,bottom=(tracks[tracks.length-1]??plots[plots.length-1]).getBoundingClientRect().bottom-box.top;
+   const visibleParts=Array.from(el.querySelectorAll('.timeline-plot, .tracks')).filter(part=>part.getClientRects().length>0);
+   if(!visibleParts.length){setSpan(null);return;}
+   const box=el.getBoundingClientRect();
+   const top=visibleParts[0].getBoundingClientRect().top-box.top;
+   const bottom=visibleParts[visibleParts.length-1].getBoundingClientRect().bottom-box.top;
    setSpan(s=>s&&s[0]===top&&s[1]===bottom?s:[top,bottom]);
   };
   measure();
@@ -115,8 +125,8 @@ export function TimelineStack({analysis,index,...rest}:ChartProps){
  },[analysis,rest.baseline]);
  const f=index/Math.max(1,analysis.series.timestamp_utc.length-1);
  return <div className="chart-stack" ref={ref}>
-  <TimelineChart analysis={analysis} index={index} body="sun" cursor={false} {...rest}/>
-  <TimelineChart analysis={analysis} index={index} body="earth" cursor={false} {...rest}/>
+  <TimelineChart analysis={analysis} index={index} body="sun" cursor={false} collapsible {...rest}/>
+  <TimelineChart analysis={analysis} index={index} body="earth" cursor={false} collapsible {...rest}/>
   {span&&<span className="stack-cursor" aria-hidden="true" style={{top:span[0],height:span[1]-span[0],left:`calc(${PLOT_LEFT}px + (100% - ${PLOT_LEFT+PLOT_RIGHT}px) * ${f})`}}/>}
  </div>;
 }

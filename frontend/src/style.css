@@ -281,6 +281,11 @@ option{background:#111}
 .joint dd{margin:0;text-align:right;font-weight:600}
 .joint dd small{margin-left:8px;font-size:12px;font-weight:400;color:var(--muted)}
 .block-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.analysis-disclosure-title{min-width:0;font:inherit}
+.analysis-disclosure-toggle{display:flex;align-items:center;gap:6px;max-width:100%;padding:0;border-radius:3px;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
+.analysis-disclosure-toggle svg{color:var(--muted);transition:transform .18s,color .18s}
+.analysis-disclosure-toggle:hover,.analysis-disclosure-toggle:hover svg{color:var(--text)}
+.analysis-disclosure-toggle[aria-expanded=false] svg{transform:rotate(-90deg)}
 .height-response{padding:10px 0;border-bottom:1px solid var(--hairline);min-width:0}
 .height-response .block-head{letter-spacing:.1em}
 .hr-readout,.hr-limits{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap;font-size:12px;font-variant-numeric:tabular-nums}
@@ -313,7 +318,7 @@ option{background:#111}
 .hr-limits i{width:12px;border-top:1px dashed currentColor}
 .hr-limits .earth i{border-top-style:dotted}
 .checks{padding-top:10px}
-.pass-count{font-weight:600;color:var(--text)}
+.pass-count{font-weight:600;color:var(--text);white-space:nowrap}
 .pass-count:not(.all){color:var(--blocked)}
 .checks ul{list-style:none;margin:6px 0 0;padding:0}
 .checks li{display:grid;grid-template-columns:18px minmax(0,1fr) auto 72px;gap:8px;align-items:center;padding:3px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -348,8 +353,8 @@ option{background:#111}
 .chart-readout em{margin-left:6px;padding:1px 8px;border-radius:999px;font-style:normal;font-weight:600}
 .chart-readout .in-view{background:rgba(255,255,255,.1);color:var(--text)}
 .chart-readout .blocked{background:rgba(255,98,94,.14);color:var(--blocked)}
-.time-chart svg{display:block;width:100%;margin-top:4px;overflow:visible;cursor:crosshair;touch-action:pan-y}
-.time-chart svg text,.horizon-chart text{font:500 11px var(--sans);font-variant-numeric:tabular-nums}
+.timeline-plot{display:block;width:100%;margin-top:4px;overflow:visible;cursor:crosshair;touch-action:pan-y}
+.timeline-plot text,.horizon-chart text{font:500 11px var(--sans);font-variant-numeric:tabular-nums}
 .horizon-chart .body-label{font:600 11px var(--sans);letter-spacing:.08em}
 .tracks{display:flex;flex-direction:column;gap:3px;margin-top:2px}
 .track{position:relative;height:9px;border-radius:3px;background:rgba(255,255,255,.08)}
