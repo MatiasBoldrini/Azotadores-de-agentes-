@@ -9,12 +9,13 @@ import {MOON_LIGHTS,MOON_TEXTURES,buildMoon,setMoonOpacity} from './moon/globe';
 import {APPROACH_KM,LANDING_FOV,heroPose,horizonPose,type Pose,type SiteFrame} from './moon/frame';
 import {SITE01_SIZE,useSite01,useSurround,type DemLevel} from './site01';
 import {TerrainRayHover,TerrainRayTooltip,type TerrainLine,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
+import {TerrainSightline} from './TerrainSightline';
 import {createStationClickGuard} from './lib/stationClick';
 
 export const VERTICAL_EXAGGERATION = 4;
 // The mast glyph is stretched beyond the relief scale so that metre-scale heights read on a 2.5 km scene.
 export const MAST_EXAGGERATION=12;
-const MAST_BASE=.03,MAST_PER_M=MAST_EXAGGERATION/1000,RAY=.85;
+const MAST_BASE=.03,MAST_PER_M=MAST_EXAGGERATION/1000;
 const FOV=40,HERO_HFOV=72,MIN_FOV=46,MAX_FOV=66,DEG=Math.PI/180,MAX_KM=9,DESCENT_MS=2400;
 // Hillshade light, as azimuth from local north and altitude above the horizon.
 const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
@@ -25,8 +26,9 @@ const DISC_KM=7.95;
 // Resting view: inside the back of the 5 m square, just above the crest, so the near field is all 5 m relief and
 // the summit's fall-off is the skyline; the frame reaches 9° above the horizontal, past the highest body.
 const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
-// Bodies are drawn on a sky shell around the camera at their apparent sizes (degrees).
-const SKY_KM=100,SUN_DEG=.53,EARTH_DEG=1.9;
+// Schematic marker distance and size. The direction from the mast uses the computed azimuth and elevation.
+const SKY_KM=100,BODY_DEG={sun:1.3,earth:3.2};
+const EARTH_PHOTO='/earth/apollo-17-blue-marble.jpg';
 // Descent progress over which the landing globe fades out.
 const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
@@ -301,53 +303,50 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress,heroHeight
  return null;
 }
 
-type Ray={body:'sun'|'earth';dir:[number,number,number];visible:boolean};
+type Point=[number,number,number];
+type Ray={body:'sun'|'earth';end:Point;visible:boolean};
+const RAY_START:Point=[0,0,0],LINK_START:Point=[0,MAST_BASE,0];
+const bodyRadius=(body:Ray['body'])=>SKY_KM*Math.tan(BODY_DEG[body]*DEG/2);
+const bodyLabel=({body,end:[x,y,z]}:Ray):Point=>[x,y+bodyRadius(body)+1.7,z];
 
-function glowTexture(core:string,glow:string,disc:number){
- const size=128,canvas=document.createElement('canvas');canvas.width=canvas.height=size;
- const ctx=canvas.getContext('2d')!,g=ctx.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
- g.addColorStop(0,core);g.addColorStop(disc*.92,core);g.addColorStop(disc,glow);g.addColorStop(1,'rgba(0,0,0,0)');
- ctx.fillStyle=g;ctx.fillRect(0,0,size,size);
- const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;return t;
+function EarthDisc({radius,visible}:{radius:number;visible:boolean}){
+ const [map,setMap]=useState<THREE.Texture|null>(null);
+ useEffect(()=>{
+  let mounted=true;
+  const texture=new THREE.TextureLoader().load(EARTH_PHOTO,loaded=>{if(mounted)setMap(loaded);});
+  // The NASA scan has a black border around the globe. The circular mesh masks it,
+  // and these UVs fit the photographed limb to the disk.
+  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.repeat.set(424/640,430/640);
+  texture.offset.set(109/640,99/640);
+  return()=>{mounted=false;texture.dispose();};
+ },[]);
+ return <mesh renderOrder={60} raycast={noRaycast}>
+  <circleGeometry args={[radius,48]}/>
+  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={map?'#ffffff':C.earth} depthTest={visible}
+   depthWrite={false} transparent opacity={visible ? 1 : map ? .76 : .22} toneMapped={false}/>
+ </mesh>;
 }
 
-// The Sun and the Earth on the sky at their computed directions, shown only while the engine has them in view.
-function SkyBodies({rays}:{rays:Ray[]}){
- const shell=useRef<THREE.Group>(null);
- const looks=useMemo(()=>({
-  sun:{texture:glowTexture('#fffaf0','rgba(255,196,107,.35)',.12),size:SUN_DEG/.12},
-  earth:{texture:glowTexture('#9fdcff','rgba(143,211,255,.18)',.62),size:EARTH_DEG/.62},
- }),[]);
- useEffect(()=>()=>{looks.sun.texture.dispose();looks.earth.texture.dispose();},[looks]);
- useFrame(({camera})=>{shell.current?.position.copy(camera.position);});
- return <group ref={shell}>
-  {rays.filter(r=>r.visible).map(r=>{
-   const d=new THREE.Vector3(...r.dir).normalize(),{texture,size}=looks[r.body],scale=2*SKY_KM*Math.tan(size/2*DEG);
-   const p=d.clone().multiplyScalar(SKY_KM);
-   return <group key={r.body}>
-    <sprite position={p} scale={[scale,scale,1]} renderOrder={60}><spriteMaterial map={texture} depthWrite={false} transparent blending={THREE.AdditiveBlending}/></sprite>
-    <Label position={[p.x,p.y+SKY_KM*(r.body==='earth'?.034:.03),p.z]} color={C[r.body]} size={.02} depthTest text={`${r.body==='sun'?'SUN':'EARTH'} · IN VIEW`}/>
-   </group>;
-  })}
- </group>;
-}
-
-// A thin ray from the mast head to where the body's disc sits on the sky shell around the camera. A body well
-// away from the view direction keeps a short ray pointing at it instead.
-function SkyRay({dir,color,line}:{dir:[number,number,number];color:string;line:TerrainLine}){
- const from=useMemo(()=>new THREE.Vector3(),[]),to=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),d=useMemo(()=>new THREE.Vector3(...dir).normalize(),[dir]);
- useFrame(({camera})=>{
-  const l=line.current;if(!l?.parent)return;
-  if(camera.getWorldDirection(ahead).dot(d)<.5)to.copy(d).multiplyScalar(RAY);
-  else{l.parent.getWorldPosition(from);to.copy(camera.position).addScaledVector(d,SKY_KM).sub(from);}
-  l.geometry.setPositions([0,0,0,to.x,to.y,to.z]);
- });
- return <Line ref={line} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
+function SkyBody(ray:Ray){
+ const {body,end,visible}=ray;
+ const color=C[body],radius=bodyRadius(body);
+ return <>
+  <Billboard position={end}>
+   {body==='earth'&&<EarthDisc radius={radius} visible={visible}/>}
+   {(body==='sun'||!visible)&&<mesh renderOrder={61} raycast={noRaycast}>
+    {visible?<circleGeometry args={[radius,40]}/>:<ringGeometry args={[radius*(body==='earth' ? .94 : .82),radius,48]}/>}
+    <meshBasicMaterial color={color} depthTest={visible} depthWrite={false} transparent opacity={visible?1:.82} toneMapped={false}/>
+   </mesh>}
+  </Billboard>
+  <Label position={bodyLabel(ray)} color={color} size={.018} depthTest={visible} text={BODY_LABELS[body].toUpperCase()}/>
+ </>;
 }
 
 function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
  const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
  const target=MAST_BASE+height*MAST_PER_M;
+ const linkEnd=useMemo<Point|null>(()=>linkTo&&[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]],[ground,linkTo]);
  useFrame((_,dt)=>{
   level.current+= (target-level.current)*Math.min(1,dt*6);
   if(Math.abs(target-level.current)<1e-4) level.current=target;
@@ -359,18 +358,14 @@ function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[nu
   <mesh ref={mast}><cylinderGeometry args={[.0045,.0045,1,10]}/><meshBasicMaterial color={C.station}/></mesh>
   <group ref={head}>
    <mesh><octahedronGeometry args={[.024]}/><meshBasicMaterial color={C.station}/></mesh>
-   {rays.map(({body,dir,visible})=>{
-    const color=visible?C[body]:BLOCKED_COLOR;
-    // In-view rays run out to the body's disc on the sky; blocked rays stay short and draw over the terrain.
-    return visible?<SkyRay key={body} dir={dir} color={color} line={lines[body]}/>:<group key={body}>
-     <Line ref={lines[body]} points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
-     <mesh position={dir} renderOrder={71}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={false} transparent/></mesh>
-     <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · BLOCKED`}/>
-    </group>;
-   })}
+   {rays.map(ray=><group key={ray.body}>
+    <TerrainSightline line={lines[ray.body]} start={RAY_START} end={ray.end}
+     color={ray.visible?C[ray.body]:BLOCKED_COLOR} width={ray.visible?1.6:2.5} blocked={!ray.visible}/>
+    <SkyBody {...ray}/>
+   </group>)}
    <Label position={[0,.09,0]} color={C.station} text={label}/>
   </group>
-  {linkTo&&<Line ref={lines.link} points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:BLOCKED_COLOR} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
+  {linkEnd&&<TerrainSightline line={lines.link} start={LINK_START} end={linkEnd} color={linkVisible?C.ok:BLOCKED_COLOR} width={1.4} blocked={!linkVisible}/>}
  </group>;
 }
 
@@ -418,15 +413,16 @@ function Scene(p:SceneProps){
  const preview=p.positions.find(o=>o.id===(p.previewId??hovered));
  const select=(id:string,event:MouseEvent)=>{if(p.canSelect(event)){setHovered(null);p.onSelect(id);}};
  const pick:TerrainPick=(r,c,event)=>{const nearest=p.positions.reduce((best,o)=>Math.hypot(o.position.row-r,o.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?o:best);select(nearest.id,event);};
- const rays:Ray[]=BODY_KEYS.map(body=>{
+ const rays=useMemo<Ray[]>(()=>BODY_KEYS.map(body=>{
   const el=p.selected.series[`${body}_elevation_deg`][p.time]*DEG,d=p.frame.horizontal(p.selected.series[`${body}_azimuth_deg`][p.time]);
-  return {body,visible:p.selected.series[`${body}_visible`][p.time],dir:[d.x*RAY*Math.cos(el),Math.sin(el)*RAY,d.z*RAY*Math.cos(el)]};
- });
+  const horizontal=SKY_KM*Math.cos(el);
+  return {body,visible:p.selected.series[`${body}_visible`][p.time],end:[d.x*horizontal,Math.sin(el)*SKY_KM,d.z*horizontal]};
+ }),[p.selected.series,p.frame,p.time]);
  const add=(a:[number,number,number],b:[number,number,number]):[number,number,number]=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
  const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
- const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
+ const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,markerRadius:bodyRadius(r.body),detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
  if(!atLander) hoverRays.push({id:'link',line:lines.link,label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
- const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.filter(r=>!r.visible).map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
+ const labelPositions:Point[]=[add(head,[0,.09,0]),...rays.map(r=>add(head,bodyLabel(r)))];
  if(!atLander) labelPositions.push(add(lander,[0,.1,0]));
  const north=p.frame.horizontal(0),[nx,nz]=[north.x,north.z];
  const compass:[number,number,number]=[-extentKm*.42,point({row:n*.92,col:n*.08,elevation_m:p.terrain.elevation_m[Math.round(n*.92/p.terrain.stride)]?.[Math.round(n*.08/p.terrain.stride)]??mean} as Site)[1]+.03,extentKm*.42];
@@ -440,7 +436,6 @@ function Scene(p:SceneProps){
   <primitive object={stars}/>
   <Lights frame={p.frame} progress={progress}/>
   <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} tile={tile} surround={surround} progress={progress} wireframe={p.wireframe} onPick={pick}/></Suspense></GlobeFallback>
-  <SkyBodies rays={rays}/>
   {p.positions.map(o=>{const feasible=p.feasible?.has(o.id),rec=o.id===p.recommended,radius=feasible?.017:.012;return o.id===p.selected.candidate_id?null:<ScreenScale key={o.id} position={point(o.position,2)}>
    <mesh><sphereGeometry args={[radius,14,14]}/><meshBasicMaterial color={feasible?C.feasible:C.candidate} transparent opacity={feasible?1:.75}/></mesh>
    <mesh visible={false}
