@@ -6,7 +6,27 @@ import type {Analysis,Site,Terrain} from './lib/science';
 
 export const VERTICAL_EXAGGERATION = 4;
 
+const BODIES = {
+ sun: { label: 'Sun', color: '#f2bd68' },
+ earth: { label: 'Earth', color: '#8cb4de' },
+} as const;
+const BODY_KEYS = ['sun', 'earth'] as const;
+const BLOCKED_COLOR = '#ff625e';
+
 type Props={terrain:Terrain;analyses:Analysis[];selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean};
+
+export function CelestialRayLegend({selected, time}: Pick<Props, 'selected' | 'time'>) {
+ return <ul className="celestial-ray-legend" aria-label="Celestial sightlines">
+  {BODY_KEYS.map(body => {
+   const visible = selected.series[`${body}_visible`][time];
+   return <li key={body}>
+    <span className={`ray-marker ray-marker-${body}`} style={{color: visible ? BODIES[body].color : BLOCKED_COLOR}} aria-hidden="true"/>
+    {BODIES[body].label} · {visible ? 'Visible' : 'Blocked'}
+   </li>;
+  })}
+ </ul>;
+}
+
 function Label({text,position,color='#dce7d8'}:{text:string;position:[number,number,number];color?:string}){
  const texture=useMemo(()=>{const canvas=document.createElement('canvas');canvas.width=768;canvas.height=96;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#151d18';ctx.fillRect(0,0,768,96);ctx.strokeStyle=color;ctx.lineWidth=2;ctx.strokeRect(2,2,764,92);ctx.fillStyle=color;ctx.font='42px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,384,48);return new THREE.CanvasTexture(canvas);},[text,color]);
  useEffect(()=>()=>texture.dispose(),[texture]);
@@ -69,8 +89,6 @@ function Scene(p:Props){
  const candidates=useMemo(()=>p.analyses.filter(a=>a.height_m===0),[p.analyses]);
  const pick=(r:number,c:number)=>{const nearest=candidates.reduce((best,a)=>Math.hypot(a.position.row-r,a.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?a:best);p.onSelect(nearest.candidate_id);};
  const sunDirection = bodyDirection('sun',p.selected,p.time);
- const direction = (body:'sun'|'earth') => bodyDirection(body,p.selected,p.time)
-  .multiplyScalar(.75).add(new THREE.Vector3(...station)).toArray();
  useEffect(()=>{controls.current?.target.set(0,0,0);controls.current?.update();},[p.reset,p.mapView]);
  return <><Camera mapView={p.mapView} reset={p.reset}/><Stars radius={25} depth={10} count={450} factor={1.1} saturation={0} fade speed={0}/>
  <ambientLight intensity={.48}/>
@@ -82,7 +100,24 @@ function Scene(p:Props){
  <Mast base={point(p.selected.position)} height={p.selected.height_m}/>
  <group position={station}><mesh position={[0,.035,0]}><octahedronGeometry args={[.045]}/><meshBasicMaterial color="#f4bd68"/></mesh><Label position={[0,.17,0]} color='#efbd75' text={`${p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col?'LANDER + STATION':'STATION'} / ${p.selected.height_m} M`}/></group>
  <Line points={[lander,station]} color={p.linkVisible?'#a7d8b9':'#e68d7c'} lineWidth={1.5} dashed={!p.linkVisible} dashSize={.03} gapSize={.02}/>
- {(['sun','earth'] as const).map(body=><group key={body}><Line points={[station,direction(body)]} color={body==='sun'?'#f2bd68':'#8cb4de'} lineWidth={1} dashed dashSize={.03} gapSize={.025}/><mesh position={direction(body)}><sphereGeometry args={[.018,16,16]}/><meshBasicMaterial color={body==='sun'?'#f2bd68':'#8cb4de'}/></mesh></group>)}
+ {BODY_KEYS.map(body => {
+  const visible = p.selected.series[`${body}_visible`][p.time];
+  const color = visible ? BODIES[body].color : BLOCKED_COLOR;
+  const direction = body === 'sun' ? sunDirection.clone() : bodyDirection(body, p.selected, p.time);
+  const end = direction.multiplyScalar(.75).add(new THREE.Vector3(...station)).toArray();
+  // Visibility accounts for the regional horizon beyond the rendered mesh.
+  // Draw blocked rays over the terrain so it cannot hide the visual indicator.
+  const renderOrder = visible ? 0 : 20;
+  return <group key={body}>
+   <Line points={[station, end]} color={color} lineWidth={visible ? 1 : 2.5}
+    dashed={visible} dashSize={.03} gapSize={.025} depthTest={visible} depthWrite={visible}
+    transparent={!visible} renderOrder={renderOrder} toneMapped={visible}/>
+   <mesh position={end} renderOrder={renderOrder + 1}>
+    {body === 'sun' ? <sphereGeometry args={[.018,16,16]}/> : <octahedronGeometry args={[.024]}/>}
+    <meshBasicMaterial color={color} depthTest={visible} depthWrite={visible} transparent={!visible} toneMapped={visible}/>
+   </mesh>
+  </group>;
+ })}
  <OrbitControls ref={controls} makeDefault minDistance={.6} maxDistance={7} maxPolarAngle={Math.PI*.49} enableDamping dampingFactor={.1}/>
  </>;
 }
