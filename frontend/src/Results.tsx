@@ -109,7 +109,7 @@ function Checks({rows}:{rows:ConstraintRow[]}){
  </section>;
 }
 
-export function ResultsPanel({window,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
+export function ResultsPanel({window,children,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window:ReactNode;children?:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
  const m=selected.metrics,b=baseline.metrics,same=keyFor(selected)===keyFor(baseline);
  return <aside className="results glass" aria-labelledby="results-title">
   <div className="panel-heading"><h2 className="panel-title" id="results-title">Results</h2><button className="text-button method-link" onClick={onMethod} title="How these numbers are computed"><Info size={13}/>Method<ArrowUpRight size={12}/></button></div>
@@ -129,6 +129,7 @@ export function ResultsPanel({window,selected,baseline,sweep,link,rows,constrain
     <HeightResponse key={selected.candidate_id} sweep={sweep} selected={selected} onHeight={onHeight} recommended={recommended} constraints={constraints}/>
    </AnalysisDisclosure>
   </section>}
+  {children}
   <Checks rows={rows}/>
  </aside>;
 }

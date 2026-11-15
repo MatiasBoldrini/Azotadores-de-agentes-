@@ -1,0 +1,8 @@
+apollo-17-blue-marble.jpg
+NASA Johnson Space Center, Apollo 17, photograph AS17-148-22727, December 7, 1972.
+https://images.nasa.gov/details/as17-148-22727
+https://images-assets.nasa.gov/image/as17-148-22727/as17-148-22727~small.jpg
+
+The circular marker uses the 640 × 640 NASA JPEG. The 3D view places the marker
+at the computed azimuth and elevation from the mast. The marker's distance,
+size, photographed hemisphere, and illumination are illustrative.

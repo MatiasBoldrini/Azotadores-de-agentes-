@@ -271,7 +271,9 @@ function App(){
   </div>
   <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
  </>}/>;
- const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}/>;
+ const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}>
+  {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
+ </ResultsPanel>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
   <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
@@ -316,10 +318,7 @@ function App(){
    </div>
   {search&&<OptimizerCard search={search} lines={explainRecommendation(search,all,links,constraints,baseline)} links={links} selectedKey={keyFor(selected)} onPick={a=>{setDemoStep(null);setCandidate(a.candidate_id);setHeight(a.height_m);}} onClose={()=>setSearch(null)}/>}
   </section>
-  {showAnalysisDock?<div className="results-column">
-   {results}
-   <DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>
-  </div>:results}
+  {results}
   <section className="timeline glass" ref={timelineRef} aria-label="Sun and Earth over time">
   <div className="timeline-side">
    <h2 className="panel-title">Timeline</h2>
