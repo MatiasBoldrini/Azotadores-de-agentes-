@@ -59,6 +59,16 @@ for (const site of snapshot.sites) {
     }
   });
 
+  test(`${site.name}: moving the station keeps the ground-level comparison without a reset action`, () => {
+    const moved = all.find(a => a.candidate_id !== baseline.candidate_id && links[keyFor(a)]);
+    const movedSweep = heightSweep(all, moved.candidate_id);
+    for (const selected of movedSweep) {
+      const story = buildStory({...input, sweep: movedSweep, selected});
+      assert.match(text(story.title), /versus ground level at the lander/);
+      assert.deepEqual(story.actions.map(action => action.kind), ['optimize']);
+    }
+  });
+
   test(`${site.name}: optimizer stories and explanations follow optimize()`, () => {
     for (const constraints of [demo, {...demo, maxOutage: 240}]) {
       const search = optimize(all, links, constraints);
