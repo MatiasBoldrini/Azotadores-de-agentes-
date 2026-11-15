@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SITE//FORGE · NASA Space Apps Challenge 2026 · Azotadores de Agentes</title>
+<style>
+:root{
+  --bg:#09090b; --ink:#f4f4f5; --mute:#a1a1aa; --dim:#71717a; --line:#27272a; --bar:#3f3f46;
+  --acc:#ffb347;
+  --sans:"Inter","Helvetica Neue",Arial,sans-serif;
+}
+@font-face{
+  font-family:"Inter";
+  src:url("fonts/Inter-Variable.ttf") format("truetype");
+  font-weight:100 900;
+  font-style:normal;
+  font-display:block;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1920px;height:1080px;position:relative;transform-origin:center center;flex:none}
+.slide{position:absolute;inset:0;background:var(--bg);display:none;overflow:hidden;padding:150px 128px 120px}
+.slide.active{display:block}
+/* chrome */
+.top{position:absolute;top:64px;left:128px;right:128px;display:flex;justify-content:space-between;
+  font-size:20px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.top b{color:var(--ink);font-weight:700;letter-spacing:.04em}
+.top b i{font-style:normal;color:var(--acc)}
+.src{position:absolute;left:128px;right:128px;bottom:56px;font-size:18px;line-height:1.4;color:var(--dim);
+  border-top:1px solid var(--line);padding-top:18px}
+/* type scale: 20 / 28 / 36 / 72 / 132 / 168 */
+.eyebrow{font-size:22px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin-bottom:28px}
+h2{font-size:72px;font-weight:700;letter-spacing:-.025em;line-height:1.05;max-width:1500px}
+.lede{font-size:32px;line-height:1.4;color:var(--mute);margin-top:32px;max-width:900px;font-weight:400}
+.lede b{color:var(--ink);font-weight:600}
+.prior{margin-top:64px;font-size:26px;line-height:1.45;color:var(--mute);max-width:1500px}
+.prior .k{font-size:20px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin-right:16px}
+.acc{color:var(--acc)}
+.big,.stat .n,.bar .v{font-feature-settings:"tnum" 1}
+.big{font-size:132px;font-weight:700;letter-spacing:-.04em;line-height:.95}
+.big small{font-size:56px;font-weight:600;letter-spacing:-.02em;margin-left:6px;color:var(--mute)}
+.lbl{font-size:26px;line-height:1.35;color:var(--mute);margin-top:18px}
+.lbl b{color:var(--ink);font-weight:600}
+.cols{display:grid;gap:64px}
+.col{border-top:2px solid var(--line);padding-top:36px}
+.col.on{border-top-color:var(--acc)}
+.col h3{font-size:36px;font-weight:650;letter-spacing:-.01em;line-height:1.15}
+.col p{font-size:26px;line-height:1.4;color:var(--mute);margin-top:16px}
+/* 1 title */
+.s1 .hero{position:absolute;right:-200px;top:150px;width:1240px;mix-blend-mode:lighten}
+.s1 .hero img{width:100%;display:block}
+.s1 .txt{position:absolute;left:128px;top:0;bottom:0;width:900px;display:flex;flex-direction:column;justify-content:center}
+.s1 h1{font-size:150px;font-weight:800;letter-spacing:-.045em;line-height:.95}
+.s1 h1 i{font-style:normal;color:var(--acc)}
+.s1 .tag{font-size:44px;font-weight:400;line-height:1.25;margin-top:44px;color:var(--ink);letter-spacing:-.01em}
+.s1 .tag b{font-weight:700;color:var(--acc)}
+.s1 .team{font-size:24px;color:var(--mute);margin-top:56px;line-height:1.5}
+.s1 .team b{color:var(--ink);font-weight:600}
+.s1 .cap{position:absolute;right:128px;bottom:56px;font-size:18px;color:var(--dim);text-align:right}
+/* 3 solution */
+.s3 .txt{position:absolute;left:128px;top:150px;width:700px}
+.s3 .shot{position:absolute;right:128px;top:160px;width:940px;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  box-shadow:0 40px 120px rgba(0,0,0,.6)}
+.s3 .shot img{width:100%;display:block}
+.s3 .shot{top:130px}
+.s3 .pano{position:absolute;right:128px;top:690px;width:940px;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 40px 120px rgba(0,0,0,.6)}
+.s3 .pano img{width:100%;display:block}
+.s3 .pano .tag{position:absolute;left:16px;top:12px;font-size:16px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);background:rgba(9,9,11,.7);padding:4px 10px;border-radius:6px}
+.s6 .next{margin-top:36px;max-width:1500px;font-size:26px;line-height:1.45;color:var(--mute)}
+.s6 .next .k{font-size:20px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-right:16px}
+.steps{margin-top:56px;display:flex;flex-direction:column;gap:30px}
+.steps div{display:flex;gap:24px;align-items:baseline;font-size:30px;font-weight:500;line-height:1.3}
+.steps span{font-size:22px;font-weight:600;color:var(--acc);width:36px;flex:none}
+/* 4 chart */
+.s4 .chart{position:absolute;left:128px;top:420px;width:900px;height:500px}
+.bars{position:absolute;left:0;right:0;bottom:56px;top:0;display:flex;align-items:flex-end;gap:48px;border-bottom:2px solid var(--line)}
+.bar{flex:1;position:relative;background:var(--bar);border-radius:6px 6px 0 0}
+.bar.on{background:var(--acc)}
+.bar.ghost{background:transparent;border:2px dashed var(--bar);border-bottom:none}
+.bar .v{position:absolute;left:0;right:0;top:-58px;text-align:center;font-size:40px;font-weight:700;letter-spacing:-.02em}
+.bar.on .v{color:var(--acc)}
+.bar.ghost .v{color:var(--mute)}
+.xl{position:absolute;left:0;right:0;bottom:0;display:flex;gap:48px}
+.xl div{flex:1;text-align:center;font-size:26px;color:var(--mute);font-weight:500}
+.xl div.on{color:var(--acc);font-weight:700}
+.ctitle{position:absolute;left:128px;top:340px;font-size:22px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.plateau{position:absolute;font-size:22px;color:var(--mute);font-weight:500}
+.s4 .stats{position:absolute;left:1140px;right:128px;top:350px;display:flex;flex-direction:column;gap:44px}
+.stat .n{font-size:84px;font-weight:700;letter-spacing:-.035em;line-height:1}
+.stat .d{font-size:24px;color:var(--mute);margin-top:10px;line-height:1.35}
+.stat .d b{color:var(--ink);font-weight:600}
+/* 7 close */
+.s7 .url{display:inline-block;margin-top:72px;font-size:56px;font-weight:700;letter-spacing:-.02em;color:var(--acc);
+  border-bottom:3px solid var(--acc);padding-bottom:8px}
+.s7 .repo{font-size:28px;color:var(--mute);margin-top:28px}
+.s7 .meta{position:absolute;left:128px;right:128px;bottom:120px;display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:64px}
+.s7 .meta .k{font-size:20px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.s7 .meta .v{font-size:26px;line-height:1.45;margin-top:14px;color:var(--ink)}
+.s6c h3{font-size:44px}.s6c p{font-size:30px;margin-top:20px}
+aside.notes{display:none}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;background:rgba(9,9,11,.97);border-top:1px solid var(--line);
+  padding:18px 28px 24px;font-size:17px;line-height:1.55;color:#d4d4d8;display:none;z-index:10}
+#notes.on{display:block}
+#notes .hd{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin-bottom:8px}
+#hud{position:fixed;right:18px;bottom:14px;font-size:12px;color:#52525b;z-index:11}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{overflow:visible;background:var(--bg)}
+  #viewport{position:static;display:block}
+  #stage{transform:none!important;height:auto}
+  .slide{display:block!important;position:relative;width:1920px;height:1080px;break-after:page;page-break-after:always}
+  .slide:last-child{break-after:auto;page-break-after:auto}
+  #notes,#hud{display:none!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+
+<!-- 1 TITLE -->
+<section class="slide s1">
+  <div class="hero"><img src="img/hero_clean.png" alt="NASA LOLA 5 m terrain of Connecting Ridge, lunar south pole, lit by the JPL Horizons Sun on 1 Nov 2026"></div>
+  <div class="txt">
+    <div class="eyebrow">NASA Space Apps 2026 · Lunar Landing Site Navigator</div>
+    <h1>SITE<i>//</i>FORGE</h1>
+    <div class="tag">Don't find the perfect landing site.<br><b>Engineer one.</b></div>
+    <div class="team"><b>Azotadores de Agentes</b><br>Steven Molina · Matías Boldrini · Federico Tavano</div>
+  </div>
+  <div class="cap">Connecting Ridge, lunar south pole · NASA LOLA 5 m terrain, real Sun angle (JPL Horizons, 1 Nov 2026) · 2× vertical</div>
+  <aside class="notes">[0:00–0:20] We're Azotadores de Agentes. This is SITE//FORGE: don't find the perfect landing site — engineer one. The terrain behind me is real NASA LOLA data of Connecting Ridge, lit by the real Sun position for 1 November 2026.</aside>
+</section>
+
+<!-- 2 PROBLEM -->
+<section class="slide s2">
+  <div class="top"><b>SITE<i>//</i>FORGE</b><span>02 / 07</span></div>
+  <div class="eyebrow">The problem</div>
+  <h2>Sites are picked, not engineered.</h2>
+  <div class="lede">At the south pole the Sun and Earth skim the horizon. <b>Nearby terrain blocks power and comms.</b></div>
+  <div class="cols" style="grid-template-columns:repeat(3,1fr);margin-top:96px">
+    <div class="col"><div class="big">~2°</div><div class="lbl">maximum Sun elevation</div></div>
+    <div class="col"><div class="big">53%</div><div class="lbl">Earth ceiling — libration</div></div>
+    <div class="col on"><div class="big acc">465<small>h</small></div><div class="lbl">longest Sun + Earth blackout on the ground</div></div>
+  </div>
+  <div class="src">Connecting Ridge, Nov 2026 (720 h). Blackout: Ridge A, 0 m, live app. Sun elevation and Earth ceiling: JPL Horizons over the same month. Geometric line of sight.</div>
+  <aside class="notes">[0:20–0:45 · Relevance] At the lunar south pole the Sun barely clears about two degrees this month, and Earth's center is above the horizon only about 53 percent of the time because of libration — no mast fixes that. So local terrain decides when a lander has power and a direct line to Earth. At Ridge A on Connecting Ridge, on the ground, the longest stretch with neither Sun nor Earth is 465 hours — about 19 days. Today, teams pick sites around that. We engineer the site instead.</aside>
+</section>
+
+<!-- 3 SOLUTION -->
+<section class="slide s3">
+  <div class="top"><b>SITE<i>//</i>FORGE</b><span>03 / 07</span></div>
+  <div class="txt">
+    <div class="eyebrow">The solution</div>
+    <h2 style="font-size:60px">Raise a mast.<br>Watch the horizon drop.</h2>
+    <div class="steps">
+      <div><span>01</span>Pick a south-pole site and dates</div>
+      <div><span>02</span>Place a mast, 0–20 m</div>
+      <div><span>03</span>See Sun and Earth paths in the 3D sky, and the 360° view from the mast top</div>
+      <div><span>04</span>Optimizer finds the smallest mast</div>
+    </div>
+  </div>
+  <div class="shot"><img src="img/v7-sky-paths-5m.png" alt="SITE//FORGE live app (main 11924de): Ridge A with a 5 m mast in the 3D scene, Sun and Earth paths drawn across the sky, sky gained versus 0 m shaded green: Sun +294.0 h, Earth +160.5 h; results sidebar Sun 720 h (100%), Earth 359.5 h"></div>
+  <div class="pano"><span class="tag">View from mast · 5 m</span><img src="img/v7-panorama-5m-chart.png" alt="360-degree horizon seen from the top of a 5 m mast at Ridge A, with the Sun and Earth tracks above the terrain horizon and the sky cleared from 0 m shaded"></div>
+  <div class="src">Live app (main 11924de), Ridge A, 5 m mast, Nov 2026 window: sky gained vs 0 m Sun +294.0 h, Earth +160.5 h; Sun 720 h (100%), Earth 359.5 h. Panorama: geometric line of sight, no vertical exaggeration.</div>
+  <aside class="notes">[0:45–1:10 · Creativity] SITE//FORGE is a 3D web app. Pick a site and a date window, place a combined solar-and-comms mast, raise it from 0 to 20 meters, and the Sun, Earth and blackout windows recalculate. The 3D sky shows the Sun and Earth paths and, in green, the sky the mast gains: at 5 meters, plus 294 hours of Sun and plus 160.5 hours of Earth. View from mast opens the real 360-degree horizon from the mast top: at ground level both the Sun and Earth are blocked, at 5 meters both are in view. Then the optimizer searches 130 configurations and returns the smallest mast that meets the constraints. Here: Ridge A, 5 meters, 100 percent Sun in the November 2026 window and 359.5 hours of Earth line of sight.</aside>
+</section>
+
+<!-- 4 KEY INSIGHT -->
+<section class="slide s4">
+  <div class="top"><b>SITE<i>//</i>FORGE</b><span>04 / 07</span></div>
+  <div class="eyebrow">Key result · Ridge A</div>
+  <h2>A 5 m mast does most of the work.</h2>
+  <div class="ctitle">Earth line-of-sight hours by mast height</div>
+  <div class="chart">
+    <!-- scale: 382 h = 380 px (plot height 464) -->
+    <div class="bars">
+      <div class="bar" style="height:198px"><div class="v">199</div></div>
+      <div class="bar on" style="height:358px"><div class="v">359.5</div></div>
+      <div class="bar" style="height:380px"><div class="v">382</div></div>
+      <div class="bar ghost" style="height:380px"><div class="v">382</div><div class="plateau" style="left:0;right:0;top:150px;text-align:center">no gain</div></div>
+    </div>
+    <div class="xl"><div>0 m</div><div class="on">5 m</div><div>10 m</div><div>20 m</div></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n">100%</div><div class="d">Sun from 5 m, <b>Nov 2026 window</b> · 59.2% on the ground</div></div>
+    <div class="stat"><div class="n acc">342.5 h</div><div class="d">longest blackout at 5 m <b>· under the 360 h limit</b> (465 h on the ground)</div></div>
+    <div class="stat"><div class="n">17 / 130</div><div class="d">configurations feasible <b>· optimizer picks 5 m</b></div></div>
+  </div>
+  <div class="src">Ridge A, Connecting Ridge · 1 Nov–1 Dec 2026, 720 h · live app engine on NASA PGDA LOLA 78 + 90 and JPL Horizons · geometric line of sight · above 10 m: no gain</div>
+  <aside class="notes">[1:10–1:40 · Validity] Ridge A, November 2026. Earth line of sight goes from 199 hours on the ground to 359.5 at 5 meters and 382 at 10 meters. Twenty meters adds nothing — a plateau. Sun goes from 59.2 percent to 100 percent from 5 meters in this November 2026 window — not an 18.6-year average. The longest stretch with neither Sun nor Earth falls from 465 to 342.5 hours at 5 meters, under our 360-hour limit; 10 and 20 meters only reach 320. Under the default constraints — at least 70 percent Sun, 40 percent Earth, at most 360 hours outage — 17 of 130 configurations are feasible, and the optimizer recommends 5 meters: the minimum infrastructure, not the tallest tower.</aside>
+</section>
+
+<!-- 5 PROOF -->
+<section class="slide s5">
+  <div class="top"><b>SITE<i>//</i>FORGE</b><span>05 / 07</span></div>
+  <div class="eyebrow">Validity</div>
+  <h2>Real NASA data. Tested. Honest limits.</h2>
+  <div class="cols" style="grid-template-columns:repeat(3,1fr);margin-top:96px">
+    <div class="col"><div class="big" style="font-size:112px">150<small>km</small></div><div class="lbl"><b>NASA LOLA terrain</b><br>5 m local + 80 m regional horizon</div></div>
+    <div class="col"><div class="big" style="font-size:112px">91</div><div class="lbl"><b>automated tests, all passing</b><br>37 Python + 54 Node</div></div>
+    <div class="col on"><div class="big acc" style="font-size:112px">0→297.5<small>h</small></div><div class="lbl"><b>independent cross-check</b><br>Point B, 10 m mast</div></div>
+  </div>
+  <div class="prior"><span class="k">Prior work</span>Built on Mazarico 2011, Gläser 2014, Barker 2021 (PGDA 78). We turn published science into an interactive Nov 2026–Apr 2027 mast trade.</div>
+  <div class="lede" style="margin-top:28px;max-width:1500px;font-size:26px">Limits: geometric line of sight only — not link budget or power. Six months (Nov 2026–Apr 2027), Ridge A and Ridge B.</div>
+  <div class="src">Data: PGDA LOLA product 78 (Site01, 5 m) and 90 (80 m) · JPL Horizons Sun/Earth ephemerides. Point B: flat shoulder 290 m from the summit, chosen to show the mast effect — not the app's Ridge A; joint Sun + Earth hours.</div>
+  <aside class="notes">[1:40–2:10 · Validity] Every number comes from NASA data. Near terrain is LOLA 5 meters per pixel, PGDA product 78; the far horizon out to 150 kilometers uses the 80-meter regional map, product 90, because at the pole a distant ridge can block a low Sun. Sun and Earth positions come from JPL Horizons. 91 automated tests (37 Python and 54 Node) pass, and a validation report documents angular sensitivity. An independent cross-check at Point B — a flat shoulder 290 meters from the summit, picked to show the mast effect, not Ridge A — goes from zero to 297.5 hours of joint Sun and Earth visibility with a 10-meter mast. This builds on published polar-illumination science — Mazarico 2011, Gläser 2014, Barker 2021 — and turns it into an interactive mast trade for November 2026 through April 2027, at Ridge A and Ridge B. Limits, stated plainly: this is geometric line of sight, not a radio link budget and not electrical power; six months, two sites on Connecting Ridge.</aside>
+</section>
+
+<!-- 6 BENEFITS -->
+<section class="slide s6">
+  <div class="top"><b>SITE<i>//</i>FORGE</b><span>06 / 07</span></div>
+  <div class="eyebrow">Impact</div>
+  <h2>Faster, more honest trade studies.</h2>
+  <div class="cols s6c" style="grid-template-columns:repeat(3,1fr);margin-top:150px">
+    <div class="col on"><h3>Mission planners</h3><p>Re-run site and date trades when schedules slip.</p></div>
+    <div class="col"><h3>Power &amp; comms siting</h3><p>Size the smallest mast that meets the target.</p></div>
+    <div class="col"><h3>Education</h3><p>Show why meters of height matter at the pole.</p></div>
+  </div>
+  <div class="lede" style="margin-top:110px;max-width:1500px">Built for Artemis-class and CLPS south-pole landers. <b>Runs in the browser. No install.</b></div>
+  <div class="next"><span class="k">Next</span>Extend the pipeline to Artemis III candidate regions that already have PGDA 78 5 m tiles: Malapert, Nobile Rim 1 &amp; 2, Haworth, de Gerlache. NASA publishes regions, not exact points.</div>
+  <aside class="notes">[2:10–2:35 · Impact] Who uses this? Mission planners for Artemis-class and commercial south-pole landers, who have to reopen site and date decisions when schedules slip — instead of starting over in three specialist tools. Teams siting power and communication infrastructure, who need the smallest mast that meets a target, not the tallest. And educators, who can show why a few meters of height change everything at the pole. We are not certifying a mission; we are making the trade study faster and honest about its limits. Next step: the same pipeline on Artemis III candidate regions that already have 5-meter LOLA tiles in PGDA 78, such as Malapert, Nobile Rim 1 and 2, Haworth and de Gerlache; NASA publishes regions, not exact landing points.</aside>
+</section>
+
+<!-- 7 CLOSE -->
+<section class="slide s7">
+  <div class="top"><b>SITE<i>//</i>FORGE</b><span>07 / 07</span></div>
+  <h2 style="font-size:84px;margin-top:40px;max-width:none">Don't find the perfect landing site.<br><span class="acc">Engineer one.</span></h2>
+  <div class="url">siteforge-moon.vercel.app</div>
+  <div class="repo">github.com/MatiasBoldrini/Azotadores-de-agentes-</div>
+  <div class="meta">
+    <div><div class="k">Team</div><div class="v">Azotadores de Agentes<br><span style="color:var(--mute)">Steven Molina · Matías Boldrini · Federico Tavano</span></div></div>
+    <div><div class="k">NASA data</div><div class="v">PGDA LOLA 78 · Site01, 5 m<br>PGDA LOLA 90 · 80 m regional</div></div>
+    <div><div class="k">Ephemerides</div><div class="v">JPL Horizons · Sun &amp; Earth<br>Nov 2026 – Apr 2027</div></div>
+  </div>
+  <aside class="notes">[2:35–3:00 · Close] A real NASA site, a real limit, and a mast that changes the horizon — up to a point. SITE//FORGE gives you the minimum infrastructure, and tells you where more height stops helping. It's live at siteforge-moon.vercel.app, and the code is open on GitHub. Thank you — happy to take questions.</aside>
+</section>
+
+</div></div>
+<div id="notes"><div class="hd" id="notes-hd"></div><div id="notes-body"></div></div>
+<div id="hud"></div>
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var stage=document.getElementById('stage'),notes=document.getElementById('notes'),
+      nh=document.getElementById('notes-hd'),nb=document.getElementById('notes-body'),hud=document.getElementById('hud');
+  var i=Math.max(0,Math.min(slides.length-1,(parseInt(location.hash.slice(1),10)||1)-1));
+  function fit(){var s=Math.min(innerWidth/1920,innerHeight/1080);stage.style.transform='scale('+s+')';}
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach(function(s,k){s.classList.toggle('active',k===i)});
+    var a=slides[i].querySelector('aside.notes');
+    nh.textContent='Speaker notes · '+(i+1)+' / '+slides.length; nb.textContent=a?a.textContent:'';
+    hud.textContent=(i+1)+' / '+slides.length+' · ←/→ · N notes · F fullscreen';
+    history.replaceState(null,'','#'+(i+1));
+  }
+  addEventListener('keydown',function(e){var k=e.key;
+    if(k==='ArrowRight'||k==='PageDown'||k===' '){e.preventDefault();show(i+1);}
+    else if(k==='ArrowLeft'||k==='PageUp'){e.preventDefault();show(i-1);}
+    else if(k==='n'||k==='N')notes.classList.toggle('on');
+    else if(k==='f'||k==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();}});
+  document.getElementById('viewport').addEventListener('click',function(e){show(e.clientX<innerWidth/3?i-1:i+1);});
+  addEventListener('resize',fit);fit();show(i);
+})();
+</script>
+</body>
+</html>
