@@ -12,7 +12,7 @@ type Demo={step:number;total:number;label:string;ms:number};
 export function StoryBar({story,demo,onAction,onStopDemo}:{story:Story;demo:Demo|null;onAction:(a:StoryAction)=>void;onStopDemo:()=>void}){
  const Icon=ICONS[story.tone];
  const title=story.title.map(s=>s.t).join('');
- const actions=demo?story.actions:story.actions.filter(action=>action.kind!=='optimize');
+ const actions=story.actions.filter(action=>action.kind!=='height'&&(demo!==null||action.kind!=='optimize'));
  return <section className={`story tone-${story.tone}`} aria-label="Analysis story">
   {demo&&<div className="story-rail">
    <ol className="story-steps">
