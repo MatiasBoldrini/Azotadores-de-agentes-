@@ -76,5 +76,37 @@
       "note"
     ],
     "additionalProperties": false
+  },
+  "briefing": {
+    "instructions": [
+      "Rank findings computed by the deterministic advisor for a lunar landing-site planning tool.",
+      "Each finding has an id, a tone (risk, opportunity, alternative), a title and a detail.",
+      "Return up to three distinct finding IDs, most important first. Use only IDs in the supplied findings.",
+      "Prefer risks that block the operation, then actions that unblock it, then improvements.",
+      "Use the operation and context to decide priorities."
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "picks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          }
+        }
+      },
+      "required": [
+        "picks"
+      ],
+      "additionalProperties": false
+    },
+    "maxFacts": 12,
+    "maxTitleLength": 300,
+    "maxDetailLength": 500,
+    "maxContextLength": 300
   }
 }

@@ -1,8 +1,10 @@
 // node --test tests/test_agent.mjs
 import assert from 'node:assert/strict';
+import {advise} from '../frontend/src/lib/advisor.ts';
+import {nowAlerts} from '../frontend/src/lib/alerts.ts';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import {askAgent,validateAgentPayload} from '../frontend/src/lib/agentClient.ts';
+import {askAgent,askBriefing,localBriefing,validateAgentPayload,validateBriefing} from '../frontend/src/lib/agentClient.ts';
 import {hoursIn,parseOperation} from '../frontend/src/lib/intent.ts';
 import {planInsights,planOperation} from '../frontend/src/lib/planner.ts';
 
@@ -99,4 +101,72 @@ test('a parsed request goes through the same planner as the presets', () => {
   const C = {minSun: 70, minEarth: 40, maxOutage: 360, maxDistance: 1000, maxSlope: 20, requireLink: true};
   const items = planInsights({selected: a, all: bundle.analyses, links: bundle.links['ridge-a'], constraints: C, index: 0, op: p.op});
   assert.ok(items.some(i => i.id === 'plan-first'));
+});
+
+const bundle2 = JSON.parse(readFileSync(new URL('../public/data/snapshot.json', import.meta.url)));
+const ridge0 = bundle2.analyses.find(x => x.candidate_id === 'r256c256' && x.height_m === 0);
+
+test('right-now alerts read the next rise or set from the integrated intervals', () => {
+  // Ridge A, 0 m: at 1 Nov 00:00 UTC the Earth is up and its run ends at 07:00 UTC.
+  const run = ridge0.metrics.earth.intervals[0];
+  assert.equal(run.start_utc.slice(0, 16), '2026-11-01T00:00');
+  const [alert] = nowAlerts(ridge0, 0);
+  assert.equal(alert.id, 'now-earth-set');
+  const left = (Date.parse(run.end_utc) - Date.parse(ridge0.series.timestamp_utc[0])) / 3.6e6;
+  assert.match(alert.title, new RegExp(`^Earth sets in ${left} h`));
+  for (let i = 0; i < ridge0.series.timestamp_utc.length; i += 97)
+    for (const a of nowAlerts(ridge0, i)) if (a.action) assert.ok(a.action.index > i && a.action.index < ridge0.series.timestamp_utc.length);
+});
+
+const C2 = {minSun: 70, minEarth: 40, maxOutage: 360, maxDistance: 1000, maxSlope: 20, requireLink: true};
+const findings = advise({selected: ridge0, all: bundle2.analyses, links: bundle2.links['ridge-a'], constraints: C2, index: 0});
+
+test('the automatic briefing leads with the most urgent computed finding', () => {
+  const b = localBriefing(findings);
+  assert.equal(b.source, 'local');
+  assert.equal(b.picks[0], findings.find(f => f.tone === 'risk').id);
+  assert.ok(b.picks.length <= 3 && b.picks.every(id => findings.some(f => f.id === id)));
+});
+
+test('a model briefing must cite findings that exist; otherwise the automatic one is used', async () => {
+  const good = {picks: [findings[0].id], source: 'openai', model: 'gpt-6-luna'};
+  assert.deepEqual(validateBriefing(good, findings), {picks: good.picks, source: 'openai'});
+  assert.throws(() => validateBriefing({...good, picks: ['made-up']}, findings));
+  assert.throws(() => validateBriefing({...good, picks: [good.picks[0], good.picks[0]]}, findings));
+  const ok = await askBriefing(findings, 'op', 'ctx', {fetchImpl: async () => answer(good)});
+  assert.equal(ok.briefing.source, 'openai');
+  const bad = await askBriefing(findings, 'op', 'ctx', {fetchImpl: async () => answer({...good, picks: ['made-up']})});
+  assert.equal(bad.briefing.source, 'local');
+  const none = await askBriefing(findings, 'op', 'ctx', {fetchImpl: async () => ({ok: false, status: 404, json: async () => ({})})});
+  assert.equal(none.absent, true);
+  assert.equal(none.briefing.source, 'local');
+});
+
+test('briefing distinguishes temporary and permanent unavailability and honors Retry-After', async () => {
+  const request = (status, body, headers) => askBriefing(findings, 'op', 'ctx', {
+    fetchImpl: async () => Response.json(body, {status, headers}),
+  });
+  assert.equal((await request(503, {detail: 'Firewall check unavailable'})).absent, false);
+  assert.equal((await request(503, {code: 'agent_disabled'})).absent, true);
+  assert.equal((await request(503, {detail: {code: 'agent_disabled'}})).absent, true);
+  const limited = await request(429, {}, {'Retry-After': '45'});
+  assert.equal(limited.absent, false);
+  assert.equal(limited.briefing.source, 'local');
+  assert.equal(limited.retryAfterMs, 45_000);
+  assert.equal((await request(429, {})).retryAfterMs, 60_000);
+});
+
+test('a briefing aborted during JSON parsing cannot return an OpenAI result', async () => {
+  const controller = new AbortController();
+  const pending = askBriefing(findings, 'op', 'ctx', {
+    signal: controller.signal,
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => {
+        controller.abort();
+        return {picks: [findings[0].id], source: 'openai'};
+      },
+    }),
+  });
+  await assert.rejects(pending, {name: 'AbortError'});
 });

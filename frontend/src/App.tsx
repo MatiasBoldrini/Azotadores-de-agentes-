@@ -407,7 +407,7 @@ function App(){
   </div>
  </div>;
  const results=<ResultsPanel selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} headerAction={showAnalysisDock?configure:undefined}>
-  <Advisor input={{selected,all,links,constraints,index}} onAction={onAdvice}/>
+  <Advisor input={{selected,all,links,constraints,index}} onAction={onAdvice} active={moon==='site'&&tab==='Infrastructure Designer'} playing={playing}/>
   <MissionOps analysis={selected} index={index} onExportCsv={exportCsv} onCopyLink={copyLink} copied={linkCopied}/>
  {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;

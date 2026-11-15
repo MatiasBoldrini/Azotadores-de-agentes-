@@ -12,3 +12,4 @@ data/.mplcache/
 release/
 /node_modules/
 .vercel/
+/.env*

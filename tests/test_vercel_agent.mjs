@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import handler from '../api/agent/operation.mjs';
+import briefing from '../api/agent/briefing.mjs';
 
 const projectHost = 'siteforge-eight-wine.vercel.app';
 const upstreamUrl = 'https://api.openai.com/v1/responses';
@@ -25,7 +26,7 @@ function post(text = 'cargar un día y llamar media hora a la Tierra') {
 
 function environment(t, key = 'fake-api-key') {
   const values = {
-    OPENAI_API_KEY: key, OPENAI_MODEL: '', NODE_ENV: 'production',
+    OPENAI_API_KEY: key, OPENAI_MODEL: '', SITEFORGE_AGENT_MODEL: '', NODE_ENV: 'production',
     VERCEL_ENV: 'production', VERCEL_PROJECT_PRODUCTION_URL: projectHost,
   };
   for (const [name, value] of Object.entries(values)) {
@@ -41,7 +42,9 @@ function environment(t, key = 'fake-api-key') {
 test('Vercel agent stays offline without the key', async t => {
   environment(t, '');
   const fetch = t.mock.method(globalThis, 'fetch', () => assert.fail('No outbound request expected'));
-  assert.equal((await post()).status, 503);
+  const response = await post();
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).code, 'agent_disabled');
   assert.equal(fetch.mock.callCount(), 0);
 });
 
@@ -78,7 +81,9 @@ test('Vercel fails closed for missing, denied or unreachable firewall rules', as
       assert.equal(url, firewallUrl);
       return new Response(null, {status});
     });
-    assert.equal((await post()).status, expected);
+    const response = await post();
+    assert.equal(response.status, expected);
+    if (expected === 429) assert.equal(response.headers.get('Retry-After'), '60');
     assert.equal(fetch.mock.callCount(), 1);
     fetch.mock.restore();
   }
@@ -93,4 +98,43 @@ test('Vercel rejects invalid requests before the firewall and rejects incompatib
   assert.equal(fetch.mock.callCount(), 0);
   assert.equal((await post()).status, 502);
   assert.equal(fetch.mock.callCount(), 2);
+});
+
+test('Vercel briefing shares the operation rule and validates finding provenance', async t => {
+  environment(t);
+  const facts = [
+    {id: 'mast', tone: 'risk', title: 'Use a 5 m mast', detail: 'Longest outage 465 h.'},
+    {id: 'earth', tone: 'opportunity', title: 'Earth window: 44 h', detail: ''},
+  ];
+  const raw = {picks: ['earth', 'mast']};
+  let upstream = raw;
+  const fetch = t.mock.method(globalThis, 'fetch', (url, options) => {
+    if (url === firewallUrl) return new Response(null, {status: 204});
+    assert.equal(url, upstreamUrl);
+    const body = JSON.parse(options.body);
+    assert.equal(body.text.format.name, 'operation_briefing');
+    assert.deepEqual(JSON.parse(body.input), {findings: facts, operation: 'Sun 2 h', context: ''});
+    return modelResponse(upstream);
+  });
+  const postBriefing = findings => briefing.fetch(new Request('https://other.example/api/agent/briefing', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'x-real-ip': '192.0.2.17'},
+    body: JSON.stringify({facts: findings, operation: 'Sun 2 h'}),
+  }));
+
+  assert.equal((await postBriefing([...facts, facts[0]])).status, 422);
+  assert.equal(fetch.mock.callCount(), 0);
+  const response = await postBriefing(facts);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {...raw, source: 'openai', model: 'gpt-6-luna'});
+
+  for (const invalid of [
+    {...raw, headline: 'Use the 465 m mast.'},
+    {picks: [{id: 'earth', reason: 'Use the 5 m mast.'}]},
+    {picks: ['missing']},
+    {picks: ['earth', 'earth']},
+  ]) {
+    upstream = invalid;
+    assert.equal((await postBriefing(facts)).status, 502);
+  }
 });
