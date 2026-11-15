@@ -199,12 +199,6 @@ footer>button:hover{color:var(--text)}
 .terrain-panel>.map-tools,.terrain-panel>.optimizer-card{pointer-events:auto}
 .terrain-title{position:absolute;top:0;left:0;z-index:2;text-shadow:0 1px 10px rgba(0,0,0,.85)}
 .terrain-title h2{margin-top:4px;font-size:20px;letter-spacing:-.01em}
-.terrain-title h2 span{margin-left:8px;padding:3px 10px;border:1px solid var(--line-strong);border-radius:999px;vertical-align:middle;font:600 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--text-2);text-shadow:none}
-.celestial-ray-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 0;padding:0;list-style:none;font-size:12px;color:var(--text-2)}
-.celestial-ray-legend li{display:flex;align-items:center;gap:6px}
-.ray-marker{display:block;width:7px;height:7px;background:currentColor}
-.ray-marker-sun{border-radius:50%}
-.ray-marker-earth{transform:rotate(45deg)}
 .map-legend{position:absolute;top:0;right:52px;z-index:2;display:flex;align-items:center;gap:14px;margin:0;padding:8px 14px;list-style:none;border-radius:999px;font-size:12px;color:var(--text-2)}
 .map-legend li{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .map-legend i{display:inline-block}
