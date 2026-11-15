@@ -1,4 +1,4 @@
-# SITE//FORGE — final 30-second demo brief (v3, 15 Nov 2026, 12:20 ART)
+# SELENARC — final 30-second demo brief (v3, 15 Nov 2026, 12:20 ART)
 
 Content only; styling and motion are up to the editor. Length **≤ 30 s** (hard limit in the Space Apps guide). Language: English.
 
@@ -11,13 +11,13 @@ Content only; styling and motion are up to the editor. Length **≤ 30 s** (hard
 
 | Time | Frame (screens_v7) | On-screen text | Narration |
 |---|---|---|---|
-| 0:00–0:04 | `desktop_01_hero.png` (3D Moon, “A 5 m mast makes Ridge A work.”) | SITE//FORGE · Lunar Landing Site Navigator | “Azotadores de Agentes presents SITE//FORGE. Don't find the perfect landing site. Engineer one.” |
+| 0:00–0:04 | `desktop_01_hero.png` (3D Moon, “A 5 m mast makes Ridge A work.”) | SELENARC · Lunar Landing Site Navigator | “Azotadores de Agentes presents SELENARC. Don't find the perfect landing site. Engineer one.” |
 | 0:04–0:09 | `desktop_05a_panorama_0m.png` (view from ground, Sun and Earth both “Blocked”) | Ridge A · 0 m · Sun 426 h · Earth 199 h of 720 h | “On Connecting Ridge, NASA LOLA terrain blocks the Sun and Earth. From the ground, Ridge A sees Earth for only 199 hours in November 2026.” |
 | 0:09–0:15 | `desktop_05b_panorama_5m.png` (same view at 5 m, both “In view”) | 5 m mast · Sun 720 h (100%) · Earth 359.5 h | “Raise a five-meter mast and both come into view: Sun all 720 hours, Earth 359.5.” |
 | 0:15–0:20 | `desktop_03_sky_paths_5m.png` (3D scene, Sun and Earth sky paths, green sky gained) | Sky gained at 5 m: Sun +294.0 h · Earth +160.5 h | “In 3D, the green band is the sky the mast gains.” |
 | 0:20–0:23 | `desktop_04_raise_mast_20m.png` | 20 m · Earth 382 h · same as 10 m | “Twenty meters adds nothing over ten.” |
 | 0:23–0:27 | `desktop_08_optimizer_result.png` | 130 configurations · 17 feasible · 5 m recommended | “Under a 360-hour outage limit, our optimizer picks the smallest mast that works: five meters.” |
-| 0:27–0:30 | End card over `desktop_07_monthly_comparison.png` or `desktop_01_hero.png` | siteforge-moon.vercel.app · AI-generated voice | “SITE//FORGE. Try it live.” |
+| 0:27–0:30 | End card over `desktop_07_monthly_comparison.png` or `desktop_01_hero.png` | siteforge-moon.vercel.app · AI-generated voice | “SELENARC. Try it live.” |
 
 Narration is about 70 words; trim the 0:15 line first if it runs long.
 

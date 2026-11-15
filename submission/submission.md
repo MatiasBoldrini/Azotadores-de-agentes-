@@ -1,7 +1,7 @@
-# SITE//FORGE — NASA Space Apps Challenge 2026 Submission Package
+# SELENARC — NASA Space Apps Challenge 2026 Submission Package
 
 **Team:** Azotadores de Agentes
-**Project:** SITE//FORGE
+**Project:** SELENARC
 **Tagline:** Don't find the perfect landing site. Engineer one.
 **Challenge:** Lunar Landing Site Navigator
 **Language:** English (required on the submission page and in all linked materials)
@@ -20,13 +20,13 @@ Sections after the form fields (30-second demo script, 3-minute local pitch, lik
 
 ### Project Name
 
-SITE//FORGE
+SELENARC
 
 ### High-Level Project Summary
 
 *(Official guide: “Provide a high-level summary of your project. What did you develop? How does it address the challenge? Why is it important?” No published word or character limit was found in the 2026 guide. This draft is kept to 150 words.)*
 
-SITE//FORGE is an interactive tool for comparing lunar south-pole landing sites and dates, and how mast height changes power and communication potential. Built for Lunar Landing Site Navigator, it combines NASA LOLA topography with JPL Horizons Sun and Earth positions, shows both bodies against a terrain-derived horizon, and reports illumination, Earth visibility, and outages. Users place a solar-and-communications mast, change its location and height, and watch the windows recalculate. A discrete optimizer searches 130 configurations; under a 360-hour outage limit, 17 are feasible and it recommends a 5-meter mast. At Ridge A on Connecting Ridge (November 2026, 720 hours), modeled Earth visibility rises from 199 hours at the surface to 359.5 hours at 5 meters, and plateaus at 382 hours from 10 meters. Visibility is geometric line of sight only, not a link budget or power; Earth caps near 53% of the month due to libration.
+SELENARC is an interactive tool for comparing lunar south-pole landing sites and dates, and how mast height changes power and communication potential. Built for Lunar Landing Site Navigator, it combines NASA LOLA topography with JPL Horizons Sun and Earth positions, shows both bodies against a terrain-derived horizon, and reports illumination, Earth visibility, and outages. Users place a solar-and-communications mast, change its location and height, and watch the windows recalculate. A discrete optimizer searches 130 configurations; under a 360-hour outage limit, 17 are feasible and it recommends a 5-meter mast. At Ridge A on Connecting Ridge (November 2026, 720 hours), modeled Earth visibility rises from 199 hours at the surface to 359.5 hours at 5 meters, and plateaus at 382 hours from 10 meters. Visibility is geometric line of sight only, not a link budget or power; Earth caps near 53% of the month due to libration.
 
 ### Link to Project Demo
 
@@ -50,7 +50,7 @@ Source repository: https://github.com/MatiasBoldrini/Azotadores-de-agentes-
 
 **What it does**
 
-SITE//FORGE helps mission planners, educators, and the public compare landing sites and dates at the lunar south pole, and then go one step further: ask what minimum infrastructure would improve a site’s power and communication potential. The application lets a user:
+SELENARC helps mission planners, educators, and the public compare landing sites and dates at the lunar south pole, and then go one step further: ask what minimum infrastructure would improve a site’s power and communication potential. The application lets a user:
 
 - Start on a 3D Moon (LROC WAC mosaic with NASA LOLA relief), fly down to Connecting Ridge with one click, and hand over to a close-up of the Site01 5 m LOLA terrain at real scale.
 - Explore a real region of the lunar south pole, using NASA LOLA topography for Site01 Connecting Ridge.
@@ -64,7 +64,7 @@ SITE//FORGE helps mission planners, educators, and the public compare landing si
 - Read a mission-ops countdown to the next sunset and next Earthset from the computed visibility timeline, export the timeline as CSV, and copy a share link that reopens the same site, station cell, mast height, time window, and view.
 - Compare Ridge A and Ridge B side by side. Every percentage shows the exact UTC window it covers. A Monthly comparison extends the two fixed sites to six UTC calendar months (November 2026 through April 2027) at 0, 2, 5, 10 and 20 m and shows the lowest tested mast height that meets the limits in each month.
 
-The product question is: “What is the minimum infrastructure configuration that improves a lunar landing site’s power and communication potential?” SITE//FORGE does not simulate a launch, certify landing safety, or guarantee a complete mission design.
+The product question is: “What is the minimum infrastructure configuration that improves a lunar landing site’s power and communication potential?” SELENARC does not simulate a launch, certify landing safety, or guarantee a complete mission design.
 
 **How it works**
 
@@ -104,17 +104,17 @@ This cross-check uses the same data sources (PGDA 78, PGDA 90, JPL Horizons) and
 
 **Benefits and intended impact**
 
-Existing specialist tools such as LROC QuickMap, NASA Moon Trek, and JPL Horizons, which the official challenge itself identifies, already provide the underlying data, but they are built for detailed analysis rather than rapid “what if we land here, or later, or with a taller mast?” comparison. SITE//FORGE is meant to close that gap for CLPS and other south-pole mission teams that have to reopen site and date decisions when schedules slip, and for educators and the public who want to see why a few meters of height or a few kilometers of location can change operational windows. The intended impact is faster, more honest trade studies: a planner gets a quantitative recommendation and a clear statement of what the numbers are not.
+Existing specialist tools such as LROC QuickMap, NASA Moon Trek, and JPL Horizons, which the official challenge itself identifies, already provide the underlying data, but they are built for detailed analysis rather than rapid “what if we land here, or later, or with a taller mast?” comparison. SELENARC is meant to close that gap for CLPS and other south-pole mission teams that have to reopen site and date decisions when schedules slip, and for educators and the public who want to see why a few meters of height or a few kilometers of location can change operational windows. The intended impact is faster, more honest trade studies: a planner gets a quantitative recommendation and a clear statement of what the numbers are not.
 
-**Why SITE//FORGE is different**
+**Why SELENARC is different**
 
-SITE//FORGE is built on NASA LOLA terrain at 5 meters/pixel (PGDA product 78, Site01) and a regional LOLA horizon out to 150 kilometers (PGDA product 90), so distant ridges can still block a low polar Sun or Earth. The product question is the minimum mast that meets the cap: under a 360-hour outage limit, 17 of 130 configurations are feasible, and the optimizer recommends 5 meters at Ridge A, where the longest joint Sun+Earth outage falls from 465 hours on the ground to 342.5 hours. Twenty meters adds no further Earth visibility in this window. We document angular sensitivity and 91 passing automated tests; we cross-checked ground-level results against NASA's PGDA 69 long-term maps over a full 18.6-year cycle at 462 points: Earth visibility agrees closely (r = 0.978, RMSE 5.1 pp), solar illumination agrees on average with larger scatter (r = 0.63, RMSE 9.8 pp); mast-height results are not validated by this comparison, since NASA publishes no height maps.
+SELENARC is built on NASA LOLA terrain at 5 meters/pixel (PGDA product 78, Site01) and a regional LOLA horizon out to 150 kilometers (PGDA product 90), so distant ridges can still block a low polar Sun or Earth. The product question is the minimum mast that meets the cap: under a 360-hour outage limit, 17 of 130 configurations are feasible, and the optimizer recommends 5 meters at Ridge A, where the longest joint Sun+Earth outage falls from 465 hours on the ground to 342.5 hours. Twenty meters adds no further Earth visibility in this window. We document angular sensitivity and 91 passing automated tests; we cross-checked ground-level results against NASA's PGDA 69 long-term maps over a full 18.6-year cycle at 462 points: Earth visibility agrees closely (r = 0.978, RMSE 5.1 pp), solar illumination agrees on average with larger scatter (r = 0.63, RMSE 9.8 pp); mast-height results are not validated by this comparison, since NASA publishes no height maps.
 
 The 30-second Project Demo uses an SI-generated (AI-generated) voice. That use is acknowledged in the video description and metadata, and with a visible watermark, as required by the 2026 Project Submission Guide.
 
 **Prior work and positioning**
 
-SITE//FORGE does not invent polar illumination science. Long-term average solar illumination and Earth-visibility maps at the surface are published as PGDA product 69 ([https://pgda.gsfc.nasa.gov/products/69](https://pgda.gsfc.nasa.gov/products/69)), following Mazarico et al. (2011, [doi:10.1016/j.icarus.2010.10.030](https://doi.org/10.1016/j.icarus.2010.10.030)). Those products are typically averages over a lunar nutation cycle (~18.6 years). The PGDA 69 product page itself notes that further analysis is preferable to assess the effect of shorter time periods, higher resolution, and height above the surface (for potential rovers or habitats). Height-dependent illumination is treated in the literature, including Gläser et al. (2014, [doi:10.1016/j.icarus.2014.08.013](https://doi.org/10.1016/j.icarus.2014.08.013)) and the improved LOLA site maps of Barker et al. (2021) that underpin PGDA product 78 ([https://pgda.gsfc.nasa.gov/products/78](https://pgda.gsfc.nasa.gov/products/78)). What we add is a public, interactive, mission-month (November 2026) what-if: mast heights from 0 to 20 m, joint Sun+Earth outage, and a smallest-mast optimizer. Moon Trek and LROC QuickMap remain the specialist browsers for the same terrain; they do not run that mast trade. The live app also goes beyond one month for the two fixed sites. Its Monthly comparison covers Ridge A and Ridge B for six UTC calendar months, November 2026 through April 2027, at 0, 2, 5, 10 and 20 m, using JPL Horizons tables at each site through 1 May 2027. The lowest tested mast height that meets the demo limits is 5 m at Ridge A from November 2026 to January 2027 and 10 m in February and March 2027. At Ridge B it is 10 m from November 2026 to February 2027 and 20 m in March 2027. In April 2027 no tested height qualifies at either site: at 20 m, Ridge A has 495 h of Sun and Ridge B 371 h, versus the 504 h required. In November 2026 at ground level, Ridge A has 426 h of Sun and 199 h of Earth visibility, and Ridge B has 295 h and 381 h. The smallest mast that works changes with the month and differs between the two sites.
+SELENARC does not invent polar illumination science. Long-term average solar illumination and Earth-visibility maps at the surface are published as PGDA product 69 ([https://pgda.gsfc.nasa.gov/products/69](https://pgda.gsfc.nasa.gov/products/69)), following Mazarico et al. (2011, [doi:10.1016/j.icarus.2010.10.030](https://doi.org/10.1016/j.icarus.2010.10.030)). Those products are typically averages over a lunar nutation cycle (~18.6 years). The PGDA 69 product page itself notes that further analysis is preferable to assess the effect of shorter time periods, higher resolution, and height above the surface (for potential rovers or habitats). Height-dependent illumination is treated in the literature, including Gläser et al. (2014, [doi:10.1016/j.icarus.2014.08.013](https://doi.org/10.1016/j.icarus.2014.08.013)) and the improved LOLA site maps of Barker et al. (2021) that underpin PGDA product 78 ([https://pgda.gsfc.nasa.gov/products/78](https://pgda.gsfc.nasa.gov/products/78)). What we add is a public, interactive, mission-month (November 2026) what-if: mast heights from 0 to 20 m, joint Sun+Earth outage, and a smallest-mast optimizer. Moon Trek and LROC QuickMap remain the specialist browsers for the same terrain; they do not run that mast trade. The live app also goes beyond one month for the two fixed sites. Its Monthly comparison covers Ridge A and Ridge B for six UTC calendar months, November 2026 through April 2027, at 0, 2, 5, 10 and 20 m, using JPL Horizons tables at each site through 1 May 2027. The lowest tested mast height that meets the demo limits is 5 m at Ridge A from November 2026 to January 2027 and 10 m in February and March 2027. At Ridge B it is 10 m from November 2026 to February 2027 and 20 m in March 2027. In April 2027 no tested height qualifies at either site: at 20 m, Ridge A has 495 h of Sun and Ridge B 371 h, versus the 504 h required. In November 2026 at ground level, Ridge A has 426 h of Sun and 199 h of Earth visibility, and Ridge B has 295 h and 381 h. The smallest mast that works changes with the month and differs between the two sites.
 
 **Tools, languages, and software**
 
@@ -144,7 +144,7 @@ The 30-second Project Demo uses an SI-generated (AI-generated) voice. It carries
 
 ### NASA Data
 
-To be eligible for a Global Award, a project must use at least one NASA data or resource. SITE//FORGE uses the following NASA data as core computational inputs, not as decoration.
+To be eligible for a Global Award, a project must use at least one NASA data or resource. SELENARC uses the following NASA data as core computational inputs, not as decoration.
 
 1. **High-resolution LOLA topography for lunar south pole sites (PGDA product 78), Site01 Connecting Ridge, 5 meters/pixel.**
    Source: NASA Planetary Geology, Geophysics and Geochemistry Laboratory / LRO Lunar Orbiter Laser Altimeter (LOLA).
@@ -197,23 +197,23 @@ LOLA and Horizons are the computational backbone of every visibility window, out
 
 ## 30-second Project Demo script
 
-**Format:** English voiceover, on-screen text, picture of the live SITE//FORGE app. Hard limit: 30.00 seconds. Projects that exceed 30 seconds are not eligible for Global Judging. Target narration is 69 words (~135–145 words/minute, about 28–30 seconds). Do not add unscripted numbers.
+**Format:** English voiceover, on-screen text, picture of the live SELENARC app. Hard limit: 30.00 seconds. Projects that exceed 30 seconds are not eligible for Global Judging. Target narration is 69 words (~135–145 words/minute, about 28–30 seconds). Do not add unscripted numbers.
 
 If any shot, animation, or voice is Super Intelligence–generated, add a visible watermark such as “SI-generated” and acknowledge it in the video description and metadata. Prefer a screen recording of the real application. Do not use NASA logos.
 
 **Voiceover (read as written)**
 
-Azotadores de Agentes presents SITE//FORGE: Don't find the perfect landing site. Engineer one. At Connecting Ridge, NASA LOLA terrain shows a limit: Ridge A sees Earth for 199 hours from the surface in November 2026. A 10-meter mast raises that to 382 hours. Twenty meters adds nothing. Over 130 configurations, our optimizer recommends a 5-meter mast under a 360-hour outage limit — the minimum infrastructure that improves the site.
+Azotadores de Agentes presents SELENARC: Don't find the perfect landing site. Engineer one. At Connecting Ridge, NASA LOLA terrain shows a limit: Ridge A sees Earth for 199 hours from the surface in November 2026. A 10-meter mast raises that to 382 hours. Twenty meters adds nothing. Over 130 configurations, our optimizer recommends a 5-meter mast under a 360-hour outage limit — the minimum infrastructure that improves the site.
 
 **Timed beats**
 
 | Time | On screen | Voiceover | Story beat |
 | --- | --- | --- | --- |
-| 0:00–0:05 | Title card: team name “Azotadores de Agentes”; challenge name “Lunar Landing Site Navigator”; the app's 3D LROC Moon flies down to the real Connecting Ridge terrain. | “Azotadores de Agentes presents SITE//FORGE.” Challenge name stays on screen only. | Open on the real Moon and land on a real NASA site. |
-| 0:05–0:09 | Product lockup: **SITE//FORGE** and the tagline “Don't find the perfect landing site. Engineer one.” | “SITE//FORGE: Don't find the perfect landing site. Engineer one.” | Name and tagline. |
+| 0:00–0:05 | Title card: team name “Azotadores de Agentes”; challenge name “Lunar Landing Site Navigator”; the app's 3D LROC Moon flies down to the real Connecting Ridge terrain. | “Azotadores de Agentes presents SELENARC.” Challenge name stays on screen only. | Open on the real Moon and land on a real NASA site. |
+| 0:05–0:09 | Product lockup: **SELENARC** and the tagline “Don't find the perfect landing site. Engineer one.” | “SELENARC: Don't find the perfect landing site. Engineer one.” | Name and tagline. |
 | 0:09–0:16 | App view of Ridge A at 0 m, after the Site01 close-up handover. Blue Marble Earth sits on a blocked sightline; results are in the right sidebar (Sun 426 h, Earth 199 h, longest gap 465 h). The compact timeline shows the surface Earth-visibility window. On-screen text: “Ridge A · 0 m · Earth visibility 199 h · Sun 426 h · Nov 2026”. | “At Connecting Ridge, NASA LOLA terrain shows a limit: Ridge A sees Earth for 199 hours from the surface in November 2026.” | Limitation found, with NASA data on screen. |
 | 0:16–0:22 | The mast rises to 10 m. Horizon profile drops relative to Earth; the window lengthens. On-screen text: “10 m mast · Earth 382 h”. A brief 20 m tick shows the same 382 h. On-screen text: “20 m · no further gain”. Optional 5 m beat: “5 m · 359.5 h Earth · 100% Sun”. | “A 10-meter mast raises that to 382 hours. Twenty meters adds nothing.” | Infrastructure changes the horizon and the windows; more height is not automatically better. |
-| 0:22–0:30 | Optimizer result card: “130 configurations · 17 feasible at a 360 h outage limit · recommended mast: 5 m”. End card: SITE//FORGE tagline and https://siteforge-moon.vercel.app. | “Over 130 configurations, our optimizer recommends a 5-meter mast under a 360-hour outage limit — the minimum infrastructure that improves the site.” | Minimum-infrastructure answer. |
+| 0:22–0:30 | Optimizer result card: “130 configurations · 17 feasible at a 360 h outage limit · recommended mast: 5 m”. End card: SELENARC tagline and https://siteforge-moon.vercel.app. | “Over 130 configurations, our optimizer recommends a 5-meter mast under a 360-hour outage limit — the minimum infrastructure that improves the site.” | Minimum-infrastructure answer. |
 
 **Production notes**
 
@@ -230,7 +230,7 @@ Judges score every project 1–5 on Impact, Creativity, Validity, Relevance, and
 
 ### 0:00–0:25 — Presentation (hook)
 
-“We’re Azotadores de Agentes, and this is SITE//FORGE: Don't find the perfect landing site. Engineer one. The official Lunar Landing Site Navigator challenge asks for a clear way to compare south-pole sites and dates, and to see the Sun and Earth against the horizon. We built that — and then asked a harder question: what is the minimum mast that actually improves the site?”
+“We’re Azotadores de Agentes, and this is SELENARC: Don't find the perfect landing site. Engineer one. The official Lunar Landing Site Navigator challenge asks for a clear way to compare south-pole sites and dates, and to see the Sun and Earth against the horizon. We built that — and then asked a harder question: what is the minimum mast that actually improves the site?”
 
 ### 0:25–0:50 — Relevance
 
@@ -238,7 +238,7 @@ Judges score every project 1–5 on Impact, Creativity, Validity, Relevance, and
 
 ### 0:50–1:20 — Impact
 
-“When a landing date slips, planners should not have to start from scratch in three specialist tools. SITE//FORGE is built for that moment: compare the original site and date, try a nearby point, raise a mast, and get a decision, not just a chart. Educators and the public can use the same view to see why south-pole operations are so sensitive to height and location. We are not certifying a mission. We are shortening an honest trade study.”
+“When a landing date slips, planners should not have to start from scratch in three specialist tools. SELENARC is built for that moment: compare the original site and date, try a nearby point, raise a mast, and get a decision, not just a chart. Educators and the public can use the same view to see why south-pole operations are so sensitive to height and location. We are not certifying a mission. We are shortening an honest trade study.”
 
 ### 1:20–1:50 — Creativity
 
@@ -252,7 +252,7 @@ Open Ridge A at 0 meters, then 5 meters, then 10 meters, then 20 meters.
 
 ### 2:35–3:00 — Presentation close
 
-“So the story is simple. A real NASA site. A real limit. A mast that changes the horizon. An optimizer that returns the minimum infrastructure, and a hard stop where more height stops helping. That is SITE//FORGE. I’m happy to take questions, and the public demo is at siteforge-moon.vercel.app.”
+“So the story is simple. A real NASA site. A real limit. A mast that changes the horizon. An optimizer that returns the minimum infrastructure, and a hard stop where more height stops helping. That is SELENARC. I’m happy to take questions, and the public demo is at siteforge-moon.vercel.app.”
 
 ---
 
@@ -282,7 +282,7 @@ Connecting Ridge was one of the 13 candidate Artemis III regions NASA announced 
 **8. What happens if Horizons or another API is down during judging?**
 The public app at https://siteforge-moon.vercel.app is a static site that reads precomputed engine output. Horizons and the DEM processing already ran offline. Judges do not need a live ephemeris call for the demo to work, and we do not substitute fictional numbers if a calculation was not completed.
 
-**9. What makes SITE//FORGE different from a site-and-date browser?**
+**9. What makes SELENARC different from a site-and-date browser?**
 It starts from 5 meters/pixel LOLA terrain and a 150-kilometer regional horizon, then asks for the minimum mast that meets the outage cap — a 5-meter recommendation at Ridge A under a 360-hour limit, not a taller tower. We document angular sensitivity and 91 passing automated tests; we cross-checked ground-level results against NASA's PGDA 69 long-term maps over a full 18.6-year cycle at 462 points: Earth visibility agrees closely (r = 0.978, RMSE 5.1 pp), solar illumination agrees on average with larger scatter (r = 0.63, RMSE 9.8 pp); mast-height results are not validated by this comparison, since NASA publishes no height maps.
 
 ---
@@ -292,7 +292,7 @@ It starts from 5 meters/pixel LOLA terrain and a 150-kilometer regional horizon,
 Short positioning answers. The nine technical questions above still apply. Multi-month windows (November 2026–April 2027) and the Ridge A vs Ridge B compare are live in the public app; quote only figures shown in its Monthly comparison or in `docs/MONTHLY_SITE_SCAN.md`.
 
 **A. Isn't this already in PGDA or Moon Trek?**
-PGDA 69 and Moon Trek (and LROC QuickMap) are long-term surface averages or terrain browsers. Height effects live in papers (Mazarico 2011, Gläser 2014, Barker 2021 / PGDA 78), not in a public 0–20 m mission-month what-if with joint Sun+Earth outage and a smallest-mast optimizer. PGDA 69 itself says height above the surface needs further analysis. That further analysis is what SITE//FORGE does, for one mission month in full and, for Ridge A and Ridge B, for six months (November 2026–April 2027). The monthly compare shows the smallest qualifying mast moving with the date: 5 m at Ridge A through January 2027, 10 m in February and March, and no tested height in April 2027.
+PGDA 69 and Moon Trek (and LROC QuickMap) are long-term surface averages or terrain browsers. Height effects live in papers (Mazarico 2011, Gläser 2014, Barker 2021 / PGDA 78), not in a public 0–20 m mission-month what-if with joint Sun+Earth outage and a smallest-mast optimizer. PGDA 69 itself says height above the surface needs further analysis. That further analysis is what SELENARC does, for one mission month in full and, for Ridge A and Ridge B, for six months (November 2026–April 2027). The monthly compare shows the smallest qualifying mast moving with the date: 5 m at Ridge A through January 2027, 10 m in February and March, and no tested height in April 2027.
 
 **B. Why 100% Sun?**
 720/720 hours in the November 2026 window at Ridge A from 5 m — not an 18.6-year average. Long-term literature at 2–10 m on Connecting Ridge is ~88–96% (Gläser et al. 2014; e.g. 92.27% of the time at 2 m and 95.65% at 10 m over ~19 years, at their best spots). Our 100% is a one-month geometric result at this point and height, and we label it that way.
