@@ -42,7 +42,9 @@ function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analy
    </div>
    <div className="meter-legend"><span onMouseEnter={()=>setActive('ground')}>{!same?<><i className="tick-base"/>Ground {hours(b.total_hours)} h</>:<>Ground level</>}</span><span onMouseEnter={()=>setActive('minimum')}><i className="tick-req"/>Min {threshold}%</span></div>
    {active&&<div className="meter-tooltip" id={tooltipId} role="tooltip">
-    <strong>{detail.title}</strong><span>{detail.description}</span>
+    <strong>{detail.title}</strong>
+    {active==='ground'&&<b className="meter-tooltip-value">{hours(b.total_hours)} h · {pct(percent(b))}% of window</b>}
+    <span>{detail.description}</span>
    </div>}
   </div>
  </div>;
