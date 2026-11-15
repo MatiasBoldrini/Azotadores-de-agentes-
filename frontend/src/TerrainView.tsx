@@ -13,7 +13,8 @@ import {TerrainSightline} from './TerrainSightline';
 import {createStationClickGuard} from './lib/stationClick';
 import DistantTerrain,{useDistantHorizon} from './DistantTerrain';
 import {profileFor} from './lib/distantHorizon';
-import {DETAIL_RADIUS_KM,RELIEF_SCALE,sceneProjection} from './lib/sceneGeometry';
+import {DETAIL_RADIUS_KM,RELIEF_SCALE,sceneProjection,type Vec3} from './lib/sceneGeometry';
+import SkyDome from './SkyDome';
 
 export const VERTICAL_EXAGGERATION = RELIEF_SCALE;
 // Observer height shares the terrain transform; only the marker glyph is enlarged.
@@ -67,7 +68,7 @@ const terrainEvents:typeof events=store=>{
 };
 
 type Approach='hold'|'descend'|null;
-type Props={active:boolean;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;terrain:Terrain;positions:EvaluatedPosition[];previewId:string|null;selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean;feasible?:Set<string>;recommended?:string};
+type Props={active:boolean;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;terrain:Terrain;positions:EvaluatedPosition[];previewId:string|null;selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean;feasible?:Set<string>;recommended?:string;skyReference?:Analysis;showSky?:boolean};
 
 const LABEL_FONT='600 34px Inter, system-ui, sans-serif';
 function useFontReady(){
@@ -376,7 +377,7 @@ function SkyBody({body,sky,visible}:Ray){
  </Billboard>;
 }
 
-function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisible}:{ground:Point;surfaceHeight:(x:number,z:number)=>number;height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:Point|null;linkVisible:boolean}){
+function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisible,sky}:{sky?:ReactNode;ground:Point;surfaceHeight:(x:number,z:number)=>number;height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:Point|null;linkVisible:boolean}){
  const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
  const target=MAST_BASE+height*MAST_PER_M;
  const root=useRef<THREE.Group>(null),initial=useRef(ground);
@@ -430,6 +431,7 @@ function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisibl
     </group>;
    })}
    <Label position={STATION_LABEL} color={C.station} text={label}/>
+   {sky}
    {linkTo&&<TerrainSightline line={lines.link} start={RAY_START} end={linkTo} worldEndFrom={head} color={linkVisible?C.ok:BLOCKED_COLOR} width={1.4} blocked={!linkVisible}/>}
   </group>
  </group>;
@@ -544,6 +546,10 @@ function Scene(p:SceneProps){
  useEffect(()=>{stars.quaternion.copy(p.frame.rotation);},[stars,p.frame]);
  useFrame(({camera})=>{stars.position.copy(camera.position);});
  const progress=useRef(1);
+ const {row:skyRow,col:skyCol,elevation_m:skyZ}=p.selected.position;
+ const skyDirection=useMemo(()=>(az:number,el:number):Vec3=>projection.direction(p.selected.position,az,el,SKY_KM),[projection,skyRow,skyCol,skyZ]);
+ const sky=p.showSky&&!p.mapView?<SkyDome analysis={p.selected} reference={p.skyReference} direction={skyDirection} progress={progress}
+  label={(text,position,color)=><Label text={text} position={position} color={color} size={.016}/>}/>:null;
  const surface=<Surface ground={land} levels={{tile:null,surround:null}} wireframe={p.wireframe} onPick={pick} occluder={occluder}/>;
  return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress} heroHeight={heroHeight}/>
   <primitive object={stars}/>
@@ -568,7 +574,7 @@ function Scene(p:SceneProps){
   })}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
-  <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:lander} linkVisible={p.linkVisible}/>
+  <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:lander} linkVisible={p.linkVisible} sky={sky}/>
   <group position={compass}>
    <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
@@ -583,7 +589,7 @@ const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
  return <Canvas shadows events={terrainEvents} frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
-export function TerrainScope({terrain,analysis,regionalRadiusM}:{terrain:Terrain;analysis:Analysis;regionalRadiusM?:number}){
+export function TerrainScope({terrain,analysis,regionalRadiusM,sky}:{terrain:Terrain;analysis:Analysis;regionalRadiusM?:number;sky?:boolean}){
  const tile=useSite01(),surround=useSurround();
  const horizon=useDistantHorizon();
  const closeupKm=terrain.original_shape[1]*terrain.pixel_size_m/1000;
@@ -591,6 +597,7 @@ export function TerrainScope({terrain,analysis,regionalRadiusM}:{terrain:Terrain
  return <p className="terrain-scope">
   <span><strong>3D display</strong> · {VERTICAL_EXAGGERATION}× vertical relief · {footprint}{horizon&&profileFor(horizon,analysis)&&' + regional ridge silhouettes'}</span>
   <span><strong>Sun/Earth visibility</strong> · {regionalRadiusM?`LOLA terrain to ${regionalRadiusM/1000} km`:'LOLA elevations'}</span>
+  {sky&&<span><strong>Sky paths</strong> · geometric line of sight from LOLA terrain, drawn with the same {VERTICAL_EXAGGERATION}× vertical exaggeration</span>}
  </p>;
 }
 

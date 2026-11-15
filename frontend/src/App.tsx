@@ -1,6 +1,8 @@
 import {useState,useEffect,useLayoutEffect,useMemo,useRef,Component,ReactNode} from 'react';
-import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Telescope} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Telescope,ArrowUp,Orbit} from 'lucide-react';
 import MastPanorama from './MastPanorama';
+import {SKY_DOME_CAPTION} from './SkyDome';
+import {raiseSequence} from './lib/skyDome';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,TerrainScope,terrainMean} from './TerrainView';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {loadSite01} from './site01';
@@ -65,6 +67,7 @@ function App(){
  const [showConfigure,setShowConfigure]=useState(false);
  const [showReferences,setShowReferences]=useState(true);
  const [showPanorama,setShowPanorama]=useState(false);
+ const [showSky,setShowSky]=useState(true),[raising,setRaising]=useState(false);
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
  const searchTimer=useRef<number|undefined>(undefined);
  useEffect(()=>{const controller=new AbortController();(async()=>{
@@ -148,6 +151,13 @@ function App(){
   };
  },[showConfigure]);
  useEffect(()=>{if(!playing)return;const id=window.setInterval(()=>setTime(t=>(t+4)%count),140);return()=>window.clearInterval(id);},[playing,count]);
+ useEffect(()=>{
+  if(!raising)return;
+  const heights=raiseSequence(all.filter(a=>a.candidate_id===candidate).map(a=>a.height_m)),next=heights.find(h=>h>height);
+  if(next===undefined){setRaising(false);return;}
+  const id=window.setTimeout(()=>setHeight(next),reducedMotion()?400:1500);
+  return()=>window.clearTimeout(id);
+ },[raising,height,all,candidate]);
  useEffect(()=>{if(!notice)return;const id=window.setTimeout(()=>setNotice(''),5200);return()=>window.clearTimeout(id);},[notice]);
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape')setDemoStep(null);};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[]);
  const ridge = data?.sites.find(item => item.id === 'ridge-a');
@@ -241,7 +251,10 @@ function App(){
  const story=buildStory({selected,baseline,sweep:selectedSweep,links,constraints,search,searching,evaluated:all.length});
  const chooseSite=(id:string)=>{setDemoStep(null);const s=data.sites.find(s=>s.id===id)!;setSiteId(id);setCandidate(`r${s.row}c${s.col}`);setHeight(0);setSearch(null);};
  const chooseCandidate=(id:string)=>{setDemoStep(null);setCandidate(id);setTab('Infrastructure Designer');setNotice('Station moved to the nearest evaluated terrain cell.');};
- const chooseHeight=(h:number)=>{setDemoStep(null);setHeight(h);setTab('Infrastructure Designer');setNotice(`Loaded the precomputed ${h} m terrain horizon; metrics re-integrated over the selected window.`);};
+ const raiseMast=()=>{setDemoStep(null);setPlaying(false);setMapView(false);setShowSky(true);setHeight(heightsTested[0]??0);setRaising(true);setNotice('Raising the mast through each tested height. Each step loads that height’s own LOLA horizon.');};
+ const skyBase=selectedSweep[0];
+ const gainedSun=selected.metrics.sun.total_hours-skyBase.metrics.sun.total_hours,gainedEarth=selected.metrics.earth.total_hours-skyBase.metrics.earth.total_hours;
+ const chooseHeight=(h:number)=>{setDemoStep(null);setRaising(false);setHeight(h);setTab('Infrastructure Designer');setNotice(`Loaded the precomputed ${h} m terrain horizon; metrics re-integrated over the selected window.`);};
  const setWindow=(nextStart:string,nextEnd:string)=>{
   setDemoStep(null);
   window.clearTimeout(searchTimer.current);
@@ -334,7 +347,7 @@ function App(){
   {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
-  <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
+  <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id} skyReference={selected.height_m>0&&skyBase.height_m===0?skyBase:undefined} showSky={showSky}/></SceneBoundary></div>
   <div className="workspace-heading">
    <StoryBar story={story} demo={demo} hideSummary={!!search} onAction={onStoryAction} onStopDemo={stopDemo}/>
    <button type="button" className="secondary view-from-mast" onClick={()=>{setDemoStep(null);setPlaying(false);setShowPanorama(true);}}><Telescope size={15} aria-hidden="true"/>View from mast</button>
@@ -347,12 +360,18 @@ function App(){
       <ul className="map-legend" aria-label="Map legend">
        <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
        <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
+       {showSky&&<><li><i className="lg-sky-track sun"/>Sun path <i className="lg-sky-track earth"/>Earth path <i className="lg-sky-track blocked"/>Blocked</li><li><i className="lg-horizon"/>Horizon at {selected.height_m} m{selected.height_m>0&&<> <i className="lg-gained"/>Sky gained vs 0 m</>}</li></>}
       </ul>
-      <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
+      <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m} sky={showSky}/>
      </div>
      <button type="button" className="map-references-toggle" aria-expanded={showReferences} aria-controls="map-reference-content" onClick={()=>setShowReferences(value=>!value)}><ChevronDown size={14} aria-hidden="true"/>{showReferences?'Hide references':'Show references'}</button>
     </div>
     {!showAnalysisDock&&<div className="map-actions">{configure}</div>}
+  <div className="sky-panel" role="group" aria-label="Sky paths from the mast top">
+   <button type="button" className="sky-toggle" aria-pressed={showSky} onClick={()=>setShowSky(v=>!v)}><Orbit size={14} aria-hidden="true"/>Sky paths</button>
+   <button type="button" className="sky-raise" onClick={raiseMast} disabled={raising}><ArrowUp size={14} aria-hidden="true"/>{raising?`Raising… ${selected.height_m} m`:`Raise mast ${heightsTested[0]??0} → ${heightsTested[heightsTested.length-1]??20} m`}</button>
+   {showSky&&<p className="sky-readout" aria-live="polite"><b>{selected.height_m} m mast</b>{selected.height_m>0?<> · sky gained vs 0 m: <span className="sun">Sun +{fmt(gainedSun)} h</span> · <span className="earth">Earth +{fmt(gainedEarth)} h</span></>:<> · Sun {fmt(selected.metrics.sun.total_hours)} h · Earth {fmt(selected.metrics.earth.total_hours)} h</>}<small>{SKY_DOME_CAPTION}; {VERTICAL_EXAGGERATION}× vertical exaggeration in 3D, so sky angles look steeper</small></p>}
+  </div>
   <div className="map-tools"><button title="Reset camera" aria-label="Reset camera" onClick={()=>setReset(reset+1)}><RotateCcw size={16}/></button><button title="Toggle top view" aria-label="Toggle top view" aria-pressed={mapView} onClick={()=>setMapView(!mapView)}><Maximize2 size={16}/></button><button title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={wire} onClick={()=>setWire(!wire)}><Layers3 size={16}/></button></div>
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}
