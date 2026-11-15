@@ -1,11 +1,11 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import CompareUtcWindow from './CompareUtcWindow';
 import { type MonthlyScan, type MonthlyWindow, parseMonthlyScan } from './lib/monthlyScan';
 import type { Site } from './lib/science';
 import './MonthlyCompare.css';
 
 const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const shortMonth = new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: 'UTC' });
-const dateLabel = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const hourLabel = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 const percentLabel = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 });
 
@@ -14,11 +14,14 @@ type LoadState = { status: 'loading' | 'unavailable' } | { status: 'ready'; scan
 const labelFor = (month: MonthlyWindow) => monthLabel.format(new Date(month.start_utc));
 const heightLabel = (height: number | null) => height === null ? 'None' : `${height} m`;
 
-function Visibility({ label, color, hours, duration }: { label: string; color: string; hours: number; duration: number }) {
+function Visibility({ label, color, hours, month }: { label: string; color: string; hours: number; month: MonthlyWindow }) {
   return <div className="metric-block">
     <dt className={color}>{label}</dt>
     <dd className="metric-number">{hourLabel.format(hours)}<small>h</small></dd>
-    <dd className="metric-detail">{percentLabel.format(hours / duration)} of {hourLabel.format(duration)}&nbsp;h</dd>
+    <dd className="metric-detail">
+      {percentLabel.format(hours / month.duration_hours)} of {hourLabel.format(month.duration_hours)}&nbsp;h
+      <CompareUtcWindow start={month.start_utc} end={month.end_utc}/>
+    </dd>
   </div>;
 }
 
@@ -92,10 +95,6 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
           {scan.heights_m.map(item => <option value={item} key={item}>{item === 0 ? '0 m · ground level' : `${item} m`}</option>)}
         </select>
       </label>
-      <p className="monthly-window" aria-live="polite">
-        <span><time dateTime={month.start_utc}>{dateLabel.format(new Date(month.start_utc))}</time> to <time dateTime={month.end_utc}>{dateLabel.format(new Date(month.end_utc))}</time></span>
-        <strong>{hourLabel.format(month.duration_hours)} h</strong> · Midnight to midnight UTC
-      </p>
     </div>
 
     <div className="compare-grid">
@@ -111,8 +110,8 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
             <span className="monthly-height">{height} m above terrain</span>
           </div>
           <dl className="monthly-metrics">
-            <Visibility label="Sun visible" color="sun" hours={selected.sun_hours} duration={month.duration_hours}/>
-            <Visibility label="Earth visible" color="earth" hours={selected.earth_hours} duration={month.duration_hours}/>
+            <Visibility label="Sun visible" color="sun" hours={selected.sun_hours} month={month}/>
+            <Visibility label="Earth visible" color="earth" hours={selected.earth_hours} month={month}/>
             <div className="metric-block">
               <dt className="both">Longest gap without both</dt>
               <dd className="metric-number">{hourLabel.format(selected.both_longest_outage_hours)}<small>h</small></dd>
@@ -144,7 +143,7 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
         </tr>)}</tbody>
       </table>
       <p id="monthly-limits">
-        Qualifying heights need at least {limits.minSun}% Sun and {limits.minEarth}% Earth visibility in the month. The longest Sun outage and the longest Earth outage must each be at most {limits.maxOutage} h. The point also needs at most {limits.maxSlope}° slope and {hourLabel.format(limits.maxDistance)} m installation distance{limits.requireLink && ', with local line of sight'}.
+        In each calendar month (UTC), qualifying heights need at least {limits.minSun}% Sun and {limits.minEarth}% Earth visibility. The longest Sun outage and the longest Earth outage must each be at most {limits.maxOutage} h. The point also needs at most {limits.maxSlope}° slope and {hourLabel.format(limits.maxDistance)} m installation distance{limits.requireLink && ', with local line of sight'}.
       </p>
     </div>
   </div>;
