@@ -1,8 +1,9 @@
-import {useMemo,useRef,useEffect,Suspense} from 'react';
+import {useMemo,useRef,useEffect,useState,Suspense} from 'react';
 import {Canvas,ThreeEvent,useThree,useFrame} from '@react-three/fiber';
-import {OrbitControls,Line,Stars} from '@react-three/drei';
+import {Billboard,Html,OrbitControls,Line,Stars,useCursor} from '@react-three/drei';
 import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
+import type {EvaluatedPosition} from './PositionPicker';
 
 export const VERTICAL_EXAGGERATION = 4;
 
@@ -13,7 +14,7 @@ const BODIES = {
 const BODY_KEYS = ['sun', 'earth'] as const;
 const BLOCKED_COLOR = '#ff625e';
 
-type Props={terrain:Terrain;analyses:Analysis[];selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean};
+type Props={terrain:Terrain;positions:EvaluatedPosition[];previewId:string|null;selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean};
 
 export function CelestialRayLegend({selected, time}: Pick<Props, 'selected' | 'time'>) {
  return <ul className="celestial-ray-legend" aria-label="Celestial sightlines">
@@ -81,13 +82,39 @@ function bodyDirection(body:'sun'|'earth', analysis:Analysis, time:number){
  );
 }
 
+function PositionHighlight({label, position}: {label: string; position: [number, number, number]}) {
+ return <group position={position}>
+  <Billboard>
+   <mesh renderOrder={90}>
+    <ringGeometry args={[.024, .035, 32]}/>
+    <meshBasicMaterial color="#b9e9d7" transparent opacity={.95} toneMapped={false} depthTest={false} depthWrite={false}/>
+   </mesh>
+  </Billboard>
+  <Html position={[0, .27, 0]} zIndexRange={[1, 0]} style={{pointerEvents: 'none'}}>
+   <div className="map-label position-preview-label" aria-hidden="true">{label}</div>
+  </Html>
+ </group>;
+}
+
 function Scene(p:Props){
  const controls=useRef<any>(null);
+ const [hovered, setHovered] = useState<string | null>(null);
+ const orbiting = useRef(false);
+ useCursor(hovered !== null);
  const mean=useMemo(()=>{const z=p.terrain.elevation_m.flat().filter((x):x is number=>x!==null);return z.reduce((a,b)=>a+b,0)/z.length;},[p.terrain]);
  const point=(pos:Site|Analysis['position'],height=0):[number,number,number]=>[(pos.col-p.terrain.original_shape[1]/2)*p.terrain.pixel_size_m/1000,(pos.elevation_m-mean+height)*VERTICAL_EXAGGERATION/1000,(pos.row-p.terrain.original_shape[0]/2)*p.terrain.pixel_size_m/1000];
  const station=point(p.selected.position,p.selected.height_m),lander=point(p.lander,2);
- const candidates=useMemo(()=>p.analyses.filter(a=>a.height_m===0),[p.analyses]);
- const pick=(r:number,c:number)=>{const nearest=candidates.reduce((best,a)=>Math.hypot(a.position.row-r,a.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?a:best);p.onSelect(nearest.candidate_id);};
+ const preview = p.positions.find(option => option.id === (p.previewId ?? hovered));
+ const selectPoint = (id: string) => {
+  setHovered(null);
+  p.onSelect(id);
+ };
+ const pick = (row: number, col: number) => {
+  const nearest = p.positions.reduce((best, option) =>
+   Math.hypot(option.position.row - row, option.position.col - col) <
+   Math.hypot(best.position.row - row, best.position.col - col) ? option : best);
+  selectPoint(nearest.id);
+ };
  const sunDirection = bodyDirection('sun',p.selected,p.time);
  useEffect(()=>{controls.current?.target.set(0,0,0);controls.current?.update();},[p.reset,p.mapView]);
  return <><Camera mapView={p.mapView} reset={p.reset}/><Stars radius={25} depth={10} count={450} factor={1.1} saturation={0} fade speed={0}/>
@@ -95,7 +122,31 @@ function Scene(p:Props){
  <directionalLight position={sunDirection.clone().multiplyScalar(4)} intensity={1.9} color="#ffe3be"/>
  <directionalLight position={[3,4,-3]} intensity={.25} color="#b3c2dc"/>
  <Surface terrain={p.terrain} wireframe={p.wireframe} onPick={pick}/>
- {candidates.map(a=><mesh key={a.candidate_id} position={point(a.position,2)} onClick={e=>{e.stopPropagation();p.onSelect(a.candidate_id);}}><sphereGeometry args={[a.candidate_id===p.selected.candidate_id?.035:.012,12,12]}/><meshBasicMaterial color={a.candidate_id===p.selected.candidate_id?'#f4bd68':'#a6b5ac'} transparent opacity={.9}/></mesh>)}
+ {p.positions.map(option => {
+  const selected = option.id === p.selected.candidate_id;
+  const radius = selected ? .035 : .012;
+  return <group key={option.id} position={point(option.position, 2)}>
+   <mesh>
+    <sphereGeometry args={[radius,12,12]}/>
+    <meshBasicMaterial color={selected ? '#f4bd68' : '#a6b5ac'} transparent opacity={.9}/>
+   </mesh>
+   <mesh visible={false}
+    onPointerMove={event => {
+     if (orbiting.current || event.pointerType === 'touch') return;
+     event.stopPropagation();
+     if (hovered !== option.id) setHovered(option.id);
+    }}
+    onPointerOut={() => setHovered(current => current === option.id ? null : current)}
+    onClick={event => {
+     event.stopPropagation();
+     selectPoint(option.id);
+    }}>
+    <sphereGeometry args={[Math.max(radius, .023), 8, 8]}/>
+    <meshBasicMaterial/>
+   </mesh>
+  </group>;
+ })}
+ {preview && <PositionHighlight label={preview.label} position={point(preview.position, 2)}/>}
  <group position={lander}><mesh position={[0,.024,0]}><boxGeometry args={[.04,.045,.04]}/><meshStandardMaterial color="#e7ece7"/></mesh>{(p.selected.position.row!==p.lander.row||p.selected.position.col!==p.lander.col)&&<Label position={[0,.12,0]} text={`LANDER / ${p.lander.name}`}/>}</group>
  <Mast base={point(p.selected.position)} height={p.selected.height_m}/>
  <group position={station}><mesh position={[0,.035,0]}><octahedronGeometry args={[.045]}/><meshBasicMaterial color="#f4bd68"/></mesh><Label position={[0,.17,0]} color='#efbd75' text={`${p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col?'LANDER + STATION':'STATION'} / ${p.selected.height_m} M`}/></group>
@@ -118,7 +169,12 @@ function Scene(p:Props){
    </mesh>
   </group>;
  })}
- <OrbitControls ref={controls} makeDefault minDistance={.6} maxDistance={7} maxPolarAngle={Math.PI*.49} enableDamping dampingFactor={.1}/>
+ <OrbitControls ref={controls} makeDefault minDistance={.6} maxDistance={7} maxPolarAngle={Math.PI*.49} enableDamping dampingFactor={.1}
+  onStart={() => {
+   orbiting.current = true;
+   setHovered(null);
+  }}
+  onEnd={() => { orbiting.current = false; }}/>
  </>;
 }
 export default function TerrainView(props:Props){return <Canvas camera={{position:[2.5,1.9,2.65],fov:44,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}}><color attach="background" args={['#141719']}/><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;}
