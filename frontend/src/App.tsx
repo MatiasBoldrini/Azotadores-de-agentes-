@@ -266,7 +266,7 @@ function App(){
     <button className={`demo-button ${demoStep!==null?'running':''}`} disabled={!ready} onClick={demoStep === null ? startDemo : stopDemo}>{demoStep===null?<><Play size={13}/>Play 25 s demo</>:<><Pause size={13}/>Stop demo</>}</button>
    </div>
   </header>
-  <MoonLanding sites={data?.sites??[]} frame={frame} ready={ready} progress={progress} error={error} mode={moon} onFly={flyTo} onTile={()=>setDescend(true)} onArrive={()=>{setMoon('site');setDescend(false);}} onLeft={()=>setMoon('globe')}/>
+  <MoonLanding sites={data?.sites??[]} frame={frame} ready={ready} progress={progress} error={error} mode={moon} onFly={flyTo} onCompare={()=>openTab('Compare')} onTile={()=>setDescend(true)} onArrive={()=>{setMoon('site');setDescend(false);}} onLeft={()=>setMoon('globe')}/>
   {content}
  </div>;
  if(error)return shell(moon==='globe'?null:<div className="loading"><AlertTriangle/><h2>Scientific data unavailable</h2><p>{error}</p><p>No synthetic results have been substituted.</p><button onClick={()=>location.reload()}>Retry loading</button></div>);

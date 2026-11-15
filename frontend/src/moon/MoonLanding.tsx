@@ -160,7 +160,7 @@ class GlobeBoundary extends Component<{children:ReactNode;onError:()=>void},{err
  render(){return this.state.error?<p className="moon-unavailable">The 3D Moon could not be rendered on this device. Use “Fly to Ridge A” to open the analysis.</p>:this.props.children;}
 }
 
-type Props={sites:Site[];frame:SiteFrame|null;ready:boolean;progress:number|null;error:string;mode:MoonMode;onFly:(id:string)=>void;onTile:()=>void;onArrive:()=>void;onLeft:()=>void};
+type Props={sites:Site[];frame:SiteFrame|null;ready:boolean;progress:number|null;error:string;mode:MoonMode;onFly:(id:string)=>void;onCompare:()=>void;onTile:()=>void;onArrive:()=>void;onLeft:()=>void};
 
 export default function MoonLanding(p:Props){
  const pins=useRef<(HTMLElement|null)[]>([]);
@@ -196,7 +196,10 @@ export default function MoonLanding(p:Props){
    <h2 id="moon-title">A 5 m mast makes Ridge A work.</h2>
    <p className="lede">In the November 2026 model, raising the station from ground level to 5 m increases solar exposure from 426 to 720 h and Earth visibility from 199 to 359.5 h. The longest gap with the Sun or Earth blocked drops from 465 to 342.5 h.</p>
    <div className="moon-actions">
-    <button type="button" className="cta" onClick={()=>lead&&p.onFly(lead.id)} disabled={!p.ready}>{p.ready&&lead?`Fly to ${lead.name}`:'Fly to Ridge A'}<ArrowRight size={16}/></button>
+    <div className="moon-action-buttons">
+     <button type="button" className="cta" onClick={()=>lead&&p.onFly(lead.id)} disabled={!p.ready}>{p.ready&&lead?`Fly to ${lead.name}`:'Fly to Ridge A'}<ArrowRight size={16}/></button>
+     <button type="button" className="secondary" onClick={p.onCompare}>Compare sites &amp; dates</button>
+    </div>
     {loadingText&&<p className="moon-progress" role="status">{p.error?<>{loadingText}. {p.error}</>:loadingText}</p>}
    </div>
   </section>
