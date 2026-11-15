@@ -3,6 +3,7 @@ import {Check,Minus,Radio,Sun,Globe2,X,Info,ArrowUpRight} from 'lucide-react';
 import {keyFor,percent,type Analysis,type Constraints,type Link} from './lib/science';
 import {hours,pct,type ConstraintRow,type Search,type Segment} from './lib/story';
 import {Segments} from './Story';
+import AnalysisDisclosure from './AnalysisDisclosure';
 
 function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analysis:Analysis;baseline:Analysis;threshold:number}){
  const m=analysis.metrics[body],b=baseline.metrics[body],same=keyFor(analysis)===keyFor(baseline);
@@ -43,8 +44,6 @@ function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analy
 function HeightResponse({sweep,selected,onHeight,recommended,constraints}:{sweep:Analysis[];selected:Analysis;onHeight:(h:number)=>void;recommended?:string;constraints:Constraints}){
  const [hovered,setHovered]=useState<number>();
  const [focused,setFocused]=useState<number>();
- if(sweep.length<2) return null;
-
  const minHeight=sweep[0].height_m,maxHeight=sweep[sweep.length-1].height_m;
  const x=(height:number)=>(height-minHeight)/(maxHeight-minHeight)*100;
  const points=sweep.map(analysis=>({analysis,position:x(analysis.height_m)}));
@@ -55,8 +54,7 @@ function HeightResponse({sweep,selected,onHeight,recommended,constraints}:{sweep
  const active=sweep.find(a=>a.height_m===(hovered??focused))??selected;
  const recommendedHeight=sweep.find(a=>keyFor(a)===recommended)?.height_m;
 
- return <section className="height-response" aria-labelledby="height-response-title">
-  <h3 className="block-head" id="height-response-title">Visibility by mast height</h3>
+ return <>
   <div className="hr-readout">
    <b>{active.height_m} m</b>
    {tracks.map(({body,label})=><span key={body} className={body}>{label} <b>{hours(active.metrics[body].total_hours)} h</b></span>)}
@@ -95,19 +93,20 @@ function HeightResponse({sweep,selected,onHeight,recommended,constraints}:{sweep
   <div className="hr-limits">
    {tracks.map(({body,label,min})=><span key={body} className={body}><i aria-hidden="true"/>{label} min {min}%</span>)}
   </div>
- </section>;
+ </>;
 }
 
 function Checks({rows}:{rows:ConstraintRow[]}){
  const required=rows.filter(r=>r.required),met=required.filter(r=>r.pass).length;
- return <div className="checks">
-  <div className="block-head"><span>Mission constraints</span><span className={`pass-count ${met===required.length?'all':''}`}>{met} / {required.length} met</span></div>
-  <ul>{rows.map(r=><li key={r.name} className={!r.required?'na':r.pass?'pass':'fail'}>
-   <span className="check-icon" aria-hidden>{!r.required?<Minus size={12}/>:r.pass?<Check size={12}/>:<X size={12}/>}</span>
-   <span className="check-label">{r.label}<span className="sr-only">: {!r.required?'not required':r.pass?'met':'not met'}</span></span>
-   <span className="check-value">{r.value}</span><span className="check-limit">{r.limit}</span>
-  </li>)}</ul>
- </div>;
+ return <section className="checks">
+  <AnalysisDisclosure title="Mission constraints" summary={<span className={`pass-count ${met===required.length?'all':''}`}>{met} / {required.length} met</span>}>
+   <ul>{rows.map(r=><li key={r.name} className={!r.required?'na':r.pass?'pass':'fail'}>
+    <span className="check-icon" aria-hidden>{!r.required?<Minus size={12}/>:r.pass?<Check size={12}/>:<X size={12}/>}</span>
+    <span className="check-label">{r.label}<span className="sr-only">: {!r.required?'not required':r.pass?'met':'not met'}</span></span>
+    <span className="check-value">{r.value}</span><span className="check-limit">{r.limit}</span>
+   </li>)}</ul>
+  </AnalysisDisclosure>
+ </section>;
 }
 
 export function ResultsPanel({window,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
@@ -125,7 +124,11 @@ export function ResultsPanel({window,selected,baseline,sweep,link,rows,constrain
    <div><dt>Longest gap with Sun or Earth blocked</dt><dd className={m.both.longest_outage_hours<b.both.longest_outage_hours?'good':''}>{hours(m.both.longest_outage_hours)} h{!same&&<small>{hours(b.both.longest_outage_hours)} h at ground</small>}</dd></div>
    <div><dt><Radio size={12}/>Lander ↔ station</dt><dd className={link?.visible?'good':'warn'}>{link?.visible?'Clear line of sight':'Terrain obstructed'}{link&&link.distance_m>=1&&<small>{hours(Math.round(link.distance_m))} m apart</small>}</dd></div>
   </dl>
-  <HeightResponse key={selected.candidate_id} sweep={sweep} selected={selected} onHeight={onHeight} recommended={recommended} constraints={constraints}/>
+  {sweep.length>=2&&<section className="height-response">
+   <AnalysisDisclosure title="Visibility by mast height">
+    <HeightResponse key={selected.candidate_id} sweep={sweep} selected={selected} onHeight={onHeight} recommended={recommended} constraints={constraints}/>
+   </AnalysisDisclosure>
+  </section>}
   <Checks rows={rows}/>
  </aside>;
 }

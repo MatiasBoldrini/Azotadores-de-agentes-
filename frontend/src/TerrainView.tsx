@@ -9,6 +9,7 @@ import {MOON_LIGHTS,MOON_TEXTURES,buildMoon,setMoonOpacity} from './moon/globe';
 import {APPROACH_KM,LANDING_FOV,heroPose,horizonPose,type Pose,type SiteFrame} from './moon/frame';
 import {SITE01_SIZE,useSite01,useSurround,type DemLevel} from './site01';
 import {TerrainRayHover,TerrainRayTooltip,type TerrainLine,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
+import {createStationClickGuard} from './lib/stationClick';
 
 export const VERTICAL_EXAGGERATION = 4;
 // The mast glyph is stretched beyond the relief scale so that metre-scale heights read on a 2.5 km scene.
@@ -164,7 +165,8 @@ function useLevelGeometry(ground:Ground,{tile,surround}:Levels){
  },[ground,tile,surround]);
 }
 
-function Surface({ground,levels,wireframe,onPick}:{ground:Ground;levels:Levels;wireframe:boolean;onPick:(r:number,c:number)=>void}){
+type TerrainPick=(r:number,c:number,event:MouseEvent)=>void;
+function Surface({ground,levels,wireframe,onPick}:{ground:Ground;levels:Levels;wireframe:boolean;onPick:TerrainPick}){
  const {terrain}=ground,n=terrain.original_shape[0],gl=useThree(s=>s.gl);
  const coarse=useMemo(()=>snapshotGeometry(ground),[ground]);
  const meshes=useLevelGeometry(ground,levels);
@@ -174,7 +176,7 @@ function Surface({ground,levels,wireframe,onPick}:{ground:Ground;levels:Levels;w
  useEffect(()=>()=>{meshes?.forEach(m=>m.geometry.dispose());materials.forEach(m=>m.dispose());},[meshes,materials]);
  // The light never moves, so the shadow map is drawn once per terrain.
  useEffect(()=>{gl.shadowMap.autoUpdate=false;gl.shadowMap.needsUpdate=true;},[gl,meshes,coarse]);
- const pick=(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onPick(e.point.z*1000/terrain.pixel_size_m+n/2,e.point.x*1000/terrain.pixel_size_m+n/2);};
+ const pick=(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onPick(e.point.z*1000/terrain.pixel_size_m+n/2,e.point.x*1000/terrain.pixel_size_m+n/2,e.nativeEvent);};
  return <>
   {meshes?.map((m,i)=><mesh key={i} geometry={m.geometry} material={materials[i]} raycast={noRaycast} castShadow receiveShadow/>)}
   <mesh geometry={coarse} material={wireframe?undefined:solid} onClick={pick} visible={wireframe||!meshes} castShadow receiveShadow position-y={meshes&&wireframe?.004:0}>
@@ -194,7 +196,7 @@ function ContextGlobe({frame,hole,textures:[color,polar,relief],progress}:{frame
  return <group position={frame.center} quaternion={frame.rotation} scale={frame.scale}><primitive object={moon.sphere}/><primitive object={moon.cap}/></group>;
 }
 
-function SiteGround({ground,tile,surround,progress,...rest}:{ground:Ground;tile:DemLevel|null;surround:DemLevel[]|null;progress:RefObject<number>;wireframe:boolean;onPick:(r:number,c:number)=>void}){
+function SiteGround({ground,tile,surround,progress,...rest}:{ground:Ground;tile:DemLevel|null;surround:DemLevel[]|null;progress:RefObject<number>;wireframe:boolean;onPick:TerrainPick}){
  // Same URL list as the landing globe, so both canvases share one decoded copy of each texture.
  const textures=useLoader(THREE.TextureLoader,MOON_TEXTURES);
  const hole=surround?DISC_KM-.03:tile?1.27:0;
@@ -386,7 +388,7 @@ function PositionHighlight({label,position}:{label:string;position:[number,numbe
  </group>;
 }
 
-type SceneProps=Props&{onRayHover:(tip:TerrainRayTip|null)=>void};
+type SceneProps=Props&{onRayHover:(tip:TerrainRayTip|null)=>void;canSelect:(event:MouseEvent)=>boolean};
 
 function Scene(p:SceneProps){
  const controls=useRef<any>(null);
@@ -414,8 +416,8 @@ function Scene(p:SceneProps){
  const ground=point(p.selected.position),lander=point(p.lander,2);
  const atLander=p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col;
  const preview=p.positions.find(o=>o.id===(p.previewId??hovered));
- const select=(id:string)=>{setHovered(null);p.onSelect(id);};
- const pick=(r:number,c:number)=>{const nearest=p.positions.reduce((best,o)=>Math.hypot(o.position.row-r,o.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?o:best);select(nearest.id);};
+ const select=(id:string,event:MouseEvent)=>{if(p.canSelect(event)){setHovered(null);p.onSelect(id);}};
+ const pick:TerrainPick=(r,c,event)=>{const nearest=p.positions.reduce((best,o)=>Math.hypot(o.position.row-r,o.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?o:best);select(nearest.id,event);};
  const rays:Ray[]=BODY_KEYS.map(body=>{
   const el=p.selected.series[`${body}_elevation_deg`][p.time]*DEG,d=p.frame.horizontal(p.selected.series[`${body}_azimuth_deg`][p.time]);
   return {body,visible:p.selected.series[`${body}_visible`][p.time],dir:[d.x*RAY*Math.cos(el),Math.sin(el)*RAY,d.z*RAY*Math.cos(el)]};
@@ -444,7 +446,7 @@ function Scene(p:SceneProps){
    <mesh visible={false}
     onPointerMove={e=>{if(orbiting.current||e.pointerType==='touch')return;e.stopPropagation();if(hovered!==o.id)setHovered(o.id);}}
     onPointerOut={()=>setHovered(h=>h===o.id?null:h)}
-    onClick={e=>{e.stopPropagation();select(o.id);}}>
+    onClick={e=>{e.stopPropagation();select(o.id,e.nativeEvent);}}>
     <sphereGeometry args={[Math.max(radius,.023),8,8]}/><meshBasicMaterial/>
    </mesh>
    {rec&&<mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.038,32]}/><meshBasicMaterial color={C.recommended} side={THREE.DoubleSide}/></mesh>}
@@ -468,8 +470,16 @@ const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
 
 export default function TerrainView(props:Props){
  const [tip,setTip]=useState<TerrainRayTip|null>(null);
- return <div className="terrain-view">
-  <TerrainCanvas {...props} onRayHover={setTip}/>
+ const click=useMemo(createStationClickGuard,[]);
+ return <div className="terrain-view"
+  onPointerDownCapture={event=>click.start(event.nativeEvent)}
+  onPointerMoveCapture={event=>click.move(event.nativeEvent)}
+  onPointerUpCapture={event=>click.release(event.nativeEvent)}
+  onPointerCancelCapture={click.cancel}
+  onPointerLeave={click.leave}
+  onContextMenuCapture={click.cancel}
+  onWheelCapture={click.cancel}>
+  <TerrainCanvas {...props} onRayHover={setTip} canSelect={click.consume}/>
   {tip&&<TerrainRayTooltip tip={tip}/>}
  </div>;
 }
