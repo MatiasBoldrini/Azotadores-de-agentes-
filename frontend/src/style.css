@@ -365,7 +365,7 @@ option{background:#111}
 .lg-line.dotted{border-top:1.5px dotted #8F8F8F}
 .lg-band{display:inline-block;width:20px;height:6px;border-radius:1px;background:linear-gradient(90deg,var(--sun) 50%,var(--earth) 50%);opacity:.8}
 .dot-fill,.dot-ring{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-2)}
-.dot-ring{margin-left:6px;background:transparent;border:1.5px solid var(--text-2)}
+.dot-ring{margin-left:6px;background:transparent;border:1.5px solid var(--blocked)}
 .timeline-horizon{min-width:0;padding-left:20px;border-left:1px solid var(--hairline)}
 .horizon-wrap{margin-top:6px}
 .horizon-chart{display:block;width:100%}

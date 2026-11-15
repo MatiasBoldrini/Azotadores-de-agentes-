@@ -1,7 +1,8 @@
-import {useLayoutEffect,useRef,useState} from 'react';
+import {useId,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import type {Analysis} from './lib/science';
 
 const COLORS={sun:'#FFC46B',earth:'#8FD3FF'} as const;
+const BLOCKED='var(--blocked)';
 const AXIS='#A3A3A3';
 
 function useWidth<T extends Element>(){
@@ -28,9 +29,23 @@ function dayTicks(times:string[],plotWidth:number){
 
 type Track={label:string;analysis:Analysis};
 
+function elevationColorStops(visibility:boolean[],bodyColor:string){
+ const colors=visibility.map(inView=>inView?bodyColor:BLOCKED);
+ const stops=[{offset:0,color:colors[0]}];
+ // A sample owns the segment up to the next sample. The final sample only colors its cursor marker.
+ for(let i=1;i<colors.length-1;i++){
+  if(colors[i]===colors[i-1])continue;
+  const offset=i/(colors.length-1);
+  stops.push({offset,color:colors[i-1]},{offset,color:colors[i]});
+ }
+ return stops;
+}
+
 export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel}:{analysis:Analysis;index:number;onIndex:(i:number)=>void;body:'sun'|'earth';baseline?:Analysis;height?:number;currentLabel?:string;baselineLabel?:string}){
  const [ref,width]=useWidth<HTMLDivElement>();
  const s=analysis.series,values=s[`${body}_elevation_deg`],horizon=s[`${body}_horizon_deg`],n=values.length;
+ const visibility=s[`${body}_visible`],bodyColor=COLORS[body],gradientId=useId();
+ const colorStops=useMemo(()=>elevationColorStops(visibility,bodyColor),[visibility,bodyColor]);
  const compare=baseline&&(baseline.candidate_id!==analysis.candidate_id||baseline.height_m!==analysis.height_m)?baseline:undefined;
  const baseHorizon=compare?.series[`${body}_horizon_deg`];
  const [min,max]=range([...values,...horizon,...(baseHorizon??[])]);
@@ -39,7 +54,7 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
  const y=(v:number)=>top+(1-(v-min)/(max-min))*(height-top-bottom);
  const line=(v:number[])=>v.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
  const t0=Date.parse(s.timestamp_utc[0]),span=Date.parse(s.timestamp_utc[n-1])-t0;
- const visible=s[`${body}_visible`][index];
+ const visible=visibility[index];
  const pick=(clientX:number,el:Element)=>{const r=el.getBoundingClientRect();onIndex(Math.round(Math.max(0,Math.min(1,(clientX-r.left-left)/(r.width-left-right)))*(n-1)));};
  const tracks:Track[]=compare?[{label:baselineLabel??`${compare.height_m} m`,analysis:compare},{label:currentLabel??`${analysis.height_m} m`,analysis}]:[{label:currentLabel??`${analysis.height_m} m`,analysis}];
  const name=body==='sun'?'Sun':'Earth';
@@ -50,15 +65,18 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
   </div>
   <svg role="img" aria-label={`${name} elevation and terrain horizon over time. At the cursor ${name} is ${values[index].toFixed(2)} degrees against a ${horizon[index].toFixed(2)} degree horizon: ${visible?'in view':'blocked'}.`} width={w} height={height} viewBox={`0 0 ${w} ${height}`}
    onPointerMove={e=>pick(e.clientX,e.currentTarget)} onPointerDown={e=>pick(e.clientX,e.currentTarget)}>
+   {colorStops.length>1&&<defs><linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1={left} x2={w-right}>
+    {colorStops.map(({offset,color},i)=><stop key={i} offset={offset} stopColor={color}/>)}
+   </linearGradient></defs>}
    {analysis.metrics[body].intervals.map((v,i)=>{const a=left+(Date.parse(v.start_utc)-t0)/span*(w-left-right),b=left+(Date.parse(v.end_utc)-t0)/span*(w-left-right);return <rect key={i} x={a} y={top} width={Math.max(1,b-a)} height={height-top-bottom} fill={COLORS[body]} opacity=".08"/>;})}
    {[min,0,max].filter((v,i,a)=>a.indexOf(v)===i).map(v=><g key={v}><line x1={left} x2={w-right} y1={y(v)} y2={y(v)} stroke={v===0?'#4A4A4A':'#2A2A2A'} strokeDasharray={v===0?undefined:'2 4'}/><text x={left-6} y={y(v)+3.5} textAnchor="end" fill={AXIS}>{v}°</text></g>)}
    {dayTicks(s.timestamp_utc,w-left-right).map(i=><text key={i} x={x(i)} y={height-4} textAnchor={i===0?'start':'middle'} fill={AXIS}>{dayLabel(s.timestamp_utc[i])}</text>)}
    {baseHorizon&&<path d={line(baseHorizon)} fill="none" stroke="#8F8F8F" strokeWidth="1" strokeDasharray="1 3"/>}
    <path key={`${analysis.candidate_id}-${analysis.height_m}`} className="fade-in" d={line(horizon)} fill="none" stroke="#BDBDBD" strokeWidth="1.1" strokeDasharray="4 3"/>
-   <path d={line(values)} fill="none" stroke={COLORS[body]} strokeWidth="1.8"/>
+   <path d={line(values)} fill="none" stroke={colorStops.length===1?colorStops[0].color:`url(#${gradientId})`} strokeWidth="1.8"/>
    <line x1={x(index)} x2={x(index)} y1={top} y2={height-bottom} stroke="#F5F5F5" opacity=".55"/>
    <circle cx={x(index)} cy={y(horizon[index])} r="6" fill="none" stroke="#BDBDBD" strokeWidth="1"/>
-   <circle cx={x(index)} cy={y(values[index])} r="3.5" fill={visible?COLORS[body]:'#050505'} stroke={COLORS[body]} strokeWidth="1.5"/>
+   <circle cx={x(index)} cy={y(values[index])} r="3.5" fill={visible?bodyColor:'#050505'} stroke={visible?bodyColor:BLOCKED} strokeWidth="1.5"/>
   </svg>
   <div className="tracks">
    {tracks.map((track,k)=><div className={`track ${k===tracks.length-1?'current':''}`} key={k} style={{marginLeft:left,marginRight:right}}>
@@ -91,10 +109,11 @@ export function HorizonChart({analysis,index,baseline,height=132}:{analysis:Anal
    {bodies.map(({b,az,el,visible},i)=>{
     const other=bodies[1-i],close=Math.abs(x(az)-x(other.az))<120,below=close&&el<other.el;
     const anchor=x(az)<left+50?'start':x(az)>w-right-50?'end':'middle';
+    const color=visible?COLORS[b]:BLOCKED;
     return <g key={b}>
-     <line x1={x(az)} x2={x(az)} y1={y(el)} y2={height-bottom} stroke={COLORS[b]} strokeOpacity=".35" strokeDasharray="1 2"/>
-     <circle cx={x(az)} cy={y(el)} r="5" fill={visible?COLORS[b]:'#050505'} stroke={COLORS[b]} strokeWidth="1.6"/>
-     <text x={x(az)} y={below?y(el)+18:y(el)-9} textAnchor={anchor} fill={COLORS[b]} className="body-label" paintOrder="stroke" stroke="#0A0A0A" strokeWidth="3">{b==='sun'?'SUN':'EARTH'}{visible?'':' · BLOCKED'}</text>
+     <line x1={x(az)} x2={x(az)} y1={y(el)} y2={height-bottom} stroke={color} strokeOpacity=".35" strokeDasharray="1 2"/>
+     <circle cx={x(az)} cy={y(el)} r="5" fill={visible?color:'#050505'} stroke={color} strokeWidth="1.6"/>
+     <text x={x(az)} y={below?y(el)+18:y(el)-9} textAnchor={anchor} fill={color} className="body-label" paintOrder="stroke" stroke="#0A0A0A" strokeWidth="3">{b==='sun'?'SUN':'EARTH'}{visible?'':' · BLOCKED'}</text>
     </g>;})}
   </svg>
  </div>;
