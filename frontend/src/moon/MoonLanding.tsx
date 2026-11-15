@@ -203,6 +203,6 @@ export default function MoonLanding(p:Props){
    </div>
   </section>
   <p className="moon-caption">LROC WAC mosaic · NASA LOLA relief ×{VERTICAL_EXAGGERATION} · drag to rotate · scroll to zoom</p>
-  <div className="moon-loading" aria-hidden="true"><span>Loading the Moon</span></div>
+  <div className="moon-loading" aria-hidden="true"><div className="moon-placeholder"/><span>Loading the Moon</span></div>
  </div>;
 }
