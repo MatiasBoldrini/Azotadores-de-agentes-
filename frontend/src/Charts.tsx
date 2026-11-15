@@ -1,5 +1,5 @@
 import {useId,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import AnalysisDisclosure from './AnalysisDisclosure';
+import AnalysisDisclosure,{type DisclosureControls} from './AnalysisDisclosure';
 import type {Analysis} from './lib/science';
 
 const COLORS={sun:'#FFC46B',earth:'#8FD3FF'} as const;
@@ -48,7 +48,9 @@ export const PLOT_LEFT=44,PLOT_RIGHT=56;
 
 type ChartProps={analysis:Analysis;index:number;onIndex:(i:number)=>void;baseline?:Analysis;height?:number;currentLabel?:string;baselineLabel?:string};
 
-export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel,cursor=true,collapsible=false}:ChartProps&{body:'sun'|'earth';cursor?:boolean;collapsible?:boolean}){
+export const timelineTitle=(body:'sun'|'earth')=>`${body==='sun'?'Sun':'Earth'} elevation vs terrain horizon`;
+
+export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel,cursor=true,collapsible=false,controls}:ChartProps&{body:'sun'|'earth';cursor?:boolean;collapsible?:boolean;controls?:DisclosureControls}){
  const [ref,width]=useWidth<HTMLDivElement>();
  const s=analysis.series,values=s[`${body}_elevation_deg`],horizon=s[`${body}_horizon_deg`],n=values.length;
  const visibility=s[`${body}_visible`],bodyColor=COLORS[body],gradientId=useId();
@@ -69,7 +71,7 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
  const pick=(clientX:number,el:Element)=>{const r=el.getBoundingClientRect();onIndex(Math.round(Math.max(0,Math.min(1,(clientX-r.left-left)/(r.width-left-right)))*(n-1)));};
  const tracks:Track[]=compare?[{label:baselineLabel??`${compare.height_m} m`,analysis:compare},{label:currentLabel??`${analysis.height_m} m`,analysis}]:[{label:currentLabel??`${analysis.height_m} m`,analysis}];
  const name=body==='sun'?'Sun':'Earth';
- const title=`${name} elevation vs terrain horizon`;
+ const title=timelineTitle(body);
  const titleClassName=`chart-title ${body}`;
  const readout=<span className="chart-readout"><b>{values[index].toFixed(2)}°</b> / horizon {horizon[index].toFixed(2)}° <em className={visible?'in-view':'blocked'}>{visible?'In view':'Blocked'}</em></span>;
  const plot=<>
@@ -97,7 +99,7 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
   </div>
  </>;
  return <div className="time-chart" ref={ref}>
-  {collapsible?<AnalysisDisclosure title={title} headingClassName="chart-head" titleClassName={titleClassName} summary={readout}>
+  {collapsible?<AnalysisDisclosure title={title} headingClassName="chart-head" titleClassName={titleClassName} summary={readout} controls={controls}>
    {plot}
   </AnalysisDisclosure>:<>
    <div className="chart-head"><span className={titleClassName}>{title}</span>{readout}</div>
