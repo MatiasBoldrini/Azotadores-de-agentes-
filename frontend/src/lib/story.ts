@@ -5,7 +5,7 @@ import {type Analysis,type Constraints,type Link,keyFor,optimize,percent,violati
 export type Search = ReturnType<typeof optimize>;
 export type Tone = 'limit'|'gain'|'plateau'|'optimal'|'infeasible'|'neutral'|'loss';
 export type Segment = {t:string;c?:'sun'|'earth'|'good'|'bad'|'strong'};
-export type StoryAction = {kind:'height';height:number;label:string}|{kind:'optimize';label:string}|{kind:'baseline';label:string};
+export type StoryAction = {kind:'height';height:number;label:string}|{kind:'optimize';label:string};
 export type Story = {step:1|2|3|4|5;tone:Tone;kicker:string;title:Segment[];detail:Segment[];actions:StoryAction[]};
 export type ConstraintRow = {name:string;label:string;value:string;limit:string;pass:boolean;required:boolean};
 
@@ -126,7 +126,7 @@ export function buildStory({selected,baseline,sweep,links,constraints,search,sea
  return {step:3,tone:dE<0?'loss':dE>0?'gain':'neutral',kicker:`Station moved ${where(link)} · ${selected.height_m} m`,
   title:[{t:`Here, Earth visibility is `},{t:`${hours(m.earth.total_hours)} h`,c:'earth'},{t:` (${signed(dE)} h versus ground level at the lander).`}],
   detail:[{t:`Sun ${hours(m.sun.total_hours)} h · lander line of sight `},link?.visible?{t:'clear',c:'good'}:{t:'obstructed by terrain',c:'bad'},{t:' · '},status,{t:'.'}],
-  actions:[optimizeAction,{kind:'baseline',label:'Back to ground level'}]};
+  actions:[optimizeAction]};
 }
 
 /** Structured reasons behind the recommendation, built from optimizer output and constraint checks. */

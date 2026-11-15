@@ -195,7 +195,7 @@ function App(){
  const setWindow=(nextStart:string,nextEnd:string)=>{setDemoStep(null);setStart(nextStart);setEnd(nextEnd);};
  const setCompareWindow=(nextStart:string,nextEnd:string)=>{setCompareStart(nextStart);setCompareEnd(nextEnd);};
  const runSearch=()=>{if(searching)return;setShowConfigure(false);setDemoStep(null);performSearch(all,links,constraints);};
- const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else if(a.kind==='optimize')runSearch();else {setDemoStep(null);setCandidate(siteCell);setHeight(0);}};
+ const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else runSearch();};
  const exportResult=()=>{const blob=new Blob([JSON.stringify({analysis:selected,baseline,local_link:link,constraints,optimizer:search?{evaluated:search.evaluated,feasible:search.feasible,objective:'height/20 + distance/1000 + slope/90'}:null,methodology:data.methodology},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='site-forge-analysis.json';a.click();URL.revokeObjectURL(url);};
 
  const demo=demoStep===null?null:{step:demoStep,total:plan.length,label:plan[demoStep].label,ms:plan[demoStep].ms};
