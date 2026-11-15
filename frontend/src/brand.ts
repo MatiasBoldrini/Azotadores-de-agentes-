@@ -1,2 +1,3 @@
-// Must match the <title>, description and og:description in index.html and the README (checked by tests/test_frontend_brand.mjs).
-export const TAGLINE="Don't find the perfect landing site. Engineer one.";
+// The branding test checks these against index.html and the README.
+export const PRODUCT_NAME="SELENARC";
+export const TAGLINE="Lunar Landing Site Navigator";

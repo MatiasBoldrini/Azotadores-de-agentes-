@@ -3,18 +3,23 @@ import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const tagline = read('frontend/src/brand.ts').match(/TAGLINE="([^"]+)"/)[1];
+const brand = read('frontend/src/brand.ts');
+const productName = brand.match(/PRODUCT_NAME="([^"]+)"/)[1];
+const tagline = brand.match(/TAGLINE="([^"]+)"/)[1];
 const html = read('frontend/index.html');
 const attr = pattern => html.match(pattern)?.[1];
 
-test('the tagline is identical in the title, description and og:description', () => {
-  assert.equal(attr(/<title>SITE\/\/FORGE — ([^<]+)<\/title>/), tagline);
+test('the title and metadata use the shared product name and tagline', () => {
+  assert.equal(attr(/<title>([^<]+)<\/title>/), `${productName} — ${tagline}`);
+  assert.equal(attr(/<meta property="og:title" content="([^"]+)"/), productName);
   assert.equal(attr(/<meta name="description" content="([^"]+)"/), tagline);
   assert.equal(attr(/<meta property="og:description" content="([^"]+)"/), tagline);
 });
 
-test('the README leads with the same tagline', () => {
-  assert.equal(read('README.md').match(/^\*\*(.+)\*\*$/m)?.[1], tagline);
+test('the README leads with the same product name and tagline', () => {
+  const readme = read('README.md');
+  assert.equal(readme.match(/^# (.+)$/m)?.[1], productName);
+  assert.equal(readme.match(/^\*\*(.+)\*\*$/m)?.[1], tagline);
 });
 
 test('the landing and the loading screen render the shared tagline', () => {
