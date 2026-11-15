@@ -1,4 +1,5 @@
 import {useId,useLayoutEffect,useRef,useState,type DragEvent,type KeyboardEvent,type PointerEvent,type RefObject} from 'react';
+import {createPortal} from 'react-dom';
 import {GripVertical,Pin,PinOff} from 'lucide-react';
 import AnalysisDisclosure,{type DisclosureControls} from './AnalysisDisclosure';
 import {HorizonChart,TimelineChart,timelineTitle} from './Charts';
@@ -76,7 +77,7 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
    drag.current=null;
    move.current=null;
   };
- },[timeline]);
+ },[timeline,floating.size]);
 
  function raise(id:PanelId){
   setFloating(current=>{
@@ -228,10 +229,10 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
      {position?<PinOff size={15} aria-hidden="true"/>:<Pin size={15} aria-hidden="true"/>}
     </button>,
    };
-   return <section key={id} ref={el=>{cards.current[id]=el;}} aria-label={title}
+   const panel=<section key={id} ref={el=>{cards.current[id]=el;}} aria-label={title}
     className={`analysis-dock-card${position?' is-floating':''}${dragged===id?' is-dragging':''}`}
     data-drop={dropTarget?.id===id?dropTarget.side:undefined}
-    style={position?{left:position.x,top:position.y,width:FLOATING_WIDTH,zIndex:activeWindows.indexOf(id)+1}:undefined}
+    style={position?{left:position.x,top:position.y,width:FLOATING_WIDTH,zIndex:activeWindows.indexOf(id)+10}:undefined}
     onPointerDown={position?event=>{raise(id);startMove(event,id);}:undefined}
     onPointerMove={position?event=>updateMove(event,id):undefined}
     onLostPointerCapture={event=>{if(move.current?.pointer===event.pointerId)move.current=null;}}
@@ -245,6 +246,7 @@ export default function DesignerAnalysisPanels({analysis,index,baseline,onIndex,
     {id==='horizon'?<HorizonPanel analysis={analysis} index={index} baseline={baseline} controls={controls}/>:
      <TimelineChart body={id} analysis={analysis} index={index} onIndex={onIndex} baseline={baseline} baselineLabel="0 m" currentLabel={`${analysis.height_m} m`} collapsible controls={controls} floating={!!position}/>}
    </section>;
+   return position?createPortal(panel,document.body,id):panel;
   })}
  </aside>;
 }

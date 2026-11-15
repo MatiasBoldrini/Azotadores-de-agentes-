@@ -7,6 +7,7 @@ type Endpoint = 'start' | 'end';
 type ActiveEndpoint = {endpoint: Endpoint; trigger: HTMLButtonElement};
 type CachedDay = {date: string; timestamp: string};
 type Props = {
+  compact?: boolean;
   days: string[];
   start: string;
   end: string;
@@ -28,7 +29,7 @@ const shiftDay = (day: string, offset: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-export default function DateWindowPicker({days, start, end, label, onChange, status}: Props) {
+export default function DateWindowPicker({days, start, end, label, onChange, status, compact = false}: Props) {
   const dialogId = useId();
   const startDate = formatDate(start);
   const endDate = formatDate(end);
@@ -70,23 +71,23 @@ export default function DateWindowPicker({days, start, end, label, onChange, sta
   }
 
   return (
-    <div className="utc-date-window">
+    <div className={`utc-date-window${compact ? ' utc-date-window-compact' : ''}`}>
       <div className="date-pair" role="group" aria-label={label}>
         <button
           type="button" className="utc-date-trigger" aria-haspopup="dialog" aria-disabled={status === 'loading'}
           aria-expanded={active?.endpoint === 'start'} aria-controls={active?.endpoint === 'start' ? dialogId : undefined}
           onClick={event => toggle('start', event.currentTarget)}
         >
-          <span>From · UTC</span>
-          <span><time dateTime={startDate}>{startDate}</time><CalendarDays size={12} aria-hidden="true"/></span>
+          <span className={compact ? 'utc-calendar-sr' : undefined}>From · UTC</span>
+          <span><time dateTime={startDate}>{startDate}</time>{compact && ' UTC'}<CalendarDays size={12} aria-hidden="true"/></span>
         </button>
         <button
           type="button" className="utc-date-trigger" aria-haspopup="dialog" aria-disabled={status === 'loading'}
           aria-expanded={active?.endpoint === 'end'} aria-controls={active?.endpoint === 'end' ? dialogId : undefined}
           onClick={event => toggle('end', event.currentTarget)}
         >
-          <span>Until · UTC</span>
-          <span><time dateTime={endDate}>{endDate}</time><CalendarDays size={12} aria-hidden="true"/></span>
+          <span className={compact ? 'utc-calendar-sr' : undefined}>Until · UTC</span>
+          <span><time dateTime={endDate}>{endDate}</time>{compact && ' UTC'}<CalendarDays size={12} aria-hidden="true"/></span>
         </button>
         <span className="utc-calendar-sr" role="status">{announcement}</span>
         {active && (

@@ -12,30 +12,37 @@ function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analy
  const [active,setActive]=useState<'current'|'ground'|'minimum'|null>(null);
  const label=body==='sun'?'Solar exposure':'Earth visibility';
  const details={
-  current:{title:label,value:`${hours(m.total_hours)} h · ${pct(percent(m))}%`,description:`Colored bar: time the ${body==='sun'?'Sun':'Earth'} is above the terrain horizon for the selected configuration.`},
-  ground:{title:'Ground level',value:`${hours(b.total_hours)} h · ${pct(percent(b))}%`,description:'Solid marker: visibility at ground level at the lander, for comparison.'},
-  minimum:{title:'Minimum required',value:`${threshold}% of window`,description:'Dotted marker: the minimum visibility set in your search constraints.'},
+  current:{title:label,description:`Time the ${body==='sun'?'Sun':'Earth'} is visible above the terrain from the station.`},
+  ground:{title:'Ground level',description:'Visibility from ground level at the lander.'},
+  minimum:{title:'Minimum required',description:'Minimum visibility required by your search constraints.'},
  };
  const detail=details[active??'current'];
  return <div className={`metric-card ${body}`}>
   <span className="metric-label"><Icon size={14}/>{body==='sun'?'Solar exposure':'Earth visibility'}</span>
   <div className="metric-value"><b key={m.total_hours}>{hours(m.total_hours)}</b><small>h</small><span className="metric-pct">{pct(percent(m))}% of window</span></div>
-  <div className={`meter-interaction${active?' active':''}`} tabIndex={0}
+  <div className="meter-interaction" data-active={active??undefined} tabIndex={0}
    aria-label={`${label}: ${pct(percent(m))}% of window. Ground ${pct(percent(b))}%. Minimum ${threshold}%.`}
    aria-describedby={active?tooltipId:undefined}
    onMouseEnter={()=>setActive('current')} onMouseLeave={()=>setActive(null)}
+   onMouseMove={event=>{
+    if((event.target as Element).closest('.meter-legend'))return;
+    const meter=event.currentTarget.querySelector('.meter')!.getBoundingClientRect();
+    const x=event.clientX-meter.left;
+    const ground=same?Infinity:Math.abs(x-meter.width*percent(b)/100);
+    const minimum=Math.abs(x-meter.width*threshold/100);
+    setActive(Math.min(ground,minimum)<=10?(ground<minimum?'ground':'minimum'):'current');
+   }}
    onFocus={()=>setActive('current')} onBlur={()=>setActive(null)}
    onKeyDown={event=>{if(event.key==='Escape')setActive(null);}}
    onClick={()=>setActive(active?null:'current')}>
-   <div className="meter" aria-hidden="true" onMouseEnter={()=>setActive('current')}>
+   <div className="meter" aria-hidden="true">
     <span className="meter-fill" style={{width:`${percent(m)}%`}}/>
-    {!same&&<span className="meter-base" style={{left:`${percent(b)}%`}} onMouseEnter={()=>setActive('ground')} onMouseLeave={()=>setActive('current')}/>}
-    <span className="meter-req" style={{left:`${threshold}%`}} onMouseEnter={()=>setActive('minimum')} onMouseLeave={()=>setActive('current')}/>
+    {!same&&<span className="meter-base" style={{left:`${percent(b)}%`}}/>}
+    <span className="meter-req" style={{left:`${threshold}%`}}/>
    </div>
    <div className="meter-legend"><span onMouseEnter={()=>setActive('ground')}>{!same?<><i className="tick-base"/>Ground {hours(b.total_hours)} h</>:<>Ground level</>}</span><span onMouseEnter={()=>setActive('minimum')}><i className="tick-req"/>Min {threshold}%</span></div>
    {active&&<div className="meter-tooltip" id={tooltipId} role="tooltip">
-    <strong>{detail.title}</strong><b>{detail.value}</b><span>{detail.description}</span>
-    {active==='current'&&<span>Solid marker: ground level · dotted marker: minimum required.</span>}
+    <strong>{detail.title}</strong><span>{detail.description}</span>
    </div>}
   </div>
  </div>;
@@ -109,7 +116,7 @@ function Checks({rows}:{rows:ConstraintRow[]}){
  </section>;
 }
 
-export function ResultsPanel({window,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
+export function ResultsPanel({window,children,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window:ReactNode;children?:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
  const m=selected.metrics,b=baseline.metrics,same=keyFor(selected)===keyFor(baseline);
  return <aside className="results glass" aria-labelledby="results-title">
   <div className="panel-heading"><h2 className="panel-title" id="results-title">Results</h2><button className="text-button method-link" onClick={onMethod} title="How these numbers are computed"><Info size={13}/>Method<ArrowUpRight size={12}/></button></div>
@@ -129,6 +136,7 @@ export function ResultsPanel({window,selected,baseline,sweep,link,rows,constrain
     <HeightResponse key={selected.candidate_id} sweep={sweep} selected={selected} onHeight={onHeight} recommended={recommended} constraints={constraints}/>
    </AnalysisDisclosure>
   </section>}
+  {children}
   <Checks rows={rows}/>
  </aside>;
 }

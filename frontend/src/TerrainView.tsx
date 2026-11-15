@@ -25,8 +25,8 @@ const DISC_KM=7.95;
 // Resting view: inside the back of the 5 m square, just above the crest, so the near field is all 5 m relief and
 // the summit's fall-off is the skyline; the frame reaches 9° above the horizontal, past the highest body.
 const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
-// Bodies are drawn on a sky shell around the camera at their apparent sizes (degrees).
-const SKY_KM=100,SUN_DEG=.53,EARTH_DEG=1.9;
+// Bodies sit at their computed directions. The Sun is enlarged visually for legibility.
+const SKY_KM=100,SUN_DEG=2.2,EARTH_DEG=1.9;
 // Descent progress over which the landing globe fades out.
 const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
@@ -311,11 +311,23 @@ function glowTexture(core:string,glow:string,disc:number){
  const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;return t;
 }
 
+function SunDisc({position,diameter}:{position:THREE.Vector3;diameter:number}){
+ const texture=useLoader(THREE.TextureLoader,'/sky/sun-hmi.jpg');
+ useLayoutEffect(()=>{texture.colorSpace=THREE.SRGBColorSpace;},[texture]);
+ return <Billboard position={position}>
+  <mesh scale={[diameter,diameter,1]} renderOrder={61}>
+   <circleGeometry args={[.5,64]}/>
+   <meshBasicMaterial map={texture} toneMapped={false} depthWrite={false} transparent/>
+  </mesh>
+ </Billboard>;
+}
+
+// HMI image is illustrative, not a time-matched observation; ephemeris directions stay unchanged.
 // The Sun and the Earth on the sky at their computed directions, shown only while the engine has them in view.
 function SkyBodies({rays}:{rays:Ray[]}){
  const shell=useRef<THREE.Group>(null);
  const looks=useMemo(()=>({
-  sun:{texture:glowTexture('#fffaf0','rgba(255,196,107,.35)',.12),size:SUN_DEG/.12},
+  sun:{texture:glowTexture('#fff1c2','rgba(255,173,64,.16)',.55),size:SUN_DEG/.55},
   earth:{texture:glowTexture('#9fdcff','rgba(143,211,255,.18)',.62),size:EARTH_DEG/.62},
  }),[]);
  useEffect(()=>()=>{looks.sun.texture.dispose();looks.earth.texture.dispose();},[looks]);
@@ -326,46 +338,61 @@ function SkyBodies({rays}:{rays:Ray[]}){
    const p=d.clone().multiplyScalar(SKY_KM);
    return <group key={r.body}>
     <sprite position={p} scale={[scale,scale,1]} renderOrder={60}><spriteMaterial map={texture} depthWrite={false} transparent blending={THREE.AdditiveBlending}/></sprite>
-    <Label position={[p.x,p.y+SKY_KM*(r.body==='earth'?.034:.03),p.z]} color={C[r.body]} size={.02} depthTest text={`${r.body==='sun'?'SUN':'EARTH'} · IN VIEW`}/>
+    {r.body==='sun'&&<Suspense fallback={null}><SunDisc position={p} diameter={2*SKY_KM*Math.tan(SUN_DEG/2*DEG)}/></Suspense>}
    </group>;
   })}
  </group>;
 }
 
-// A thin ray from the mast head to where the body's disc sits on the sky shell around the camera. A body well
-// away from the view direction keeps a short ray pointing at it instead.
-function SkyRay({dir,color,line}:{dir:[number,number,number];color:string;line:TerrainLine}){
- const from=useMemo(()=>new THREE.Vector3(),[]),to=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),d=useMemo(()=>new THREE.Vector3(...dir).normalize(),[dir]);
- useFrame(({camera})=>{
-  const l=line.current;if(!l?.parent)return;
-  if(camera.getWorldDirection(ahead).dot(d)<.5)to.copy(d).multiplyScalar(RAY);
-  else{l.parent.getWorldPosition(from);to.copy(camera.position).addScaledVector(d,SKY_KM).sub(from);}
-  l.geometry.setPositions([0,0,0,to.x,to.y,to.z]);
- });
- return <Line ref={line} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
-}
-
-function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
+function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisible}:{surfaceHeight:(x:number,z:number)=>number;ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
  const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
  const target=MAST_BASE+height*MAST_PER_M;
+ const root=useRef<THREE.Group>(null);
+ const initial=useRef(ground);
+ const travel=useRef<{from:THREE.Vector3;to:THREE.Vector3;elapsed:number}|null>(null);
+ useLayoutEffect(()=>{
+  if(!root.current)return;
+  const to=new THREE.Vector3(...ground);
+  if(root.current.position.distanceToSquared(to)<1e-12)return;
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){root.current.position.copy(to);travel.current=null;return;}
+  travel.current={from:root.current.position.clone(),to,elapsed:0};
+ },[ground[0],ground[1],ground[2]]);
+ useFrame((_,dt)=>{
+  const group=root.current;if(!group)return;
+  const motion=travel.current;
+  if(motion){
+   motion.elapsed=Math.min(.65,motion.elapsed+dt);
+   const t=easeInOutCubic(motion.elapsed/.65);
+   group.position.lerpVectors(motion.from,motion.to,t);
+   // Follow the DEM, preserving the exact elevation at both endpoints.
+   const startOffset=motion.from.y-surfaceHeight(motion.from.x,motion.from.z);
+   const endOffset=motion.to.y-surfaceHeight(motion.to.x,motion.to.z);
+   group.position.y=surfaceHeight(group.position.x,group.position.z)+THREE.MathUtils.lerp(startOffset,endOffset,t);
+   if(motion.elapsed===.65){group.position.copy(motion.to);travel.current=null;}
+  }
+  if(linkTo&&lines.link.current){
+   lines.link.current.geometry.setPositions([0,MAST_BASE,0,linkTo[0]-group.position.x,linkTo[1]-group.position.y,linkTo[2]-group.position.z]);
+   lines.link.current.computeLineDistances();
+  }
+ },-1);
  useFrame((_,dt)=>{
   level.current+= (target-level.current)*Math.min(1,dt*6);
   if(Math.abs(target-level.current)<1e-4) level.current=target;
   if(mast.current){mast.current.scale.y=level.current;mast.current.position.y=level.current/2;}
   if(head.current) head.current.position.y=level.current;
  });
- return <group position={ground}>
+ return <group ref={root} position={initial.current}>
   <ScreenScale position={[0,.002,0]}><mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.042,40]}/><meshBasicMaterial color={C.station} transparent opacity={.75} side={THREE.DoubleSide}/></mesh></ScreenScale>
   <mesh ref={mast}><cylinderGeometry args={[.0045,.0045,1,10]}/><meshBasicMaterial color={C.station}/></mesh>
   <group ref={head}>
    <mesh><octahedronGeometry args={[.024]}/><meshBasicMaterial color={C.station}/></mesh>
    {rays.map(({body,dir,visible})=>{
-    const color=visible?C[body]:BLOCKED_COLOR;
-    // In-view rays run out to the body's disc on the sky; blocked rays stay short and draw over the terrain.
-    return visible?<SkyRay key={body} dir={dir} color={color} line={lines[body]}/>:<group key={body}>
-     <Line ref={lines[body]} points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
-     <mesh position={dir} renderOrder={71}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={false} transparent/></mesh>
-     <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · BLOCKED`}/>
+    const color=visible?C[body]:BLOCKED_COLOR,order=visible?0:70;
+    // Fixed-length direction indicators are independent of the decorative sky bodies.
+    return <group key={body}>
+     <Line ref={lines[body]} points={[[0,0,0],dir]} color={color} lineWidth={visible?2.2:2.5} depthTest={visible} depthWrite={visible} transparent={!visible} renderOrder={order}/>
+     <mesh position={dir} renderOrder={order+1}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={visible} transparent={!visible}/></mesh>
+     <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · ${visible?'IN VIEW':'BLOCKED'}`}/>
     </group>;
    })}
    <Label position={[0,.09,0]} color={C.station} text={label}/>
@@ -414,6 +441,18 @@ function Scene(p:SceneProps){
   return Math.max(ground,crest)+HERO_CLEAR;
  },[p.terrain,p.frame,mean,px,extentKm]);
  const ground=point(p.selected.position),lander=point(p.lander,2);
+ const surfaceHeight=(x:number,z:number)=>{
+  let elevation:number;
+  if(tile)elevation=bilinear(tile,p.frame.centerPs[0]+x*1000,p.frame.centerPs[1]-z*1000);
+  else{
+   const grid=p.terrain.elevation_m,step=px*p.terrain.stride/1000;
+   const col=THREE.MathUtils.clamp((x+extentKm/2)/step,0,grid[0].length-1);
+   const row=THREE.MathUtils.clamp((z+n*px/2000)/step,0,grid.length-1);
+   const i=Math.min(Math.floor(row),grid.length-2),j=Math.min(Math.floor(col),grid[0].length-2);
+   elevation=THREE.MathUtils.lerp(THREE.MathUtils.lerp(grid[i][j]??mean,grid[i][j+1]??mean,col-j),THREE.MathUtils.lerp(grid[i+1][j]??mean,grid[i+1][j+1]??mean,col-j),row-i);
+  }
+  return (elevation-mean)*VERTICAL_EXAGGERATION/1000-(x*x+z*z)/(2*p.frame.radiusKm);
+ };
  const atLander=p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col;
  const preview=p.positions.find(o=>o.id===(p.previewId??hovered));
  const select=(id:string,event:MouseEvent)=>{if(p.canSelect(event)){setHovered(null);p.onSelect(id);}};
@@ -426,7 +465,7 @@ function Scene(p:SceneProps){
  const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
  const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
  if(!atLander) hoverRays.push({id:'link',line:lines.link,label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
- const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.filter(r=>!r.visible).map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
+ const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
  if(!atLander) labelPositions.push(add(lander,[0,.1,0]));
  const north=p.frame.horizontal(0),[nx,nz]=[north.x,north.z];
  const compass:[number,number,number]=[-extentKm*.42,point({row:n*.92,col:n*.08,elevation_m:p.terrain.elevation_m[Math.round(n*.92/p.terrain.stride)]?.[Math.round(n*.08/p.terrain.stride)]??mean} as Site)[1]+.03,extentKm*.42];
@@ -453,7 +492,7 @@ function Scene(p:SceneProps){
   </ScreenScale>;})}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
-  <Station ground={ground} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
+  <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
   <group position={compass}>
    <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>

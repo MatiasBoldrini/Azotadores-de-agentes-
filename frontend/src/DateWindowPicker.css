@@ -135,3 +135,27 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.utc-date-window-compact .date-pair {
+  justify-content: space-between;
+  gap: 6px 16px;
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+.utc-date-window-compact .date-pair .utc-date-trigger {
+  flex: 0 1 auto;
+}
+.utc-date-window-compact .utc-date-trigger > span:last-child {
+  min-height: 24px;
+  padding: 2px 0;
+  gap: 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+.utc-date-window-compact .utc-date-trigger:hover > span:last-child,
+.utc-date-window-compact .utc-date-trigger[aria-expanded='true'] > span:last-child {
+  color: var(--text);
+}
