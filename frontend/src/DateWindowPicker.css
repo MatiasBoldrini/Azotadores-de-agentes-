@@ -29,19 +29,19 @@
 }
 
 .utc-calendar-dialog {
-  width: min(336px, calc(100% - 24px));
-  max-height: calc(100% - 24px);
-  margin: auto;
+  position: fixed;
+  inset: auto;
+  z-index: 10;
+  width: 336px;
+  margin: 0;
   padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid #56645c;
   border-radius: 6px;
   color: #e0e5e1;
   background: #1c2022;
   box-shadow: 0 12px 40px #0008;
-}
-
-.utc-calendar-dialog::backdrop {
-  background: #101214b3;
 }
 
 .utc-calendar {
