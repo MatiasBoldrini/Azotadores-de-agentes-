@@ -195,12 +195,12 @@ option{background:#111}
 .terrain-scope{display:grid;gap:2px;width:fit-content;max-width:100%;padding:5px 8px;border-radius:6px;background:rgba(5,5,5,.76);color:var(--text-2);font-size:12px;line-height:1.4;font-variant-numeric:tabular-nums}
 .terrain-scope strong{color:var(--text);font-weight:600}
 .map-actions{position:relative;grid-area:1/1;z-index:6;display:flex;gap:8px;flex-wrap:wrap;width:fit-content;max-width:100%;margin-top:10px}
-.map-actions>.map-optimize,.map-config>button{min-height:40px;padding-inline:12px;backdrop-filter:blur(14px)}
+.map-actions>.map-optimize,.map-actions>.map-config>button{min-height:40px;padding-inline:12px;backdrop-filter:blur(14px)}
 .map-optimize{background:linear-gradient(var(--earth-soft),var(--earth-soft)),rgba(5,5,5,.72)}
 .map-optimize:hover:not([aria-disabled=true]){background:linear-gradient(rgba(143,211,255,.24),rgba(143,211,255,.24)),rgba(5,5,5,.72)}
 .map-optimize[aria-disabled=true]{cursor:progress}
-.map-config>button{background:rgba(12,12,12,.72)}
-.map-config>button:hover,.map-config>button[aria-expanded=true]{background:rgba(42,42,42,.93)}
+.map-actions>.map-config>button{background:rgba(12,12,12,.72)}
+.map-actions>.map-config>button:hover,.map-actions>.map-config>button[aria-expanded=true]{background:rgba(42,42,42,.93)}
 .map-config-panel{position:absolute;top:calc(100% + 8px);left:0;width:min(334px,calc(100vw - 32px));padding:14px;background:rgba(13,13,14,.94);border-radius:var(--radius-sm);overscroll-behavior:contain}
 .map-config-panel .constraint-fields{max-height:min(270px,38vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .map-references{grid-area:1/2;z-index:2;display:grid;justify-items:end;gap:8px;min-width:0;margin-top:8px}
@@ -255,7 +255,10 @@ option{background:#111}
 
 /* ---------- Results ---------- */
 .results .panel-heading{margin-bottom:4px}
-.method-link{font-size:12px;gap:5px;min-height:28px}
+.configure-button{font-size:12px;gap:5px;min-height:28px}
+.configure-button[aria-expanded=true]{color:var(--text)}
+.map-config-panel[popover]{position:fixed;inset:auto;margin:0;overflow-y:auto;scrollbar-width:thin;color:var(--text)}
+.map-config-panel[popover] .position-list{position:static;margin-top:4px}
 .visibility-window{margin:0 0 10px;font-size:12px;line-height:1.35;color:var(--muted)}
 .metric-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-bottom:12px;border-bottom:1px solid var(--hairline)}
 .metric-card{min-width:0}
@@ -612,7 +615,7 @@ option{background:#111}
  .metric-pair{grid-template-columns:1fr}
  .metric-value b{font-size:48px}
  .map-actions{gap:6px}
- .map-actions>.map-optimize,.map-config>button{min-height:44px;padding-inline:8px;gap:5px;font-size:12px}
+ .map-actions>.map-optimize,.map-actions>.map-config>button{min-height:44px;padding-inline:8px;gap:5px;font-size:12px}
  .map-actions button svg{width:13px;height:13px}
  .pin-card span{display:none}
  .pin-card{padding:6px 12px}
