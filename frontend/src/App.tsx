@@ -1,7 +1,6 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
-import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Map} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,terrainMean} from './TerrainView';
-import TopographicMap from './TopographicMap';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {REGIONAL_SOURCES,loadSite01} from './site01';
 import {TAGLINE} from './brand';
@@ -10,7 +9,8 @@ import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
 import PositionPicker,{type EvaluatedPosition} from './PositionPicker';
 import {demoSteps} from './RidgeDemo';
-import {TimelineChart,TimelineStack,HorizonChart} from './Charts';
+import DesignerAnalysisPanels,{HorizonPanel} from './DesignerAnalysisPanels';
+import {TimelineChart,TimelineStack} from './Charts';
 import {StoryBar} from './Story';
 import {ResultsPanel,OptimizerCard} from './Results';
 import MoonLanding,{type MoonMode} from './moon/MoonLanding';
@@ -26,13 +26,13 @@ const utc=(s:string)=>new Date(s).toLocaleString('en-GB',{timeZone:'UTC',day:'2-
 type Tab='Landing Sites'|'Infrastructure Designer'|'Compare'|'Science & Sources';
 const TABS:Tab[]=['Landing Sites','Infrastructure Designer','Compare','Science & Sources'];
 const SHORT_TABS:Record<Tab,string>={'Landing Sites':'Sites','Infrastructure Designer':'Designer','Compare':'Compare','Science & Sources':'Science'};
-const TOPOGRAPHIC_DESKTOP='(min-width: 901px) and (hover: hover) and (pointer: fine)';
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ANALYSIS_DOCK_MEDIA='(width > 900px)';
 const MOON_IMAGERY_SOURCES=[
  {href:'https://www.lroc.asu.edu/',label:'NASA/GSFC/Arizona State University (LROC)'},
  {href:'https://svs.gsfc.nasa.gov/4720',label:'NASA SVS CGI Moon Kit'},
 ];
-class SceneBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return {error:true};}render(){return this.state.error?<div className="scene-error"><Mountain/><p>3D rendering is unavailable on this device.</p><span>Use the station selector and scientific charts below.</span></div>:this.props.children;}}
+class SceneBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return {error:true};}render(){return this.state.error?<div className="scene-error"><Mountain/><p>3D rendering is unavailable on this device.</p><span>Use the station selector and scientific charts.</span></div>:this.props.children;}}
 function MetricBlock({label,value,unit,detail,color}:{label:string;value:string;unit:string;detail:ReactNode;color:string}){return <div className="metric-block"><span className={`eyebrow ${color}`}>{label}</span><div className="metric-number">{value}<small>{unit}</small></div><span className="metric-detail">{detail}</span></div>;}
 function VisibilityWindow({analysis,id}:{analysis:Analysis;id:string}){
  const times=analysis.series.timestamp_utc;
@@ -51,13 +51,20 @@ function App(){
  const compareB=useObservationWindow(comparisonRight);
  const {start,end,analyses:all}=designer.window;
  const [time,setTime]=useState(0),[playing,setPlaying]=useState(false),[wire,setWire]=useState(false),[mapView,setMapView]=useState(false),[reset,setReset]=useState(0);
- const [topographic,setTopographic]=useState(false);
- const [desktopMap,setDesktopMap]=useState(()=>matchMedia(TOPOGRAPHIC_DESKTOP).matches);
  const [constraints,setConstraints]=useState<Constraints>(DEFAULT_CONSTRAINTS);
  const [demoStep,setDemoStep]=useState<number|null>(null);
  const [autoDemo,setAutoDemo]=useState(()=>new URLSearchParams(location.search).get('demo')==='1');
  const [moon,setMoon]=useState<MoonMode>(()=>new URLSearchParams(location.search).get('demo')==='1'?'site':'globe'),[descend,setDescend]=useState(false);
  const focusRef=useRef<HTMLDivElement>(null);
+ const timelineRef=useRef<HTMLElement>(null);
+ const [showAnalysisDock,setShowAnalysisDock]=useState(()=>matchMedia(ANALYSIS_DOCK_MEDIA).matches);
+ useEffect(()=>{
+  const query=matchMedia(ANALYSIS_DOCK_MEDIA);
+  const update=()=>setShowAnalysisDock(query.matches);
+  update();
+  query.addEventListener('change',update);
+  return()=>query.removeEventListener('change',update);
+ },[]);
  const configureRef=useRef<HTMLDivElement>(null),configureButton=useRef<HTMLButtonElement>(null);
  const [showConfigure,setShowConfigure]=useState(false);
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
@@ -76,12 +83,6 @@ function App(){
   setData(d);setSiteId(d.sites[0].id);setCandidate(`r${d.sites[0].row}c${d.sites[0].col}`);
  })().catch(e=>{if(e.name!=='AbortError')setError(e.message);});return()=>controller.abort();},[]);
  useEffect(()=>{loadSite01();},[]);
- useEffect(()=>{
-  const viewport=matchMedia(TOPOGRAPHIC_DESKTOP);
-  const update=()=>setDesktopMap(viewport.matches);
-  viewport.addEventListener('change',update);
-  return()=>viewport.removeEventListener('change',update);
- },[]);
  const frame=useMemo(()=>{
   if(!data)return null;const t=data.terrain,i=t.original_shape[0]/2/t.stride,j=t.original_shape[1]/2/t.stride;
   // Faces what is in view at the opening instant of the first site; fixed afterwards so the terrain is built once.
@@ -151,7 +152,6 @@ function App(){
   setShowConstraints(false);
   setShowConfigure(false);
   setMapView(false);
-  setTopographic(false);
   setReset(r => r + 1);
   setDemoStep(0);
  };
@@ -185,7 +185,7 @@ function App(){
   window.scrollTo(0,0);
   setMoon(reducedMotion()?'site':'in');
  };
- const backToMoon=()=>{setTopographic(false);setShowConfigure(false);setDemoStep(null);setPlaying(false);setDescend(false);setTab('Landing Sites');setMoon(reducedMotion()?'globe':'out');};
+ const backToMoon=()=>{setShowConfigure(false);setDemoStep(null);setPlaying(false);setDescend(false);setTab('Landing Sites');setMoon(reducedMotion()?'globe':'out');};
  const openTab=(t:Tab)=>{setDemoStep(null);if(t==='Landing Sites'){if(moon==='site')backToMoon();return;}if(t!=='Infrastructure Designer')setShowConfigure(false);setTab(t);setMoon('site');};
  const workspaceTab=tab==='Landing Sites'||tab==='Infrastructure Designer';
  const ready=Boolean(data&&selected&&baseline&&site);
@@ -274,9 +274,9 @@ function App(){
   </div>
   <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
  </>}/>;
- const showTopographic=desktopMap&&topographic&&moon==='site';
- const workspace=<main className={`workspace stage-${stage}`} inert={moon==='globe'||moon==='out'}>
-  <div className={`scene-layer ${showTopographic?'is-topographic':''}`} inert={showTopographic}><SceneBoundary><TerrainView active={!showTopographic&&(moon==='in'||moon==='site')} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
+ const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}/>;
+ const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
+  <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
@@ -309,39 +309,32 @@ function App(){
      </div>
      <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
     </div>
-  {!showTopographic&&<ul className="map-legend" aria-label="Map legend">
+  <ul className="map-legend" aria-label="Map legend">
    <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
    <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
-  </ul>}
-  <div className="map-tools">
-   <button type="button" title="Reset camera" aria-label="Reset camera" onClick={()=>{setTopographic(false);setReset(r=>r+1);}}><RotateCcw size={16}/></button>
-   <button type="button" title="Toggle top view" aria-label="Toggle top view" aria-pressed={!showTopographic&&mapView} onClick={()=>{setTopographic(false);setMapView(showTopographic||!mapView);}}><Maximize2 size={16}/></button>
-   <button type="button" title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={!showTopographic&&wire} onClick={()=>{setTopographic(false);setWire(showTopographic||!wire);}}><Layers3 size={16}/></button>
-   {desktopMap&&moon==='site'&&<button type="button" title={showTopographic?'Return to 3D terrain':'Topographic map'} aria-label="Topographic map" aria-pressed={showTopographic} onClick={()=>setTopographic(on=>!on)}><Map size={16}/></button>}
-  </div>
-  {showTopographic&&<TopographicMap terrain={data.terrain} frame={frame} positions={positions} previewId={positionPreview} selectedId={selected.candidate_id} lander={site} onSelect={chooseCandidate} feasible={feasible} recommended={search?.recommended?.candidate_id}/>}
+  </ul>
+  <div className="map-tools"><button title="Reset camera" aria-label="Reset camera" onClick={()=>setReset(reset+1)}><RotateCcw size={16}/></button><button title="Toggle top view" aria-label="Toggle top view" aria-pressed={mapView} onClick={()=>setMapView(!mapView)}><Maximize2 size={16}/></button><button title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={wire} onClick={()=>setWire(!wire)}><Layers3 size={16}/></button></div>
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}
    </div>
   {search&&<OptimizerCard search={search} lines={explainRecommendation(search,all,links,constraints,baseline)} links={links} selectedKey={keyFor(selected)} onPick={a=>{setDemoStep(null);setCandidate(a.candidate_id);setHeight(a.height_m);}} onClose={()=>setSearch(null)}/>}
   </section>
-  <ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>openTab('Science & Sources')}/>
-  <section className="timeline glass" aria-label="Sun and Earth over time">
+  {showAnalysisDock?<div className="results-column">
+   {results}
+   <DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>
+  </div>:results}
+  <section className="timeline glass" ref={timelineRef} aria-label="Sun and Earth over time">
   <div className="timeline-side">
    <h2 className="panel-title">Timeline</h2>
    <div className="time-current"><button aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button><div><b>{utc(selected.series.timestamp_utc[index])}</b><small>{selected.series.timestamp_utc[index].slice(0,4)} · UTC</small></div>{focusIndex>0&&atSiteCell&&<button className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}</div>
    {contrast.length>0?<p className="contrast-note">Contrast instant: {contrast.map(b=>b==='sun'?'Sun':'Earth').join(' and ')} blocked at 0 m, in view at {sitePeak} m.</p>:<p className="micro">Hover a chart or drag the slider to scrub through the window.</p>}
   </div>
   <div className="timeline-plots">
-   <TimelineStack analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>
+   {!showAnalysisDock&&<TimelineStack analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>}
    <input className="time-slider" aria-label="Timeline time" type="range" min="0" max={count-1} value={index} onChange={e=>{setTime(Number(e.target.value));setPlaying(false);}}/>
    <div className="time-labels"><span>{utc(start)} UTC</span><ul className="timeline-legend"><li><i className="lg-line solid"/>Body elevation</li><li><i className="lg-line"/>Terrain horizon at body azimuth</li>{keyFor(selected)!==keyFor(baseline)&&<li><i className="lg-line dotted"/>Ground-level horizon</li>}<li><i className="lg-band"/>Visible intervals</li></ul><span>{utc(end)} UTC</span></div>
   </div>
-  <div className="timeline-horizon">
-   <div className="block-head">Horizon from the station</div>
-   <HorizonChart analysis={selected} index={index} baseline={baseline}/>
-   <div className="horizon-legend"><span><i className="lg-line"/>Horizon at {selected.height_m} m</span>{keyFor(selected)!==keyFor(baseline)&&<span><i className="lg-line dotted"/>Ground level</span>}<span><i className="dot-fill"/>In view <i className="dot-ring"/>Blocked</span></div>
-  </div>
+  {!showAnalysisDock&&<div className="timeline-horizon"><HorizonPanel analysis={selected} index={index} baseline={baseline}/></div>}
  </section>
  </main>;
  return shell(workspaceTab?workspace:moon==='site'?<main className="page">{tab==='Science & Sources'?<Science data={data}/>:compare}</main>:null,
