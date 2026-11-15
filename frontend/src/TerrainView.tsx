@@ -754,6 +754,17 @@ const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
  return <Canvas shadows frameloop={props.active?'demand':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
+export function TerrainScope({terrain,frame,regionalRadiusM}:{terrain:Terrain;frame:SiteFrame;regionalRadiusM?:number}){
+ const tile=useSite01(),surround=useSurround(),regional=useRegional();
+ const closeupKm=terrain.original_shape[1]*terrain.pixel_size_m/1000;
+ const outer=tile&&surround?[...surround,...regional??[]].at(-1):undefined;
+ const footprint=outer?`~${Math.round(rimKm(outer,frame))} km radius`:`${closeupKm.toFixed(2)} km across`;
+ return <p className="terrain-scope">
+  <span><strong>3D display</strong> · {VERTICAL_EXAGGERATION}× vertical relief · {footprint}</span>
+  <span><strong>Sun/Earth visibility</strong> · {regionalRadiusM?`LOLA terrain to ${regionalRadiusM/1000} km`:'LOLA elevations'}</span>
+ </p>;
+}
+
 export default function TerrainView(props:Props){
  const [tip,setTip]=useState<TerrainRayTip|null>(null);
  const click=useMemo(createStationClickGuard,[]);

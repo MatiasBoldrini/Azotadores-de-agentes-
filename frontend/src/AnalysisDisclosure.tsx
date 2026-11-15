@@ -9,13 +9,15 @@ export default function AnalysisDisclosure({title,headingClassName='block-head',
  const open=controls?.open??localOpen;
  return <>
   <div className={`${headingClassName}${controls?' analysis-panel-heading':''}`}>
-   <h3 className="analysis-disclosure-title">
-    <button type="button" className="analysis-disclosure-toggle" aria-expanded={open} aria-controls={contentId} onClick={controls?.onToggle??(()=>setLocalOpen(value=>!value))}>
-     <ChevronDown size={13} aria-hidden="true"/>
-     <span className={titleClassName}>{title}</span>
-    </button>
-   </h3>
-   {controls?.action}
+   <div className="analysis-disclosure-title-row">
+    <h3 className="analysis-disclosure-title">
+     <button type="button" className="analysis-disclosure-toggle" aria-expanded={open} aria-controls={contentId} onClick={controls?.onToggle??(()=>setLocalOpen(value=>!value))}>
+      <ChevronDown size={13} aria-hidden="true"/>
+      <span className={titleClassName}>{title}</span>
+     </button>
+    </h3>
+    {controls?.action}
+   </div>
    {summary}
   </div>
   <div id={contentId} hidden={!open}>{children}</div>

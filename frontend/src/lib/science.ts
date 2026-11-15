@@ -7,7 +7,7 @@ export type Horizon = {azimuth_deg:number[];elevation_deg:number[];coverage:stri
 export type Analysis = {candidate_id:string;position:Point;height_m:number;horizon:Horizon;series:Series;metrics:Record<'sun'|'earth'|'both',Metric>;limitations:string[];algorithm:string;provenance?:Record<string,unknown>};
 export type Link = {visible:boolean;distance_m:number;elevation_difference_m:number;min_clearance_m:number;profile:{distance_m:number;terrain_elevation_m:number;line_elevation_m:number}[]};
 export type Terrain = {elevation_m:(number|null)[][];longitude_deg:number[][];latitude_deg:number[][];pixel_size_m:number;stride:number;original_shape:number[];coverage:string};
-export type Bundle = {terrain:Terrain;sites:Site[];analyses:Analysis[];links:Record<string,Record<string,Link>>;methodology:{sources:{name:string;url:string}[];limitations:string[];provenance:Record<string,unknown>};generated_utc?:string};
+export type Bundle = {terrain:Terrain;sites:Site[];analyses:Analysis[];links:Record<string,Record<string,Link>>;methodology:{sources:{name:string;url:string}[];limitations:string[];provenance:Record<string,unknown>;regional_provenance?:{max_radius_m?:number}|null};generated_utc?:string};
 export type Constraints = {minSun:number;minEarth:number;maxOutage:number;maxDistance:number;maxSlope:number;requireLink:boolean};
 
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3}0*)?)?(?:Z|[+-]\d{2}:\d{2})$/i;
