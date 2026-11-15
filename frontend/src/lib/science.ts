@@ -12,7 +12,7 @@ export type Constraints = {minSun:number;minEarth:number;maxOutage:number;maxDis
 
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3}0*)?)?(?:Z|[+-]\d{2}:\d{2})$/i;
 
-function parseInstant(timestamp: string): number {
+export function parseInstant(timestamp: string): number {
  const instant = Date.parse(timestamp);
  if (!ISO_INSTANT.test(timestamp) || !Number.isFinite(instant)) {
   throw new Error('Use an ISO timestamp with a UTC offset and at most millisecond precision.');
@@ -32,17 +32,24 @@ function formatUtc(instant: number): string {
 
 // Integration mirrors Python engine.windows: each sample owns [t_i,t_i+1).
 // The endpoint is not counted as an extra half hour.
-export function windows(times:string[],states:boolean[]):Metric {
- if(times.length<2||states.length!==times.length) throw new Error('At least two matching samples are required.');
+export function windowIntegrator(times:string[]):(states:boolean[])=>Metric {
+ if(times.length<2) throw new Error('At least two matching samples are required.');
  const instants = times.map(parseInstant);
  const hours = instants.slice(1).map((t,i)=>(t-instants[i])/3600000);
  if(hours.some(h=>h<=0)) throw new Error('Timestamps must increase strictly.');
- const intervals:Interval[]=[],outages:Interval[]=[]; let start=0;
- for(let stop=1;stop<=hours.length;stop++) if(stop===hours.length||states[stop]!==states[start]) {
-  const item={start_utc:formatUtc(instants[start]),end_utc:formatUtc(instants[stop]),duration_hours:(instants[stop]-instants[start])/3600000};
-  (states[start]?intervals:outages).push(item); start=stop;
- }
- return {total_hours:intervals.reduce((a,b)=>a+b.duration_hours,0),duration_hours:hours.reduce((a,b)=>a+b,0),longest_outage_hours:Math.max(0,...outages.map(x=>x.duration_hours)),longest_visible_hours:Math.max(0,...intervals.map(x=>x.duration_hours)),intervals,outages,interval_count:intervals.length,max_step_hours:Math.max(...hours)};
+ const duration_hours=hours.reduce((a,b)=>a+b,0),max_step_hours=Math.max(...hours);
+ return states=>{
+  if(states.length!==times.length) throw new Error('At least two matching samples are required.');
+  const intervals:Interval[]=[],outages:Interval[]=[]; let start=0;
+  for(let stop=1;stop<=hours.length;stop++) if(stop===hours.length||states[stop]!==states[start]) {
+   const item={start_utc:formatUtc(instants[start]),end_utc:formatUtc(instants[stop]),duration_hours:(instants[stop]-instants[start])/3600000};
+   (states[start]?intervals:outages).push(item); start=stop;
+  }
+  return {total_hours:intervals.reduce((a,b)=>a+b.duration_hours,0),duration_hours,longest_outage_hours:Math.max(0,...outages.map(x=>x.duration_hours)),longest_visible_hours:Math.max(0,...intervals.map(x=>x.duration_hours)),intervals,outages,interval_count:intervals.length,max_step_hours};
+ };
+}
+export function windows(times:string[],states:boolean[]):Metric {
+ return windowIntegrator(times)(states);
 }
 export function sliceAnalysis(a:Analysis,start:string,end:string):Analysis {
  const timestamps = a.series.timestamp_utc;
@@ -54,7 +61,8 @@ export function sliceAnalysis(a:Analysis,start:string,end:string):Analysis {
  const firstSample = findSample(start), lastSample = findSample(end);
  if(firstSample<0||lastSample<=firstSample) throw new Error('Choose a time window aligned with the cached NASA observations.');
  const series=Object.fromEntries(Object.entries(a.series).map(([key,values])=>[key,values.slice(firstSample,lastSample+1)])) as Series;
- const metrics=Object.fromEntries((['sun','earth','both'] as const).map(body=>[body,windows(series.timestamp_utc,series[`${body}_visible`])])) as Analysis['metrics'];
+ const integrate=windowIntegrator(series.timestamp_utc);
+ const metrics={sun:integrate(series.sun_visible),earth:integrate(series.earth_visible),both:integrate(series.both_visible)};
  return {...a,series,metrics};
 }
 export function percent(metric:Metric){return metric.total_hours/metric.duration_hours*100;}

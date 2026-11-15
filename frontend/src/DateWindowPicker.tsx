@@ -12,6 +12,7 @@ type Props = {
   end: string;
   label: string;
   onChange: (start: string, end: string) => void;
+  status: 'loading' | 'error' | null;
 };
 
 const formatDate = (timestamp: string) => new Date(timestamp).toISOString().slice(0, 10);
@@ -27,12 +28,15 @@ const shiftDay = (day: string, offset: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-export default function DateWindowPicker({days, start, end, label, onChange}: Props) {
+export default function DateWindowPicker({days, start, end, label, onChange, status}: Props) {
   const dialogId = useId();
   const startDate = formatDate(start);
   const endDate = formatDate(end);
   const [active, setActive] = useState<ActiveEndpoint | null>(null);
-  const [announcement, setAnnouncement] = useState('');
+  const [adjustment, setAdjustment] = useState<{endpoint: Endpoint; timestamp: string} | null>(null);
+  const announcement = adjustment && adjustment.timestamp === (adjustment.endpoint === 'start' ? start : end)
+    ? `${adjustment.endpoint === 'start' ? 'Start' : 'End'} date moved to ${dayLabel.format(new Date(adjustment.timestamp))} UTC.`
+    : '';
 
   function select(timestamp: string) {
     if (timestamp === (active?.endpoint === 'start' ? start : end)) return;
@@ -41,12 +45,12 @@ export default function DateWindowPicker({days, start, end, label, onChange}: Pr
       const cross = Date.parse(timestamp) >= Date.parse(end);
       const nextEnd = cross ? days[index + 1] : end;
       onChange(timestamp, nextEnd);
-      if (cross) setAnnouncement(`End date moved to ${dayLabel.format(new Date(nextEnd))} UTC.`);
+      if (cross) setAdjustment({endpoint: 'end', timestamp: nextEnd});
     } else {
       const cross = Date.parse(timestamp) <= Date.parse(start);
       const nextStart = cross ? days[index - 1] : start;
       onChange(nextStart, timestamp);
-      if (cross) setAnnouncement(`Start date moved to ${dayLabel.format(new Date(nextStart))} UTC.`);
+      if (cross) setAdjustment({endpoint: 'start', timestamp: nextStart});
     }
   }
 
@@ -56,46 +60,52 @@ export default function DateWindowPicker({days, start, end, label, onChange}: Pr
   }, [active]);
 
   function toggle(endpoint: Endpoint, trigger: HTMLButtonElement) {
+    if (status === 'loading') return;
     if (active?.endpoint === endpoint) {
       close();
       return;
     }
-    setAnnouncement('');
+    setAdjustment(null);
     setActive({endpoint, trigger});
   }
 
   return (
-    <div className="date-pair" role="group" aria-label={label}>
-      <button
-        type="button" className="utc-date-trigger" aria-haspopup="dialog"
-        aria-expanded={active?.endpoint === 'start'} aria-controls={active?.endpoint === 'start' ? dialogId : undefined}
-        onClick={event => toggle('start', event.currentTarget)}
-      >
-        <span>From · UTC</span>
-        <span><time dateTime={startDate}>{startDate}</time><CalendarDays size={12} aria-hidden="true"/></span>
-      </button>
-      <button
-        type="button" className="utc-date-trigger" aria-haspopup="dialog"
-        aria-expanded={active?.endpoint === 'end'} aria-controls={active?.endpoint === 'end' ? dialogId : undefined}
-        onClick={event => toggle('end', event.currentTarget)}
-      >
-        <span>Until · UTC</span>
-        <span><time dateTime={endDate}>{endDate}</time><CalendarDays size={12} aria-hidden="true"/></span>
-      </button>
-      <span className="utc-calendar-sr" role="status">{announcement}</span>
-      {active && (
-        <DayCalendar
-          key={active.endpoint}
-          id={dialogId}
-          trigger={active.trigger}
-          title={active.endpoint === 'start' ? 'Choose a start date (UTC)' : 'Choose an end date (UTC)'}
-          value={active.endpoint === 'start' ? startDate : endDate}
-          days={(active.endpoint === 'start' ? days.slice(0, -1) : days.slice(1))
-            .map(timestamp => ({timestamp, date: formatDate(timestamp)}))}
-          onSelect={select}
-          onClose={close}
-        />
-      )}
+    <div className="utc-date-window">
+      <div className="date-pair" role="group" aria-label={label}>
+        <button
+          type="button" className="utc-date-trigger" aria-haspopup="dialog" aria-disabled={status === 'loading'}
+          aria-expanded={active?.endpoint === 'start'} aria-controls={active?.endpoint === 'start' ? dialogId : undefined}
+          onClick={event => toggle('start', event.currentTarget)}
+        >
+          <span>From · UTC</span>
+          <span><time dateTime={startDate}>{startDate}</time><CalendarDays size={12} aria-hidden="true"/></span>
+        </button>
+        <button
+          type="button" className="utc-date-trigger" aria-haspopup="dialog" aria-disabled={status === 'loading'}
+          aria-expanded={active?.endpoint === 'end'} aria-controls={active?.endpoint === 'end' ? dialogId : undefined}
+          onClick={event => toggle('end', event.currentTarget)}
+        >
+          <span>Until · UTC</span>
+          <span><time dateTime={endDate}>{endDate}</time><CalendarDays size={12} aria-hidden="true"/></span>
+        </button>
+        <span className="utc-calendar-sr" role="status">{announcement}</span>
+        {active && (
+          <DayCalendar
+            key={active.endpoint}
+            id={dialogId}
+            trigger={active.trigger}
+            title={active.endpoint === 'start' ? 'Choose a start date (UTC)' : 'Choose an end date (UTC)'}
+            value={active.endpoint === 'start' ? startDate : endDate}
+            days={(active.endpoint === 'start' ? days.slice(0, -1) : days.slice(1))
+              .map(timestamp => ({timestamp, date: formatDate(timestamp)}))}
+            onSelect={select}
+            onClose={close}
+          />
+        )}
+      </div>
+      {status && <p className="micro" role="status">{status === 'loading'
+        ? 'Loading cached observations…'
+        : 'Could not load that window. Choose the date again to retry.'}</p>}
     </div>
   );
 }

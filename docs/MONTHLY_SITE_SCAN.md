@@ -27,3 +27,17 @@ In April, 20 m gives 495 h of Sun visibility at Ridge A and 371 h at Ridge B, ve
 The exporter reads the original November cache and four compressed Horizons response files under `data/ephemeris/monthly/`. It checks the body, observer coordinates, frame, angle convention and every UTC sample, then checks that the overlapping December 1 sample matches exactly. The November metrics and terrain horizons for all ten configurations are checked against the existing snapshot. `--acquire` fetches any missing extension responses from JPL. The export runs offline with the committed inputs.
 
 `public/data/monthly-site-scan.json` holds the 60 summaries and provenance, including the response URLs and SHA-256 digests. `public/data/monthly-site-ephemeris.json` carries Sun and Earth azimuth and elevation arrays for both sites. Index zero is the start timestamp, and each successive index advances by 30 minutes. A plot can combine these angles with the matching fixed-site horizon in `snapshot.json` using the engine's circular linear interpolation. Each site's angles are shared across all five heights.
+
+## Custom observation windows
+
+Designer and both ground-level Compare timelines default to November 1–December 1 UTC. Dates in the calendars run from November 1, 2026 through May 1, 2027. Each endpoint is at 00:00 UTC, with May 1 selectable as an end date. The guided demo uses the November snapshot.
+
+Generate the extension from the retained Horizons tables with:
+
+```sh
+.venv/bin/python scripts/export_observation_ephemeris.py
+```
+
+The exporter rotates JPL directions from the candidate's reference site into its local east, north and up axes using the Python engine. As in November, the model omits the positional parallax of moving or raising the observer. The script verifies the November direction samples and writes one static binary per subsequent month. Each file stores four little-endian 64-bit arrays per candidate, in order Sun azimuth, Sun elevation, Earth azimuth and Earth elevation. The files share directions across the five heights. The manifest records candidate order, UTC sample bounds and cadence, SHA-256 hashes, and the original JPL response URLs.
+
+The browser fetches the applicable monthly files when a window needs them and verifies each file's length and SHA-256 hash. For later samples it linearly interpolates each cached terrain horizon at the body's azimuth and compares the result with the precomputed elevation. It integrates the visibility over the selected window and applies Designer's finite search to those metrics. The previously applied dates and results remain visible if a request fails. November samples use the original snapshot, including at the shared December 1 endpoint.

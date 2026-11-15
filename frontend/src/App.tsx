@@ -12,7 +12,9 @@ import {TimelineChart,HorizonChart} from './Charts';
 import {StoryBar} from './Story';
 import {ResultsPanel,OptimizerCard} from './Results';
 import MoonLanding,{type MoonMode} from './moon/MoonLanding';
-import {Analysis,Bundle,Constraints,Link,keyFor,optimize,percent,sliceAnalysis,violations} from './lib/science';
+import {Analysis,Bundle,Constraints,Link,keyFor,optimize,percent,violations} from './lib/science';
+import {maxObservationHours, observationDays} from './lib/observationEphemeris';
+import {useObservationWindow} from './useObservationWindow';
 import {buildStory,constraintRows,contrastIndex,explainRecommendation,heightSweep,hours,peakHeight,type Search,type StoryAction} from './lib/story';
 const DEFAULT_CONSTRAINTS: Constraints = {minSun:70,minEarth:40,maxOutage:360,maxDistance:1000,maxSlope:20,requireLink:true};
 const fmt=(n:number,d=1)=>n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
@@ -38,7 +40,13 @@ function App(){
  const [data,setData]=useState<Bundle|null>(null),[error,setError]=useState(''),[progress,setProgress]=useState<number|null>(null);
  const [tab,setTab]=useState<Tab>('Landing Sites'),[siteId,setSiteId]=useState('ridge-a'),[candidate,setCandidate]=useState('r256c256'),[height,setHeight]=useState(0);
  const [positionPreview,setPositionPreview]=useState<string|null>(null);
- const [start,setStart]=useState(''),[end,setEnd]=useState(''),[compareStart,setCompareStart]=useState(''),[compareEnd,setCompareEnd]=useState('');
+ const [compareTime,setCompareTime]=useState(0);
+ const designer=useObservationWindow(data?.analyses??[]);
+ const comparisonLeft=useMemo(()=>data?.analyses.filter(a=>a.height_m===0&&a.position.row===data.sites[0].row&&a.position.col===data.sites[0].col)??[],[data]);
+ const comparisonRight=useMemo(()=>data?.analyses.filter(a=>a.height_m===0&&a.position.row===data.sites[1].row&&a.position.col===data.sites[1].col)??[],[data]);
+ const compareA=useObservationWindow(comparisonLeft);
+ const compareB=useObservationWindow(comparisonRight);
+ const {start,end,analyses:all}=designer.window;
  const [time,setTime]=useState(0),[playing,setPlaying]=useState(false),[wire,setWire]=useState(false),[mapView,setMapView]=useState(false),[reset,setReset]=useState(0);
  const [constraints,setConstraints]=useState<Constraints>(DEFAULT_CONSTRAINTS);
  const [demoStep,setDemoStep]=useState<number|null>(null);
@@ -60,11 +68,10 @@ function App(){
    d=JSON.parse(new TextDecoder().decode(bytes));
   } else d=await r.json();
   if(!d.analyses?.length)throw new Error('The scientific cache contains no analyses.');
-  setData(d);const s=d.analyses[0].series.timestamp_utc;setStart(s[0]);setEnd(s[s.length-1]);setCompareStart(s[0]);setCompareEnd(s[s.length-1]);setSiteId(d.sites[0].id);setCandidate(`r${d.sites[0].row}c${d.sites[0].col}`);
+  setData(d);setSiteId(d.sites[0].id);setCandidate(`r${d.sites[0].row}c${d.sites[0].col}`);
  })().catch(e=>{if(e.name!=='AbortError')setError(e.message);});return()=>controller.abort();},[]);
  useEffect(()=>{loadSite01();},[]);
  const frame=useMemo(()=>{if(!data)return null;const t=data.terrain,i=t.original_shape[0]/2/t.stride,j=t.original_shape[1]/2/t.stride;return siteFrame(t.latitude_deg[i][j],t.longitude_deg[i][j],terrainMean(t));},[data]);
- const all=useMemo(()=>{if(!data||!start||!end)return [];try{return data.analyses.map(a=>sliceAnalysis(a,start,end));}catch{return [];}},[data,start,end]);
  const site=data?.sites.find(s=>s.id===siteId);
  const siteCell=site?`r${site.row}c${site.col}`:'';
  const positions=useMemo<EvaluatedPosition[]>(()=>{const links=data?.links[siteId]??{};let n=0;return all.filter(a=>a.height_m===0).map(a=>{const lander=a.candidate_id===siteCell;if(!lander)n++;return {id:a.candidate_id,label:lander?'At lander':`Candidate ${String(n).padStart(2,'0')} · ${hours(Math.round(links[keyFor(a)]?.distance_m??0))} m away`,position:a.position};});},[all,data,siteId,siteCell]);
@@ -75,7 +82,7 @@ function App(){
  const siteSweep=useMemo(()=>heightSweep(all,siteCell),[all,siteCell]);
  const sitePeak=peakHeight(siteSweep);
  const focusIndex=useMemo(()=>{const target=siteSweep.find(a=>a.height_m===sitePeak);return target?contrastIndex(siteSweep[0],target):0;},[siteSweep,sitePeak]);
- useEffect(()=>{window.clearTimeout(searchTimer.current);setSearching(false);setTime(focusIndex);setSearch(null);setPlaying(false);},[start,end,siteId]);
+ useEffect(()=>{window.clearTimeout(searchTimer.current);setSearching(false);setTime(focusIndex);setSearch(null);setPlaying(false);},[start,end,siteId,focusIndex]);
  useEffect(()=>{setSearch(null);},[constraints]);
  useEffect(()=>{
   if(!showConfigure)return;
@@ -107,11 +114,12 @@ function App(){
  };
  const showRidgeHeight = (nextHeight: number) => {
   if (!ridge || !sweep.length) return;
+  window.clearTimeout(searchTimer.current);
+  setSearching(false);
   const times = sweep[0].series.timestamp_utc;
   setSiteId(ridge.id);
   setCandidate(sweep[0].candidate_id);
-  setStart(times[0]);
-  setEnd(times[times.length - 1]);
+  void designer.select(times[0],times[times.length - 1]);
   setHeight(nextHeight);
   setTab('Infrastructure Designer');
   setMoon('site');
@@ -181,7 +189,6 @@ function App(){
  if(error)return shell(moon==='globe'?null:<div className="loading"><AlertTriangle/><h2>Scientific data unavailable</h2><p>{error}</p><p>No synthetic results have been substituted.</p><button onClick={()=>location.reload()}>Retry loading</button></div>);
  if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">Don’t find the perfect landing site. Engineer one!</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
  const links=data.links[siteId];
- const times=data.analyses[0].series.timestamp_utc,days=times.filter((_,i)=>i%48===0);
  const heightsTested=[...new Set(all.map(a=>a.height_m))].sort((a,b)=>a-b);
  const selectedSweep=heightSweep(all,selected.candidate_id);
  const atSiteCell=selected.candidate_id===siteCell;
@@ -192,29 +199,33 @@ function App(){
  const chooseSite=(id:string)=>{setDemoStep(null);const s=data.sites.find(s=>s.id===id)!;setSiteId(id);setCandidate(`r${s.row}c${s.col}`);setHeight(0);setSearch(null);};
  const chooseCandidate=(id:string)=>{setDemoStep(null);setCandidate(id);setTab('Infrastructure Designer');setNotice('Station moved to the nearest evaluated terrain cell.');};
  const chooseHeight=(h:number)=>{setDemoStep(null);setHeight(h);setTab('Infrastructure Designer');setNotice(`Loaded the precomputed ${h} m terrain horizon; metrics re-integrated over the selected window.`);};
- const setWindow=(nextStart:string,nextEnd:string)=>{setDemoStep(null);setStart(nextStart);setEnd(nextEnd);};
- const setCompareWindow=(nextStart:string,nextEnd:string)=>{setCompareStart(nextStart);setCompareEnd(nextEnd);};
- const runSearch=()=>{if(searching)return;setShowConfigure(false);setDemoStep(null);performSearch(all,links,constraints);};
+ const setWindow=(nextStart:string,nextEnd:string)=>{
+  setDemoStep(null);
+  window.clearTimeout(searchTimer.current);
+  setSearching(false);
+  void designer.select(nextStart,nextEnd);
+ };
+ const runSearch=()=>{if(searching||designer.status==='loading')return;setShowConfigure(false);setDemoStep(null);performSearch(all,links,constraints);};
  const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else runSearch();};
  const exportResult=()=>{const blob=new Blob([JSON.stringify({analysis:selected,baseline,local_link:link,constraints,optimizer:search?{evaluated:search.evaluated,feasible:search.feasible,objective:'height/20 + distance/1000 + slope/90'}:null,methodology:data.methodology},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='site-forge-analysis.json';a.click();URL.revokeObjectURL(url);};
 
  const demo=demoStep===null?null:{step:demoStep,total:plan.length,label:plan[demoStep].label,ms:plan[demoStep].ms};
  const stage=moon==='globe'?'hidden':moon==='in'?(descend?'descend':'arrive'):moon==='out'?'leave':'on';
- const compare=<MonthlyCompare sites={data.sites} renderNovember={()=><>
-  <div className="compare-intro"><p>Choose independent November 2026 windows at ground level.</p></div>
+ const compare=<MonthlyCompare sites={data.sites} renderTimelines={()=><>
+  <div className="compare-intro"><p>Choose independent UTC windows at ground level.</p></div>
   <div className="compare-grid">
    {data.sites.map((site, i)=>{
-    const raw = data.analyses.find(a=>a.position.row===site.row&&a.position.col===site.col&&a.height_m===0)!;
-    const analysis = sliceAnalysis(raw, i===0 ? start : compareStart, i===0 ? end : compareEnd);
+    const comparison = i===0 ? compareA : compareB;
+    const analysis = comparison.window.analyses[0];
     const timestamps = analysis.series.timestamp_utc;
     const windowStart = timestamps[0], windowEnd = timestamps[timestamps.length-1];
-    const cursor = Math.min(time, timestamps.length-1);
+    const cursor = Math.min(compareTime, timestamps.length-1);
     return <article className="comparison" key={site.id}>
      <div className="comparison-title">
       <div><h2>{site.name}</h2><small>{fmt(Math.abs(site.latitude_deg),5)}° S / {fmt(Math.abs(site.longitude_deg),5)}° W</small></div>
       <span className="eyebrow">0 M AGL</span>
      </div>
-     <DateWindowPicker days={days} start={windowStart} end={windowEnd} label={`${site.name} observation window`} onChange={i===0 ? setWindow : setCompareWindow}/>
+     <DateWindowPicker days={observationDays} start={windowStart} end={windowEnd} label={`${site.name} observation window`} onChange={comparison.select} status={comparison.status}/>
      <p className="micro">Cursor: {utc(timestamps[cursor])} UTC</p>
      <div className="comparison-metrics">
       {(['sun','earth','both'] as const).map(body=>{
@@ -232,8 +243,8 @@ function App(){
        />;
       })}
      </div>
-     <TimelineChart analysis={analysis} index={cursor} onIndex={setTime} body="sun"/>
-     <TimelineChart analysis={analysis} index={cursor} onIndex={setTime} body="earth"/>
+     <TimelineChart analysis={analysis} index={cursor} onIndex={setCompareTime} body="sun"/>
+     <TimelineChart analysis={analysis} index={cursor} onIndex={setCompareTime} body="earth"/>
      <dl className="facts">
       <div><dt>Longest solar outage</dt><dd>{fmt(analysis.metrics.sun.longest_outage_hours)} h</dd></div>
       <div><dt>Longest Earth outage</dt><dd>{fmt(analysis.metrics.earth.longest_outage_hours)} h</dd></div>
@@ -262,7 +273,7 @@ function App(){
        {showConfigure&&<>
         <h2 className="panel-title"><label htmlFor="landing-site">Landing site</label></h2>
         <select id="landing-site" value={siteId} onChange={e=>chooseSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
-        <DateWindowPicker days={days} start={start} end={end} label="Observation window" onChange={setWindow}/>
+        <DateWindowPicker days={observationDays} start={start} end={end} label="Observation window" onChange={setWindow} status={designer.status}/>
         <div className="section-rule"/>
         <h2 className="panel-title">Station</h2>
         <PositionPicker options={positions} value={selected.candidate_id} onPreview={setPositionPreview} onSelect={chooseCandidate}/>
@@ -274,11 +285,11 @@ function App(){
         </details>
         <div className="section-rule"/>
         <button className="constraints-toggle" aria-expanded={showConstraints} aria-controls="search-constraints" onClick={()=>setShowConstraints(!showConstraints)}><SlidersHorizontal size={14}/> Search constraints <ChevronDown size={14}/></button>
-        <div className="constraint-fields" id="search-constraints" hidden={!showConstraints}>{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:744} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:744,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label><p className="fine">{all.length} precomputed configurations across {positions.length} cells and {heightsTested.length} heights.</p></div>
+        <div className="constraint-fields" id="search-constraints" hidden={!showConstraints}>{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label><p className="fine">{all.length} precomputed configurations across {positions.length} cells and {heightsTested.length} heights.</p></div>
        </>}
       </div>
      </div>
-     <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
+     <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
     </div>
   <ul className="map-legend" aria-label="Map legend">
    <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
@@ -294,7 +305,7 @@ function App(){
   <section className="timeline glass" aria-label="Sun and Earth over time">
   <div className="timeline-side">
    <h2 className="panel-title">Timeline</h2>
-   <div className="time-current"><button aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button><div><b>{utc(selected.series.timestamp_utc[index])}</b><small>2026 · UTC</small></div>{focusIndex>0&&atSiteCell&&<button className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}</div>
+   <div className="time-current"><button aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button><div><b>{utc(selected.series.timestamp_utc[index])}</b><small>{selected.series.timestamp_utc[index].slice(0,4)} · UTC</small></div>{focusIndex>0&&atSiteCell&&<button className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}</div>
    {contrast.length>0?<p className="contrast-note">Contrast instant: {contrast.map(b=>b==='sun'?'Sun':'Earth').join(' and ')} blocked at 0 m, in view at {sitePeak} m.</p>:<p className="micro">Hover a chart or drag the slider to scrub through the window.</p>}
   </div>
   <div className="timeline-plots">
@@ -320,5 +331,5 @@ function Science({data}:{data:Bundle}){return <section className="science-page">
  <details><summary>Inspect dataset provenance</summary>
   <p>The local DEM covers {fmt(data.terrain.original_shape[1]*data.terrain.pixel_size_m/1000,2)} × {fmt(data.terrain.original_shape[0]*data.terrain.pixel_size_m/1000,2)} km.</p>
   <pre>{JSON.stringify(data.methodology.provenance,null,2)}</pre>
- </details><p className="footnote">Implemented with assistance from OpenAI Codex. SITE//FORGE is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>5 m / vertex</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">Every result remains usable without a live NASA API connection. New terrain, dates outside the cache, or new candidate positions require regeneration of the scientific dataset.</p></aside></section>;}
+ </details><p className="footnote">Implemented with assistance from OpenAI Codex. SITE//FORGE is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>5 m / vertex</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Cached observation window</dt><dd>Nov 2026 – Apr 2027 UTC</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">Every result remains usable without a live NASA API connection. New terrain, dates outside the cache, or new candidate positions require regeneration of the scientific dataset.</p></aside></section>;}
 export default App;

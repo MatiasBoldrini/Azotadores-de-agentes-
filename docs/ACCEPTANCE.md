@@ -27,6 +27,6 @@ No claim of event eligibility or official NASA certification is made.
 
 ## Completed verification
 
-All local product gates above have evidence in `validation_report.md`, `docs/BROWSER_VALIDATION.md`, and the executed Python/JavaScript suites. The static product was tested with no Python application backend. Terrain positioning is explicitly restricted to 26 precalculated candidate cells; date selection is restricted to November 2026. The finite optimum is not a global or certified optimum.
+All local product gates above have evidence in `validation_report.md`, `docs/BROWSER_VALIDATION.md`, and the executed Python/JavaScript suites. The static product was tested with no Python application backend. Terrain positioning is explicitly restricted to 26 precalculated candidate cells; Designer and Compare observation timelines default to November 2026 and support custom UTC windows through the May 1, 2027 endpoint. The finite optimum is not a global or certified optimum.
 
 GitHub is the distribution target for this version. Public deployment is outside the current scope. The official event resource/rule verification and independent matched scientific benchmark remain incomplete. No claim of 100% scientific certainty is made.

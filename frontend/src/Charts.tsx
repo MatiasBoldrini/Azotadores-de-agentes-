@@ -48,11 +48,15 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
  const colorStops=useMemo(()=>elevationColorStops(visibility,bodyColor),[visibility,bodyColor]);
  const compare=baseline&&(baseline.candidate_id!==analysis.candidate_id||baseline.height_m!==analysis.height_m)?baseline:undefined;
  const baseHorizon=compare?.series[`${body}_horizon_deg`];
- const [min,max]=range([...values,...horizon,...(baseHorizon??[])]);
  const left=44,right=56,top=6,bottom=18,w=Math.max(width,160);
- const x=(i:number)=>left+i/(n-1)*(w-left-right);
- const y=(v:number)=>top+(1-(v-min)/(max-min))*(height-top-bottom);
- const line=(v:number[])=>v.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+ const {min,max,x,y,ticks,horizonPath,bodyPath,baselinePath}=useMemo(()=>{
+  const [min,max]=range([...values,...horizon,...(baseHorizon??[])]);
+  const x=(i:number)=>left+i/(n-1)*(w-left-right);
+  const y=(v:number)=>top+(1-(v-min)/(max-min))*(height-top-bottom);
+  const line=(v:number[])=>v.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  return {min,max,x,y,ticks:dayTicks(s.timestamp_utc,w-left-right),horizonPath:line(horizon),
+   bodyPath:line(values),baselinePath:baseHorizon&&line(baseHorizon)};
+ },[values,horizon,baseHorizon,n,w,height,s.timestamp_utc]);
  const t0=Date.parse(s.timestamp_utc[0]),span=Date.parse(s.timestamp_utc[n-1])-t0;
  const visible=visibility[index];
  const pick=(clientX:number,el:Element)=>{const r=el.getBoundingClientRect();onIndex(Math.round(Math.max(0,Math.min(1,(clientX-r.left-left)/(r.width-left-right)))*(n-1)));};
@@ -70,10 +74,10 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
    </linearGradient></defs>}
    {analysis.metrics[body].intervals.map((v,i)=>{const a=left+(Date.parse(v.start_utc)-t0)/span*(w-left-right),b=left+(Date.parse(v.end_utc)-t0)/span*(w-left-right);return <rect key={i} x={a} y={top} width={Math.max(1,b-a)} height={height-top-bottom} fill={COLORS[body]} opacity=".08"/>;})}
    {[min,0,max].filter((v,i,a)=>a.indexOf(v)===i).map(v=><g key={v}><line x1={left} x2={w-right} y1={y(v)} y2={y(v)} stroke={v===0?'#4A4A4A':'#2A2A2A'} strokeDasharray={v===0?undefined:'2 4'}/><text x={left-6} y={y(v)+3.5} textAnchor="end" fill={AXIS}>{v}°</text></g>)}
-   {dayTicks(s.timestamp_utc,w-left-right).map(i=><text key={i} x={x(i)} y={height-4} textAnchor={i===0?'start':'middle'} fill={AXIS}>{dayLabel(s.timestamp_utc[i])}</text>)}
-   {baseHorizon&&<path d={line(baseHorizon)} fill="none" stroke="#8F8F8F" strokeWidth="1" strokeDasharray="1 3"/>}
-   <path key={`${analysis.candidate_id}-${analysis.height_m}`} className="fade-in" d={line(horizon)} fill="none" stroke="#BDBDBD" strokeWidth="1.1" strokeDasharray="4 3"/>
-   <path d={line(values)} fill="none" stroke={colorStops.length===1?colorStops[0].color:`url(#${gradientId})`} strokeWidth="1.8"/>
+   {ticks.map(i=><text key={i} x={x(i)} y={height-4} textAnchor={i===0?'start':'middle'} fill={AXIS}>{dayLabel(s.timestamp_utc[i])}</text>)}
+   {baselinePath&&<path d={baselinePath} fill="none" stroke="#8F8F8F" strokeWidth="1" strokeDasharray="1 3"/>}
+   <path key={`${analysis.candidate_id}-${analysis.height_m}`} className="fade-in" d={horizonPath} fill="none" stroke="#BDBDBD" strokeWidth="1.1" strokeDasharray="4 3"/>
+   <path d={bodyPath} fill="none" stroke={colorStops.length===1?colorStops[0].color:`url(#${gradientId})`} strokeWidth="1.8"/>
    <line x1={x(index)} x2={x(index)} y1={top} y2={height-bottom} stroke="#F5F5F5" opacity=".55"/>
    <circle cx={x(index)} cy={y(horizon[index])} r="6" fill="none" stroke="#BDBDBD" strokeWidth="1"/>
    <circle cx={x(index)} cy={y(values[index])} r="3.5" fill={visible?bodyColor:'#050505'} stroke={visible?bodyColor:BLOCKED} strokeWidth="1.5"/>
