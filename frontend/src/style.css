@@ -15,6 +15,11 @@
 .ridge-options strong,.ridge-options span{display:block;font-size:11px;line-height:1.4}
 .ridge-options span{color:#a9b7ab;margin-top:4px;font-size:10px}
 .demo-status{padding:8px 30px;background:#2d382a;color:#dcebd6;font-size:12px}
+.celestial-ray-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 0;padding:0;list-style:none;color:#d0d8d3;font:10px 'IBM Plex Mono',monospace}
+.celestial-ray-legend li{display:flex;align-items:center;gap:6px}
+.ray-marker{display:block;width:7px;height:7px;background:currentColor}
+.ray-marker-sun{border-radius:50%}
+.ray-marker-earth{transform:rotate(45deg)}
 footer .footer-sources{display:flex;gap:12px;flex-wrap:wrap}
 footer .geometry-note{display:block!important;line-height:1.5}
 @media(max-width:900px){.ridge-finding{grid-template-columns:1fr;padding:14px 20px}footer{flex-wrap:wrap}}
