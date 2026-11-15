@@ -15,24 +15,12 @@ const HOME:[number,number,number]=[1.95,1.5,2.25],TOP:[number,number,number]=[0,
 const DESCENT_MS=900;
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#A3A3A3',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
-const BODIES={sun:{label:'Sun',color:C.sun},earth:{label:'Earth',color:C.earth}} as const;
+const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#ff625e';
 
 type Approach='hold'|'descend'|null;
 type Props={active:boolean;approach:Approach;focus?:RefObject<HTMLElement|null>;terrain:Terrain;positions:EvaluatedPosition[];previewId:string|null;selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean;feasible?:Set<string>;recommended?:string};
-
-export function CelestialRayLegend({selected,time}:Pick<Props,'selected'|'time'>){
- return <ul className="celestial-ray-legend" aria-label="Celestial sightlines">
-  {BODY_KEYS.map(body=>{
-   const visible=selected.series[`${body}_visible`][time];
-   return <li key={body}>
-    <span className={`ray-marker ray-marker-${body}`} style={{color:visible?BODIES[body].color:BLOCKED_COLOR}} aria-hidden="true"/>
-    {BODIES[body].label} · {visible?'Visible':'Blocked'}
-   </li>;
-  })}
- </ul>;
-}
 
 const LABEL_FONT='600 34px Inter, system-ui, sans-serif';
 function useFontReady(){
@@ -211,7 +199,7 @@ function Scene(p:SceneProps){
  });
  const add=(a:[number,number,number],b:[number,number,number]):[number,number,number]=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
  const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
- const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,points:[head,add(head,r.dir)],label:`${BODIES[r.body].label} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
+ const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,points:[head,add(head,r.dir)],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
  if(!atLander) hoverRays.push({id:'link',points:[add(lander,[0,.02,0]),add(ground,[0,MAST_BASE,0])],label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
  const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
  if(!atLander) labelPositions.push(add(lander,[0,.1,0]));

@@ -1,6 +1,6 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
 import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,Telescope,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Radio,Target} from 'lucide-react';
-import TerrainView,{CelestialRayLegend,MAST_EXAGGERATION,VERTICAL_EXAGGERATION} from './TerrainView';
+import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION} from './TerrainView';
 import DateWindowPicker from './DateWindowPicker';
 import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
@@ -249,7 +249,7 @@ function App(){
   <p className="micro">{all.length} precomputed configurations · {positions.length} cells × {heightsTested.length} heights · finite search</p>
  </aside>
   <section ref={focusRef} className={`terrain-panel ${searching?'is-searching':''}`} aria-label="Interactive lunar terrain">
-  <div className="terrain-title"><span className="eyebrow">NASA LOLA · 5 m DEM</span><h2>Connecting Ridge <span>{site.name}</span></h2><CelestialRayLegend selected={selected} time={index}/></div>
+  <div className="terrain-title"><h2>Connecting Ridge</h2></div>
   <ul className="map-legend" aria-label="Map legend">
    <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
    <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
