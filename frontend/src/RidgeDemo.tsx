@@ -19,7 +19,7 @@ export function RidgeFinding({ sweep, onHeight }: { sweep: Analysis[]; onHeight:
  return (
   <section className="ridge-finding" aria-label="Connecting Ridge November experiment">
    <div>
-    <h2>Earth visibility reaches {hours(plateau.metrics.earth.total_hours)} hours at 10 m.</h2>
+    <h1>Earth visibility reaches {hours(plateau.metrics.earth.total_hours)} hours at 10 m.</h1>
     <p>In November 2026 (UTC), ground level at the same Ridge A terrain cell gives {hours(baseline.metrics.earth.total_hours)} hours. The longest gap with no simultaneous visibility drops from {hours(baseline.metrics.both.longest_outage_hours)} to {hours(plateau.metrics.both.longest_outage_hours)} hours.</p>
    </div>
    <div className="ridge-options">
