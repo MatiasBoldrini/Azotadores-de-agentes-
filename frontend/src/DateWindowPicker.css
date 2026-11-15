@@ -1,0 +1,134 @@
+.date-pair .utc-date-trigger {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  text-align: left;
+  color: #a0aaa6;
+  font-size: 10px;
+}
+
+.utc-date-trigger > span:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  min-height: 36px;
+  padding: 4px;
+  border: 1px solid #343b3c;
+  border-radius: 4px;
+  background: #1c2022;
+  color: #dfe5e1;
+  font: 10px 'IBM Plex Mono', monospace;
+  white-space: nowrap;
+}
+
+.utc-date-trigger:hover > span:last-child {
+  border-color: #85938a;
+}
+
+.utc-calendar-dialog {
+  width: min(336px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid #56645c;
+  border-radius: 6px;
+  color: #e0e5e1;
+  background: #1c2022;
+  box-shadow: 0 12px 40px #0008;
+}
+
+.utc-calendar-dialog::backdrop {
+  background: #101214b3;
+}
+
+.utc-calendar {
+  padding: 14px;
+}
+
+.utc-calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.utc-calendar .utc-calendar-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.utc-calendar-header h3 {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.utc-calendar-header + .utc-calendar-header {
+  margin-top: 10px;
+}
+
+.utc-calendar button {
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  outline-offset: -2px;
+  font-size: 13px;
+}
+
+.utc-calendar-header button {
+  width: 36px;
+  height: 36px;
+}
+
+.utc-calendar button:enabled:hover:not([aria-disabled='true']) {
+  border-color: #78867c;
+  background: #303c33;
+}
+
+.utc-calendar button:disabled,
+.utc-calendar button[aria-disabled='true'] {
+  opacity: 1;
+  color: #7a8581;
+  cursor: default;
+}
+
+.utc-calendar table {
+  table-layout: fixed;
+  width: 100%;
+  margin-top: 6px;
+  border-spacing: 2px;
+}
+
+.utc-calendar th {
+  padding-bottom: 4px;
+  color: #adb8b1;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.utc-calendar td {
+  padding: 0;
+}
+
+.utc-calendar td button {
+  width: 100%;
+  min-height: 36px;
+}
+
+.utc-calendar td[aria-selected='true'] button {
+  border-color: var(--green);
+  background: #39473a;
+  color: #f0f5ef;
+}
+
+.utc-calendar-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
