@@ -468,10 +468,11 @@ function SkyBodies({rays}:{rays:Ray[]}){
  useEffect(()=>()=>{looks.sun.texture.dispose();looks.earth.texture.dispose();},[looks]);
  useFrame(({camera})=>{shell.current?.position.copy(camera.position);});
  return <group ref={shell}>
-  {rays.filter(r=>r.visible).map(r=>{
+  {rays.map(r=>{
    const d=new THREE.Vector3(...r.dir).normalize(),{texture,size}=looks[r.body],scale=2*SKY_KM*Math.tan(size/2*DEG);
    const p=d.clone().multiplyScalar(SKY_KM);
-   return <group key={r.body}>
+   // Hidden rather than unmounted while out of view, like the rays, so their shaders stay compiled.
+   return <group key={r.body} visible={r.visible}>
     <sprite position={p} scale={[scale,scale,1]} renderOrder={60}><spriteMaterial map={texture} depthTest={false} depthWrite={false} transparent blending={THREE.AdditiveBlending}/></sprite>
     <Label position={[p.x,p.y+SKY_KM*(r.body==='earth'?.034:.03),p.z]} color={C[r.body]} size={.02} text={`${r.body==='sun'?'SUN':'EARTH'} · IN VIEW`}/>
    </group>;
@@ -482,23 +483,24 @@ function SkyBodies({rays}:{rays:Ray[]}){
 type Point3=[number,number,number];
 // drei's Line rebuilds its geometry and disposes its material whenever `points` is a new array, so every
 // re-render recompiled the line shaders. This one keeps its first array and moves the vertices in place.
-function SteadyLine({points,line,...rest}:Omit<ComponentProps<typeof Line>,'points'|'ref'>&{points:Point3[];line?:TerrainLine}){
+function SteadyLine({points,line,self,...rest}:Omit<ComponentProps<typeof Line>,'points'|'ref'>&{points:Point3[];line?:TerrainLine;self?:TerrainLine}){
  const own=useRef<ComponentRef<typeof Line>|null>(null),[first]=useState(points),flat=points.flat(),key=flat.join();
  useLayoutEffect(()=>{const l=own.current;if(!l)return;l.geometry.setPositions(flat);l.computeLineDistances();},[key]);
- return <Line ref={l=>{own.current=l;if(line)line.current=l;}} points={first} {...rest}/>;
+ return <Line ref={l=>{own.current=l;if(self)self.current=l;if(line)line.current=l;}} points={first} {...rest}/>;
 }
 
 // A thin ray from the mast head to where the body's disc sits on the sky shell around the camera. A body well
 // away from the view direction keeps a short ray pointing at it instead.
-function SkyRay({dir,color,line}:{dir:[number,number,number];color:string;line:TerrainLine}){
+function SkyRay({dir,color,line,shown}:{dir:[number,number,number];color:string;line:TerrainLine;shown:boolean}){
  const from=useMemo(()=>new THREE.Vector3(),[]),to=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),d=useMemo(()=>new THREE.Vector3(...dir).normalize(),[dir]);
+ const self=useRef<ComponentRef<typeof Line>|null>(null);
  useFrame(({camera})=>{
-  const l=line.current;if(!l?.parent)return;
+  const l=self.current;if(!l?.parent)return;
   if(camera.getWorldDirection(ahead).dot(d)<.5)to.copy(d).multiplyScalar(RAY);
   else{l.parent.getWorldPosition(from);to.copy(camera.position).addScaledVector(d,SKY_KM).sub(from);}
   l.geometry.setPositions([0,0,0,to.x,to.y,to.z]);
  });
- return <SteadyLine line={line} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
+ return <SteadyLine self={self} line={shown?line:undefined} visible={shown} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
 }
 
 function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
@@ -520,15 +522,16 @@ function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[nu
   <mesh ref={mast}><cylinderGeometry args={[.0045,.0045,1,10]}/><meshBasicMaterial color={C.station}/></mesh>
   <group ref={head}>
    <mesh><octahedronGeometry args={[.024]}/><meshBasicMaterial color={C.station}/></mesh>
-   {rays.map(({body,dir,visible})=>{
-    const color=visible?C[body]:BLOCKED_COLOR;
-    // In-view rays run out to the body's disc on the sky; blocked rays stay short and draw over the terrain.
-    return visible?<SkyRay key={body} dir={dir} color={color} line={lines[body]}/>:<group key={body}>
-     <SteadyLine line={lines[body]} points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
-     <mesh position={dir} renderOrder={71}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={false} transparent/></mesh>
-     <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · BLOCKED`}/>
-    </group>;
-   })}
+   {/* In-view rays run out to the body's disc on the sky; blocked rays stay short and draw over the terrain.
+       Both forms stay mounted, so a body coming into or out of view never releases and recompiles their shaders. */}
+   {rays.map(({body,dir,visible})=><group key={body}>
+    <SkyRay dir={dir} color={C[body]} line={lines[body]} shown={visible}/>
+    <group visible={!visible}>
+     <SteadyLine line={visible?undefined:lines[body]} points={[[0,0,0],dir]} color={BLOCKED_COLOR} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
+     <mesh position={dir} renderOrder={71}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={BLOCKED_COLOR} depthTest={false} transparent/></mesh>
+     <Label position={[dir[0],dir[1]+.06,dir[2]]} color={BLOCKED_COLOR} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · BLOCKED`}/>
+    </group>
+   </group>)}
    <Label position={[0,.09,0]} color={C.station} text={label}/>
   </group>
   {linkTo&&<SteadyLine line={lines.link} points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:BLOCKED_COLOR} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
