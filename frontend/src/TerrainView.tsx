@@ -5,29 +5,38 @@ import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
 import type {EvaluatedPosition} from './PositionPicker';
 import {starfield} from './moon/stars';
-import {MOON_LIGHTS,MOON_TEXTURES,buildMoon,setMoonOpacity} from './moon/globe';
+import {MOON_LIGHTS,MOON_TEXTURES,POLAR_GRID,buildMoon,setMoonOpacity} from './moon/globe';
 import {APPROACH_KM,LANDING_FOV,heroPose,horizonPose,type Pose,type SiteFrame} from './moon/frame';
-import {SITE01_SIZE,useSite01,useSurround,type DemLevel} from './site01';
+import {SITE01_SIZE,useRegional,useSite01,useSurround,type DemLevel} from './site01';
 import {TerrainRayHover,TerrainRayTooltip,type TerrainLine,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
 
 export const VERTICAL_EXAGGERATION = 4;
 // The mast glyph is stretched beyond the relief scale so that metre-scale heights read on a 2.5 km scene.
 export const MAST_EXAGGERATION=12;
 const MAST_BASE=.03,MAST_PER_M=MAST_EXAGGERATION/1000,RAY=.85;
-const FOV=40,HERO_HFOV=72,MIN_FOV=46,MAX_FOV=66,DEG=Math.PI/180,MAX_KM=9,DESCENT_MS=2400;
+const FOV=40,HERO_HFOV=72,MIN_FOV=46,MAX_FOV=66,DEG=Math.PI/180,MAX_KM=120,DESCENT_MS=2400;
 // Hillshade light, as azimuth from local north and altitude above the horizon.
 const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
+// Shadow maps of the key light, finest first, as half-width and half-height (km) seen from the light, depth
+// (km either side of the site along the light), map size and depth/normal bias. The first light carries the
+// light; the others only cast the coarser shadows. The low sun flattens the ground to about a quarter of its
+// width in light space, and casters far toward it can still reach the ground around the site.
+const SHADOW_CASCADES=[{wide:12,tall:12,depth:100,map:4096,bias:-.00015,normalBias:.012},
+ {wide:60,tall:30,depth:180,map:2048,bias:-.0002,normalBias:.06},{wide:330,tall:110,depth:340,map:4096,bias:-.0003,normalBias:.2}];
 // Every evaluated cell lies within 0.598 of the half-width, so the tile keeps its own samples well past them.
-const TILE_BLEND=.92,SURROUND_BLEND=.85;
-// The Site01 DEM is cut to the largest disc around the tile it covers; its rim is the close-up's skyline.
-const DISC_KM=7.95;
-// Resting view: inside the back of the 5 m square, just above the crest, so the near field is all 5 m relief and
-// the summit's fall-off is the skyline; the frame reaches 9° above the horizontal, past the highest body.
-const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
+const TILE_BLEND=.92,LEVEL_BLEND=.85;
+// Resting view: HERO_BACK km behind the site and HERO_RISE km above its mean level, high enough that the
+// exaggerated ranges out to the horizon sink below the line of sight and the limb curves away under the sky;
+// the frame reaches HERO_SKY° above the horizontal, past the highest body.
+const HERO_BACK=12,HERO_RISE=6,HERO_SKY=9;
 // Bodies are drawn on a sky shell around the camera at their apparent sizes (degrees).
 const SKY_KM=100,SUN_DEG=.53,EARTH_DEG=1.9;
-// Descent progress over which the landing globe fades out.
+// The far plane always reaches past the polar grids' rim, which peaks can lift above the horizon.
+const FAR_KM=450;
+// Without the polar grids the Site01 disc ends in sight, so the landing globe fades out over this descent progress.
 const GLOBE_FADE=[.6,.9];
+// Camera altitudes (km) over which terrain and globe go back to the polar mosaic, so zooming out reads as the globe.
+const OVERVIEW_KM=[40,160];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
@@ -66,7 +75,7 @@ function Label({text,position,color='#F5F5F5',size=.022,depthTest=false}:{text:s
 const MARKER_KM=4.5;
 function ScreenScale({position,children}:{position:[number,number,number];children:ReactNode}){
  const g=useRef<THREE.Group>(null),at=useMemo(()=>new THREE.Vector3(),[]);
- useFrame(({camera})=>{const o=g.current;if(o)o.scale.setScalar(THREE.MathUtils.clamp(camera.position.distanceTo(o.getWorldPosition(at))/MARKER_KM,.1,1.6));});
+ useFrame(({camera})=>{const o=g.current;if(o)o.scale.setScalar(THREE.MathUtils.clamp(camera.position.distanceTo(o.getWorldPosition(at))/MARKER_KM,.1,2.4));});
  return <group ref={g} position={position}>{children}</group>;
 }
 
@@ -90,10 +99,16 @@ function extent(l:DemLevel,frame:SiteFrame,inset=0):Rect{
  return [(l.x0+a-cx)/1000+inset,(l.x0+b-cx)/1000-inset,-(l.y0-a-cy)/1000+inset,-(l.y0-b-cy)/1000-inset];
 }
 
+// The largest disc around the tile centre inside a level's vertices (km).
+const rimKm=(l:DemLevel,frame:SiteFrame)=>Math.min(...extent(l,frame).map(Math.abs))-l.px/2000;
+// Each level's arrays are only needed until they reach the GPU; nothing reads them back (no raycasting).
+function release(this:THREE.BufferAttribute){(this as {array:unknown}).array=null;}
+
 // One DEM level as a grid of its pixel centres. Toward its border the relief eases into the next coarser
 // surface (`outer`, elevation in metres at polar stereographic metres), so neighbouring levels meet without a step.
 // With `clip` (km), samples beyond that radius of the tile centre move onto the circle, giving a round rim.
-function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number)|null,blend:number,clip=0,skirt=0){
+// Cells lying a full cell inside `inner` (the finer level, in scene km) are left out.
+function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number)|null,blend:number,inner:Rect|null,clip=0,skirt=0){
  const n=l.n,count=n*n,edge=skirt?4*(n-1):0,pos=new Float32Array((count+edge)*3),half=(n-1)/2,[cx,cy]=ground.frame.centerPs;
  for(let i=0;i<n;i++)for(let j=0;j<n;j++){
   let x=l.x0+(j+.5)*l.px,y=l.y0-(i+.5)*l.px,h=l.data[i*n+j];
@@ -102,8 +117,9 @@ function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number
   if(outer){const u=Math.max(Math.abs(j-half),Math.abs(i-half))/half;if(u>blend)h+=(outer(x,y)-h)*THREE.MathUtils.smootherstep(u,blend,1);}
   toScene(ground,x,y,h,pos,(i*n+j)*3);
  }
- const quads=(n-1)*(n-1),index=new Uint32Array(quads*6+edge*6);let q=0;
- for(let i=0;i<n-1;i++)for(let j=0;j<n-1;j++){const a=i*n+j;index.set([a,a+n,a+1,a+1,a+n,a+n+1],q);q+=6;}
+ const cell=l.px/1000,covered=(a:number)=>!!inner&&pos[a*3]>inner[0]+cell&&pos[a*3]<inner[1]-cell&&pos[a*3+2]>inner[2]+cell&&pos[a*3+2]<inner[3]-cell;
+ const index=new Uint32Array((n-1)*(n-1)*6+edge*6);let q=0;
+ for(let i=0;i<n-1;i++)for(let j=0;j<n-1;j++){const a=i*n+j;if(covered(a)&&covered(a+n+1))continue;index.set([a,a+n,a+1,a+1,a+n,a+n+1],q);q+=6;}
  if(skirt){
   // A skirt hangs from the rim so no gap opens against the globe while it is still in view.
   const ring=[...Array.from({length:n-1},(_,j)=>j),...Array.from({length:n-1},(_,i)=>i*n+n-1),...Array.from({length:n-1},(_,j)=>(n-1)*n+n-1-j),...Array.from({length:n-1},(_,i)=>(n-1-i)*n)];
@@ -112,9 +128,10 @@ function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number
  }
  const g=new THREE.BufferGeometry();
  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
- g.setIndex(new THREE.BufferAttribute(index,1));
+ g.setIndex(new THREE.BufferAttribute(index.slice(0,q),1));
  g.computeVertexNormals();
  g.computeBoundingSphere();
+ for(const a of [g.index,g.attributes.position,g.attributes.normal] as THREE.BufferAttribute[])a.onUpload(release);
  return g;
 }
 
@@ -133,42 +150,87 @@ function snapshotGeometry(ground:Ground){
  return g;
 }
 
+// Seen from orbit the terrain wears the globe's polar mosaic, yielding to the neutral albedo exactly as the
+// globe does (where a texel is magnified, as `magnified` rises) and everywhere by the end of the descent.
+type Mosaic={map:THREE.Texture;magnified:{value:number};centerPs:[number,number]};
+const MOSAIC_GLSL=`vec2 polarTexels=fwidth(vPolarUv)*${POLAR_GRID.size.toFixed(1)};
+ float neutral=max(siteMagnified*(1.0-smoothstep(.35,1.0,max(polarTexels.x,polarTexels.y))),smoothstep(.8,1.0,siteMagnified));
+ diffuseColor.rgb=mix(texture2D(polarMap,vPolarUv).rgb,diffuseColor.rgb,neutral);`;
+
+// The key light's shadow comes from three nested maps around the site (see SHADOW_CASCADES), finest first,
+// each easing into the next toward its edge, so the terrain out to the horizon is shadowed without a seam.
+const CASCADE_GLSL=`#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS == 3
+float cascadeEdge(vec4 c){vec3 p=c.xyz/c.w;return p.z>1.0?0.0:smoothstep(0.0,.06,min(min(p.x,1.0-p.x),min(p.y,1.0-p.y)));}
+#define CASCADE(k) getShadow(directionalShadowMap[k],directionalLightShadows[k].shadowMapSize,directionalLightShadows[k].shadowIntensity,directionalLightShadows[k].shadowBias,directionalLightShadows[k].shadowRadius,vDirectionalShadowCoord[k])
+float cascadeShadow(){
+ float fine=cascadeEdge(vDirectionalShadowCoord[0]);
+ if(fine>=1.0)return CASCADE(0);
+ float mid=cascadeEdge(vDirectionalShadowCoord[1]);
+ float coarse=mid>=1.0?CASCADE(1):mid<=0.0?CASCADE(2):mix(CASCADE(2),CASCADE(1),mid);
+ return fine<=0.0?coarse:mix(coarse,CASCADE(0),fine);
+}
+#endif`;
+const DIRECT_SHADOW='directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;';
+const CASCADE_LIGHTS=THREE.ShaderChunk.lights_fragment_begin.replace(DIRECT_SHADOW,`#if NUM_DIR_LIGHT_SHADOWS == 3
+		directLight.color *= ( directLight.visible && receiveShadow && UNROLLED_LOOP_INDEX == 0 ) ? cascadeShadow() : 1.0;
+		#else
+		${DIRECT_SHADOW}
+		#endif`);
+
 // Every terrain level shares one material, so the same albedo and light run unbroken across all of them;
 // each coarser level is cut away where a finer one takes over.
-function terrainMaterial(hole:Rect|null,offset:number){
+function terrainMaterial(hole:Rect|null,offset:number,mosaic?:Mosaic){
  const m=new THREE.MeshStandardMaterial({color:ALBEDO,roughness:1,metalness:0,polygonOffset:offset>0,polygonOffsetFactor:offset,polygonOffsetUnits:offset});
- if(!hole)return m;
+ if(!hole&&!mosaic)return m;
  m.onBeforeCompile=shader=>{
-  shader.uniforms.hole={value:new THREE.Vector4(...hole)};
-  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vTerrainWorld;')
-   .replace('#include <project_vertex>','#include <project_vertex>\nvTerrainWorld=(modelMatrix*vec4(transformed,1.0)).xyz;');
-  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform vec4 hole;\nvarying vec3 vTerrainWorld;')
-   .replace('void main() {','void main() {\n if(vTerrainWorld.x>hole.x&&vTerrainWorld.x<hole.y&&vTerrainWorld.z>hole.z&&vTerrainWorld.z<hole.w)discard;');
+  let vertex='',fragment='',main='';
+  if(hole){
+   shader.uniforms.hole={value:new THREE.Vector4(...hole)};
+   fragment+='uniform vec4 hole;\n';
+   main+=' if(vTerrainWorld.x>hole.x&&vTerrainWorld.x<hole.y&&vTerrainWorld.z>hole.z&&vTerrainWorld.z<hole.w)discard;\n';
+  }
+  if(mosaic){
+   const {xmin,ymax,extent:e}=POLAR_GRID,[cx,cy]=mosaic.centerPs;
+   shader.uniforms.polarMap={value:mosaic.map};
+   shader.uniforms.siteMagnified=mosaic.magnified;
+   shader.uniforms.polarFromScene={value:new THREE.Vector4((cx-xmin)/e,1000/e,1-(ymax-cy)/e,-1000/e)};
+   vertex+='uniform vec4 polarFromScene;\nvarying vec2 vPolarUv;\n';
+   fragment+='uniform sampler2D polarMap;\nuniform float siteMagnified;\nvarying vec2 vPolarUv;\n';
+  }
+  shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>\nvarying vec3 vTerrainWorld;\n${vertex}`)
+   .replace('#include <project_vertex>',`#include <project_vertex>\nvTerrainWorld=(modelMatrix*vec4(transformed,1.0)).xyz;${mosaic?'\nvPolarUv=vec2(polarFromScene.x+polarFromScene.y*vTerrainWorld.x,polarFromScene.z+polarFromScene.w*vTerrainWorld.z);':''}`);
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>\nvarying vec3 vTerrainWorld;\n${fragment}`)
+   .replace('#include <shadowmap_pars_fragment>',`#include <shadowmap_pars_fragment>\n${CASCADE_GLSL}`)
+   .replace('#include <lights_fragment_begin>',CASCADE_LIGHTS)
+   .replace('void main() {',`void main() {\n${main}`)
+   .replace('#include <map_fragment>',mosaic?`#include <map_fragment>\n ${MOSAIC_GLSL}`:'#include <map_fragment>');
  };
- m.customProgramCacheKey=()=>'terrain-hole';
+ m.customProgramCacheKey=()=>`terrain-${hole?'hole':''}-${mosaic?'mosaic':''}`;
  return m;
 }
 
 const noRaycast=()=>{};
 
-type Levels={tile:DemLevel|null;surround:DemLevel[]|null};
-function useLevelGeometry(ground:Ground,{tile,surround}:Levels){
+type Levels={tile:DemLevel|null;surround:DemLevel[]|null;regional:DemLevel[]|null};
+// Finest first: the 5 m tile, the rest of the Site01 GeoTIFF, then the PDS polar grids. Each level eases into
+// the next toward its border and is cut where the finer one takes over; the coarsest ends in a round rim.
+function useLevelGeometry(ground:Ground,{tile,surround,regional}:Levels){
  return useMemo(()=>{
   if(!tile||!surround)return null;
-  const [near,far]=surround;
-  return [
-   {geometry:demGeometry(tile,ground,(x,y)=>bilinear(near,x,y),TILE_BLEND),hole:null,offset:0},
-   {geometry:demGeometry(near,ground,(x,y)=>bilinear(far,x,y),SURROUND_BLEND),hole:extent(tile,ground.frame,.006),offset:1},
-   {geometry:demGeometry(far,ground,null,1,DISC_KM,1.5),hole:extent(near,ground.frame,.012),offset:2},
-  ];
- },[ground,tile,surround]);
+  const list=[tile,...surround,...regional??[]],last=list.length-1,rim=rimKm(list[last],ground.frame);
+  return list.map((l,i)=>{
+   const inner=i?extent(list[i-1],ground.frame,1.2*list[i-1].px/1000):null;
+   const outer=i<last?(x:number,y:number)=>bilinear(list[i+1],x,y):null;
+   return {geometry:demGeometry(l,ground,outer,i?LEVEL_BLEND:TILE_BLEND,inner,i===last?rim:0,i===last?Math.max(1.5,rim*.02):0),hole:inner,offset:i};
+  });
+ },[ground,tile,surround,regional]);
 }
 
-function Surface({ground,levels,wireframe,onPick}:{ground:Ground;levels:Levels;wireframe:boolean;onPick:(r:number,c:number)=>void}){
+function Surface({ground,levels,wireframe,onPick,mosaic}:{ground:Ground;levels:Levels;wireframe:boolean;onPick:(r:number,c:number)=>void;mosaic?:Mosaic}){
  const {terrain}=ground,n=terrain.original_shape[0],gl=useThree(s=>s.gl);
  const coarse=useMemo(()=>snapshotGeometry(ground),[ground]);
  const meshes=useLevelGeometry(ground,levels);
- const materials=useMemo(()=>meshes?.map(m=>terrainMaterial(m.hole,m.offset))??[],[meshes]);
+ const materials=useMemo(()=>meshes?.map(m=>terrainMaterial(m.hole,m.offset,mosaic))??[],[meshes,mosaic]);
  const solid=useMemo(()=>terrainMaterial(null,0),[]);
  useEffect(()=>()=>coarse.dispose(),[coarse]);
  useEffect(()=>()=>{meshes?.forEach(m=>m.geometry.dispose());materials.forEach(m=>m.dispose());},[meshes,materials]);
@@ -183,22 +245,31 @@ function Surface({ground,levels,wireframe,onPick}:{ground:Ground;levels:Levels;w
  </>;
 }
 
-// The real Moon around the site, at true scale: the landing's LROC/LOLA globe, with the site disc cut out and
-// its imagery yielding to the terrain albedo wherever it would be magnified. It carries the descent and is gone
-// by the time the camera settles, leaving only the Site01 DEM under the sky.
-function ContextGlobe({frame,hole,textures:[color,polar,relief],progress}:{frame:SiteFrame;hole:number;textures:THREE.Texture[];progress:RefObject<number>}){
+// The real Moon around the site, at true scale: the landing's LROC/LOLA globe, with the terrain's disc cut out
+// and its imagery yielding to the terrain albedo wherever it would be magnified. It carries the descent; at rest
+// it lies beyond the polar grids' horizon, or fades out if only the Site01 disc is there.
+function ContextGlobe({frame,hole,fade,textures:[color,polar,relief],magnified,progress}:{frame:SiteFrame;hole:number;fade:boolean;textures:THREE.Texture[];magnified:{value:number};progress:RefObject<number>}){
  const {gl}=useThree();
- const magnified=useMemo(()=>({value:0}),[]);
  const moon=useMemo(()=>buildMoon(color,polar,relief,gl.capabilities.getMaxAnisotropy(),{hole,neutral:ALBEDO.clone(),magnified}),[color,polar,relief,gl,hole,magnified]);
- useFrame(()=>{const k=progress.current;magnified.value=k;setMoonOpacity(moon,1-THREE.MathUtils.smoothstep(k,GLOBE_FADE[0],GLOBE_FADE[1]));});
+ useFrame(({camera})=>{
+  const k=progress.current,altitude=camera.position.distanceTo(frame.center)-frame.radiusKm;
+  magnified.value=k*(1-THREE.MathUtils.smoothstep(altitude,OVERVIEW_KM[0],OVERVIEW_KM[1]));
+  setMoonOpacity(moon,fade?1-THREE.MathUtils.smoothstep(k,GLOBE_FADE[0],GLOBE_FADE[1]):1);
+ });
  return <group position={frame.center} quaternion={frame.rotation} scale={frame.scale}><primitive object={moon.sphere}/><primitive object={moon.cap}/></group>;
 }
 
-function SiteGround({ground,tile,surround,progress,...rest}:{ground:Ground;tile:DemLevel|null;surround:DemLevel[]|null;progress:RefObject<number>;wireframe:boolean;onPick:(r:number,c:number)=>void}){
+function SiteGround({ground,levels,progress,...rest}:{ground:Ground;levels:Levels;progress:RefObject<number>;wireframe:boolean;onPick:(r:number,c:number)=>void}){
  // Same URL list as the landing globe, so both canvases share one decoded copy of each texture.
  const textures=useLoader(THREE.TextureLoader,MOON_TEXTURES);
- const hole=surround?DISC_KM-.03:tile?1.27:0;
- return <><ContextGlobe frame={ground.frame} hole={hole} textures={textures} progress={progress}/><Surface ground={ground} levels={{tile,surround}} {...rest}/></>;
+ const magnified=useMemo(()=>({value:0}),[]);
+ const mosaic=useMemo<Mosaic>(()=>({map:textures[1],magnified,centerPs:ground.frame.centerPs}),[textures,magnified,ground.frame]);
+ const {tile,surround,regional}=levels,outer=regional?.at(-1)??surround?.at(-1);
+ const hole=tile&&outer?rimKm(outer,ground.frame)-2*outer.px/1000:tile?1.27:0;
+ return <>
+  <ContextGlobe frame={ground.frame} hole={hole} fade={!regional} textures={textures} magnified={magnified} progress={progress}/>
+  <Surface ground={ground} levels={levels} mosaic={mosaic} {...rest}/>
+ </>;
 }
 
 class GlobeFallback extends Component<{fallback:ReactNode;children:ReactNode},{error:boolean}>{
@@ -221,7 +292,7 @@ function stageRect(c:DOMRect,f?:DOMRect):ViewRect{
 function Lights({frame,progress}:{frame:SiteFrame;progress:RefObject<number>}){
  const rig=useRef<THREE.Group>(null);
  const [moonSun,moonBack]=useMemo(()=>[MOON_LIGHTS.sun.position,MOON_LIGHTS.back.position].map(p=>new THREE.Vector3(...p).normalize().multiplyScalar(5).applyQuaternion(frame.rotation).toArray()),[frame]);
- const key=useMemo(()=>frame.horizontal(LIGHT_AZIMUTH).multiplyScalar(Math.cos(LIGHT_ALTITUDE*DEG)).setY(Math.sin(LIGHT_ALTITUDE*DEG)).multiplyScalar(40).toArray(),[frame]);
+ const toward=useMemo(()=>frame.horizontal(LIGHT_AZIMUTH).multiplyScalar(Math.cos(LIGHT_ALTITUDE*DEG)).setY(Math.sin(LIGHT_ALTITUDE*DEG)),[frame]);
  const small=Math.min(window.innerWidth,window.innerHeight)<700;
  useFrame(()=>{
   const k=progress.current;
@@ -229,20 +300,21 @@ function Lights({frame,progress}:{frame:SiteFrame;progress:RefObject<number>}){
  });
  return <group ref={rig}>
   <hemisphereLight args={['#c3cbd4','#2a2826']} userData={{base:1.1,site:true}}/>
-  <directionalLight position={key} color="#fff4e6" userData={{base:3.2,site:true}} castShadow shadow-mapSize={small?[2048,2048]:[4096,4096]}
-   shadow-camera-left={-12} shadow-camera-right={12} shadow-camera-top={12} shadow-camera-bottom={-12} shadow-camera-near={10} shadow-camera-far={75} shadow-bias={-.0004} shadow-normalBias={.012}/>
+  {SHADOW_CASCADES.map(({wide,tall,depth,map,bias,normalBias},i)=>{const size=small?map/2:map;return <directionalLight key={i} position={toward.clone().multiplyScalar(depth+10).toArray()} color="#fff4e6"
+   userData={{base:i?0:3.2,site:true}} castShadow shadow-mapSize={[size,size]} shadow-camera-left={-wide} shadow-camera-right={wide} shadow-camera-top={tall} shadow-camera-bottom={-tall}
+   shadow-camera-near={10} shadow-camera-far={2*depth+10} shadow-bias={bias} shadow-normalBias={normalBias*map/size}/>;})}
   <directionalLight position={moonSun} color={MOON_LIGHTS.sun.color} userData={{base:MOON_LIGHTS.sun.intensity,site:false}}/>
   <directionalLight position={moonBack} userData={{base:MOON_LIGHTS.back.intensity,site:false}}/>
   <ambientLight userData={{base:MOON_LIGHTS.ambient,site:false}}/>
  </group>;
 }
 
-function Camera({mapView,reset,controls,approach,focus,frame,progress,heroHeight}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;progress:RefObject<number>;heroHeight:number}){
+function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;progress:RefObject<number>}){
  const {camera,gl}=useThree(),cam=camera as THREE.PerspectiveCamera;
  const aspect=useRef(16/9),goal=useRef<Pose>({position:new THREE.Vector3(),target:new THREE.Vector3()}),moving=useRef(false),placed=useRef(false),descent=useRef<number|null>(null),view=useRef('');
  // A slow frame can deliver the tile hand-off and the arrival together, so leaving the hold always descends.
  const held=useRef(false);
- const home=():Pose=>heroPose(frame,fovFor(aspect.current),HERO_BACK,heroHeight,HERO_SKY);
+ const home=():Pose=>heroPose(frame,fovFor(aspect.current),HERO_BACK,HERO_RISE,HERO_SKY);
  const top=():Pose=>({position:new THREE.Vector3(0,Math.max(3.6,1.42/(Math.tan(fovFor(aspect.current)/2*DEG)*Math.min(1,aspect.current))),.001),target:new THREE.Vector3()});
  const rest=()=>mapView?top():home();
  const approachPose=useMemo(()=>horizonPose(APPROACH_KM,frame,LANDING_FOV).position,[frame]);
@@ -288,7 +360,7 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress,heroHeight
   progress.current=k;
   const f=k<1?lerpRect(landingRect(),stage,k):stage,fov=THREE.MathUtils.lerp(LANDING_FOV,fovFor(aspect.current),k);
   const altitude=Math.max(.001,camera.position.distanceTo(frame.center)-frame.radiusKm);
-  const near=THREE.MathUtils.clamp(altitude*.004,.002,10),far=Math.sqrt(altitude*(2*frame.radiusKm+altitude))*1.25+SKY_KM*1.5;
+  const near=THREE.MathUtils.clamp(altitude*.004,.002,10),far=Math.max(Math.sqrt(altitude*(2*frame.radiusKm+altitude))*1.25,FAR_KM);
   const key=[f.left,f.top,f.width,f.height,canvas.left,canvas.top,canvas.width,canvas.height,fov,near,far].map(n=>n.toFixed(2)).join();
   if(key===view.current)return;
   view.current=key;
@@ -323,8 +395,8 @@ function SkyBodies({rays}:{rays:Ray[]}){
    const d=new THREE.Vector3(...r.dir).normalize(),{texture,size}=looks[r.body],scale=2*SKY_KM*Math.tan(size/2*DEG);
    const p=d.clone().multiplyScalar(SKY_KM);
    return <group key={r.body}>
-    <sprite position={p} scale={[scale,scale,1]} renderOrder={60}><spriteMaterial map={texture} depthWrite={false} transparent blending={THREE.AdditiveBlending}/></sprite>
-    <Label position={[p.x,p.y+SKY_KM*(r.body==='earth'?.034:.03),p.z]} color={C[r.body]} size={.02} depthTest text={`${r.body==='sun'?'SUN':'EARTH'} · IN VIEW`}/>
+    <sprite position={p} scale={[scale,scale,1]} renderOrder={60}><spriteMaterial map={texture} depthTest={false} depthWrite={false} transparent blending={THREE.AdditiveBlending}/></sprite>
+    <Label position={[p.x,p.y+SKY_KM*(r.body==='earth'?.034:.03),p.z]} color={C[r.body]} size={.02} text={`${r.body==='sun'?'SUN':'EARTH'} · IN VIEW`}/>
    </group>;
   })}
  </group>;
@@ -396,21 +468,11 @@ function Scene(p:SceneProps){
  useCursor(hovered!==null);
  const mean=useMemo(()=>terrainMean(p.terrain),[p.terrain]);
  const land=useMemo<Ground>(()=>({terrain:p.terrain,mean,frame:p.frame}),[p.terrain,mean,p.frame]);
- const tileData=useSite01(),surround=useSurround();
+ const tileData=useSite01(),surround=useSurround(),regional=useRegional();
  const n=p.terrain.original_shape[0],px=p.terrain.pixel_size_m;
  const tile=useMemo<DemLevel|null>(()=>tileData&&{data:tileData,n:SITE01_SIZE,px,x0:p.frame.centerPs[0]-(n/2+.5)*px,y0:p.frame.centerPs[1]+(n/2+.5)*px},[tileData,n,px,p.frame]);
  const extentKm=p.terrain.original_shape[1]*px/1000;
  const point=(pos:Site|Analysis['position'],height=0):[number,number,number]=>[(pos.col-p.terrain.original_shape[1]/2)*px/1000,(pos.elevation_m-mean)*VERTICAL_EXAGGERATION/1000+height/1000,(pos.row-p.terrain.original_shape[0]/2)*px/1000];
- // The resting camera clears both the ground around it and the crest at the middle of the square.
- const heroHeight=useMemo(()=>{
-  const t=p.terrain,km=px*t.stride/1000,cam=p.frame.bearing.clone().multiplyScalar(HERO_BACK);let ground=-Infinity,crest=-Infinity;
-  t.elevation_m.forEach((row,i)=>row.forEach((z,j)=>{
-   if(z===null)return;const x=j*km-extentKm/2,y=(z-mean)*VERTICAL_EXAGGERATION/1000;
-   if(Math.hypot(x-cam.x,i*km-extentKm/2-cam.z)<.35)ground=Math.max(ground,y);
-   if(Math.hypot(x,i*km-extentKm/2)<.45)crest=Math.max(crest,y);
-  }));
-  return Math.max(ground,crest)+HERO_CLEAR;
- },[p.terrain,p.frame,mean,px,extentKm]);
  const ground=point(p.selected.position),lander=point(p.lander,2);
  const atLander=p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col;
  const preview=p.positions.find(o=>o.id===(p.previewId??hovered));
@@ -433,11 +495,11 @@ function Scene(p:SceneProps){
  useEffect(()=>{stars.quaternion.copy(p.frame.rotation);},[stars,p.frame]);
  useFrame(({camera})=>{stars.position.copy(camera.position);});
  const progress=useRef(1);
- const surface=<Surface ground={land} levels={{tile:null,surround:null}} wireframe={p.wireframe} onPick={pick}/>;
- return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress} heroHeight={heroHeight}/>
+ const surface=<Surface ground={land} levels={{tile:null,surround:null,regional:null}} wireframe={p.wireframe} onPick={pick}/>;
+ return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress}/>
   <primitive object={stars}/>
   <Lights frame={p.frame} progress={progress}/>
-  <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} tile={tile} surround={surround} progress={progress} wireframe={p.wireframe} onPick={pick}/></Suspense></GlobeFallback>
+  <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} levels={{tile,surround,regional}} progress={progress} wireframe={p.wireframe} onPick={pick}/></Suspense></GlobeFallback>
   <SkyBodies rays={rays}/>
   {p.positions.map(o=>{const feasible=p.feasible?.has(o.id),rec=o.id===p.recommended,radius=feasible?.017:.012;return o.id===p.selected.candidate_id?null:<ScreenScale key={o.id} position={point(o.position,2)}>
    <mesh><sphereGeometry args={[radius,14,14]}/><meshBasicMaterial color={feasible?C.feasible:C.candidate} transparent opacity={feasible?1:.75}/></mesh>

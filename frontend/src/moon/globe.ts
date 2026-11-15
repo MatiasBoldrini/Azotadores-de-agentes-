@@ -21,6 +21,7 @@ const POLAR_SCALE = 947.60470075464;
 const POLAR_XMIN = -1439293.0898587038;
 const POLAR_YMAX = 1439293.0898587038;
 const POLAR_EXTENT = POLAR_SCALE * POLAR_SIZE;
+export const POLAR_GRID = {xmin: POLAR_XMIN, ymax: POLAR_YMAX, extent: POLAR_EXTENT, size: POLAR_SIZE};
 const CAP_OUTER = -58;
 const CAP_FADE = -65;
 // The base sphere stops inside the opaque part of the cap so its pinched polar triangles never show through.
@@ -164,7 +165,7 @@ function siteShader(material: THREE.Material, view: SiteView, texels: [number, n
    .replace('#include <project_vertex>', '#include <project_vertex>\nvSiteWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
    .replace('#include <common>', '#include <common>\nuniform float siteHole;\nuniform vec3 siteNeutral;\nuniform float siteMagnified;\nvarying vec3 vSiteWorld;')
-   .replace('void main() {', `void main() {\n${cut ? ' if (length(vSiteWorld.xz) < siteHole && vSiteWorld.y > -50.0) discard;' : ''}`)
+   .replace('void main() {', `void main() {\n${cut ? ' if (length(vSiteWorld.xz) < siteHole && vSiteWorld.y > -siteHole - 50.0) discard;' : ''}`)
    .replace('#include <map_fragment>', `#include <map_fragment>
  vec2 siteTexels = fwidth(vMapUv) * vec2(${texels[0].toFixed(1)}, ${texels[1].toFixed(1)});
  diffuseColor.rgb = mix(diffuseColor.rgb, siteNeutral, siteMagnified * (1.0 - smoothstep(.35, 1.0, max(siteTexels.x, siteTexels.y))));`);
