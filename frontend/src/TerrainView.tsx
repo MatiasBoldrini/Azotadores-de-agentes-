@@ -15,6 +15,9 @@ export const VERTICAL_EXAGGERATION = 4;
 export const MAST_EXAGGERATION=12;
 const MAST_BASE=.03,MAST_PER_M=MAST_EXAGGERATION/1000,RAY=.85;
 const FOV=40,HERO_HFOV=72,MIN_FOV=46,MAX_FOV=66,DEG=Math.PI/180,MAX_KM=120,DESCENT_MS=2400;
+// Frames are drawn on demand, so the first frame of an eased move sees the whole pause before it as its
+// delta; it advances by one 60 Hz step instead.
+const EASE_START=1/60;
 // Hillshade light, as azimuth from local north and altitude above the horizon.
 const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
 // Shadow maps of the key light, finest first, as half-width and half-height (km) seen from the light, depth
@@ -366,8 +369,8 @@ function Lights({frame,progress}:{frame:SiteFrame;progress:RefObject<number>}){
 }
 
 function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;progress:RefObject<number>}){
- const {camera,gl}=useThree(),cam=camera as THREE.PerspectiveCamera;
- const aspect=useRef(16/9),goal=useRef<Pose>({position:new THREE.Vector3(),target:new THREE.Vector3()}),moving=useRef(false),placed=useRef(false),descent=useRef<number|null>(null),view=useRef('');
+ const {camera,gl,invalidate,frameloop}=useThree(),cam=camera as THREE.PerspectiveCamera;
+ const aspect=useRef(16/9),goal=useRef<Pose>({position:new THREE.Vector3(),target:new THREE.Vector3()}),moving=useRef(false),easing=useRef(false),placed=useRef(false),descent=useRef<number|null>(null),view=useRef('');
  // A slow frame can deliver the tile hand-off and the arrival together, so leaving the hold always descends.
  const held=useRef(false);
  const home=():Pose=>heroPose(frame,fovFor(aspect.current),HERO_BACK,HERO_RISE,HERO_SKY);
@@ -383,12 +386,27 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:
   else if(held.current)descent.current=performance.now();
   held.current=approach==='hold';
   if(c)c.enabled=!busy();
+  invalidate();
  },[approach,camera,controls,approachPose]);
  useEffect(()=>{
   if(!placed.current)return;
   const p=rest();goal.current.position.copy(p.position);goal.current.target.copy(p.target);
   moving.current=!busy();
+  invalidate();
  },[camera,mapView,reset,controls]);
+ // The view follows the stage between the panels, which can move without any prop or canvas size changing.
+ useEffect(()=>{
+  if(frameloop!=='demand')return;
+  let id=0,last='';
+  const watch=()=>{
+   const c=gl.domElement.getBoundingClientRect(),f=focus?.current?.getBoundingClientRect();
+   const key=[c.left,c.top,c.width,c.height,f?.left,f?.top,f?.width,f?.height].join();
+   if(key!==last){last=key;invalidate();}
+   id=requestAnimationFrame(watch);
+  };
+  id=requestAnimationFrame(watch);
+  return()=>cancelAnimationFrame(id);
+ },[frameloop,gl,focus,invalidate]);
  useFrame((_,dt)=>{
   const canvas=gl.domElement.getBoundingClientRect();
   if(!canvas.width||!canvas.height)return;
@@ -408,11 +426,14 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:
    if(t>=1){descent.current=null;goal.current=end;moving.current=false;place(end);const c=controls.current;if(c){c.enabled=true;c.update();}}
   }
   else if(moving.current){
-   camera.position.lerp(goal.current.position,Math.min(1,dt*5));
-   controls.current?.target.lerp(goal.current.target,Math.min(1,dt*5));
+   const step=Math.min(1,(easing.current?dt:EASE_START)*5);
+   camera.position.lerp(goal.current.position,step);
+   controls.current?.target.lerp(goal.current.target,step);
    if(camera.position.distanceTo(goal.current.position)<.002){place(goal.current);moving.current=false;}
    controls.current?.update();
   }
+  easing.current=moving.current;
+  if(descent.current!==null||moving.current)invalidate();
   progress.current=k;
   const f=k<1?lerpRect(landingRect(),stage,k):stage,fov=THREE.MathUtils.lerp(LANDING_FOV,fovFor(aspect.current),k);
   const altitude=Math.max(.001,camera.position.distanceTo(frame.center)-frame.radiusKm);
@@ -481,11 +502,16 @@ function SkyRay({dir,color,line}:{dir:[number,number,number];color:string;line:T
 }
 
 function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
- const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
- const target=MAST_BASE+height*MAST_PER_M;
+ const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M),easing=useRef(false);
+ const target=MAST_BASE+height*MAST_PER_M,invalidate=useThree(s=>s.invalidate);
  useFrame((_,dt)=>{
-  level.current+= (target-level.current)*Math.min(1,dt*6);
-  if(Math.abs(target-level.current)<1e-4) level.current=target;
+  const moving=level.current!==target;
+  if(moving){
+   level.current+= (target-level.current)*Math.min(1,(easing.current?dt:EASE_START)*6);
+   if(Math.abs(target-level.current)<1e-4) level.current=target;
+   invalidate();
+  }
+  easing.current=moving;
   if(mast.current){mast.current.scale.y=level.current;mast.current.position.y=level.current/2;}
   if(head.current) head.current.position.y=level.current;
  });
@@ -560,6 +586,8 @@ function Scene(p:SceneProps){
  useEffect(()=>{stars.quaternion.copy(p.frame.rotation);},[stars,p.frame]);
  useFrame(({camera})=>{stars.position.copy(camera.position);});
  const progress=useRef(1);
+ const invalidate=useThree(s=>s.invalidate);
+ useEffect(()=>{invalidate();});
  const surface=<Surface ground={land} levels={{tile:null,surround:null,regional:null}} wireframe={p.wireframe} onPick={pick}/>;
  return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress}/>
   <primitive object={stars}/>
@@ -589,8 +617,10 @@ function Scene(p:SceneProps){
    onStart={()=>{orbiting.current=true;setHovered(null);p.onRayHover(null);}} onChange={()=>p.onRayHover(null)} onEnd={()=>{orbiting.current=false;}}/>
  </>;
 }
+// The close-up is drawn on demand: on any change of the scene's props, and while the camera, its controls'
+// damping or the mast are moving. A view at rest costs no GPU time, which keeps weak devices responsive.
 const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
- return <Canvas shadows frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
+ return <Canvas shadows frameloop={props.active?'demand':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
 export default function TerrainView(props:Props){
