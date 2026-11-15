@@ -1,5 +1,5 @@
 import {Component,createRef,useMemo,useRef,useEffect,useLayoutEffect,useState,memo,Suspense,type ComponentRef,type ReactNode,type RefObject} from 'react';
-import {Canvas,ThreeEvent,useFrame,useLoader,useThree} from '@react-three/fiber';
+import {Canvas,events,ThreeEvent,useFrame,useLoader,useThree} from '@react-three/fiber';
 import {Billboard,Html,OrbitControls,Line,useCursor} from '@react-three/drei';
 import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
@@ -46,6 +46,23 @@ const SKY_DISC_COLOR={sun:'#ffe17a',earth:C.earth};
 const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#ff625e';
+const CANDIDATE_HIT_RADIUS=.023*Math.sqrt(10);
+
+const terrainEvents:typeof events=store=>{
+ const center=new THREE.Vector3();
+ return {...events(store),filter:(hits,{camera,pointer,size})=>{
+  let closest:THREE.Intersection|undefined;
+  let minDistance=Infinity;
+  for(const hit of hits){
+   if(!hit.object.userData.candidateTarget)continue;
+   // Overlapping targets should favor the marker that looks closest to the pointer.
+   center.setFromMatrixPosition(hit.object.matrixWorld).project(camera);
+   const distance=Math.hypot((center.x-pointer.x)*size.width,(center.y-pointer.y)*size.height);
+   if(distance<minDistance){closest=hit;minDistance=distance;}
+  }
+  return hits.filter(hit=>!hit.object.userData.candidateTarget||hit===closest);
+ }};
+};
 
 type Approach='hold'|'descend'|null;
 type Props={active:boolean;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;terrain:Terrain;positions:EvaluatedPosition[];previewId:string|null;selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean;feasible?:Set<string>;recommended?:string};
@@ -501,11 +518,11 @@ function Scene(p:SceneProps){
   <DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} hidden={p.mapView||!p.active||p.approach!==null}/>
   {p.positions.map(o=>{const feasible=p.feasible?.has(o.id),rec=o.id===p.recommended,radius=feasible?.017:.012;return o.id===p.selected.candidate_id?null:<ScreenScale key={o.id} position={point(o.position,2)}>
    <mesh><sphereGeometry args={[radius,14,14]}/><meshBasicMaterial color={feasible?C.feasible:C.candidate} transparent opacity={feasible?1:.75}/></mesh>
-   <mesh visible={false}
+   <mesh visible={false} userData={{candidateTarget:true}}
     onPointerMove={e=>{if(orbiting.current||e.pointerType==='touch')return;e.stopPropagation();if(hovered!==o.id)setHovered(o.id);}}
     onPointerOut={()=>setHovered(h=>h===o.id?null:h)}
     onClick={e=>{e.stopPropagation();select(o.id,e.nativeEvent);}}>
-    <sphereGeometry args={[Math.max(radius,.023),8,8]}/><meshBasicMaterial/>
+    <sphereGeometry args={[CANDIDATE_HIT_RADIUS,12,12]}/><meshBasicMaterial/>
    </mesh>
    {rec&&<mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.038,32]}/><meshBasicMaterial color={C.recommended} side={THREE.DoubleSide}/></mesh>}
   </ScreenScale>;})}
@@ -523,7 +540,7 @@ function Scene(p:SceneProps){
  </>;
 }
 const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
- return <Canvas shadows frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
+ return <Canvas shadows events={terrainEvents} frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
 export function TerrainScope({terrain,analysis,regionalRadiusM}:{terrain:Terrain;analysis:Analysis;regionalRadiusM?:number}){
