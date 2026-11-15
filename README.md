@@ -32,7 +32,7 @@ See [scientific report](validation_report.md), [regional method](docs/REGIONAL_H
 
 ## Prior work
 
-We do not claim to have invented mast-height illumination analysis. SITE//FORGE turns published science into an interactive mission-month mast trade: the 5 m Site01 DEM plus an 80 m regional horizon to 150 km, a joint Sun+Earth outage, a smallest-mast optimizer, and an explicitly geometric line-of-sight scope.
+SITE//FORGE uses published mast-height illumination research as the basis for an interactive mission-month mast trade study. The geometric line-of-sight model uses the 5 m Site01 DEM and an 80 m regional DEM extending the horizon to 150 km. Monthly Compare reports the longest gap with either the Sun or Earth blocked and the lowest tested mast height that meets the limits at each fixed ridge point. The Infrastructure Designer ranks feasible configurations by a cost that combines mast height, installation distance, and terrain slope.
 
 ### Foundational science
 
