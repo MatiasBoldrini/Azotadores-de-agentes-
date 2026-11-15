@@ -53,7 +53,7 @@ https://github.com/MatiasBoldrini/Azotadores-de-agentes-/blob/main/submission/vi
 - File: `SELENARC-demo-video.mp4` (29.46 seconds, under the 30.00-second hard limit).
 - Hosting: Google Drive, which the official guide lists as an accepted host (YouTube is also accepted, not required).
 - After sharing is set to “Anyone with the link”, test in a private window.
-- Backup if you prefer slides instead of the video: the 7-slide pitch at https://drive.google.com/file/d/1uzfL9WUH_Rv9vhXdy5duozuTkNihek6N/view?usp=drivesdk (`SELENARC-pitch.pdf`). Do not paste both; the form takes one demo link.
+- Backup if you prefer slides instead of the video: the 7-slide pitch at https://github.com/MatiasBoldrini/Azotadores-de-agentes-/blob/main/submission/pitch_v3/pitch.pdf (`SELENARC-pitch.pdf`). Do not paste both; the form takes one demo link.
 - The video uses an SI-generated voice and must keep its visible watermark and acknowledgment, per the guide. No NASA logos are used in generated content.
 
 ---
