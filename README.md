@@ -38,7 +38,9 @@ See [scientific report](validation_report.md), [regional method](docs/REGIONAL_H
 6. Use **Compare** to select independent windows for Ridge A/B. Hover curves or use the main timeline slider to inspect samples.
 7. Open **Science & Sources**, or **Export analysis** to download the complete selected result, baseline, link profile and provenance as JSON.
 
-The terrain uses real elevations, a 20 m display mesh and 1× vertical scale. Station markers are enlarged for legibility. The local link uses a 2 m lander reference; the no-infrastructure availability baseline is explicitly ground-level.
+The scene shows a 2.56 × 2.56 km crop of Connecting Ridge, about 16 km from the lunar south pole. Ridge A is at 89.46316° S, 137.50198° W, and Ridge B is at 89.48552° S, 137.61082° W. NASA's [LOLA Site01 elevation model](https://pgda.gsfc.nasa.gov/products/78) has 5 m pixel spacing and interpolates between laser tracks.
+
+All 16,384 terrain vertices in the static dataset match the source crop sampled every fourth pixel in each direction, giving a 20 m display mesh. The scene exaggerates the relief 4× and enlarges station markers for legibility. The scientific calculations use the original elevations and include [regional terrain for the horizon](docs/REGIONAL_HORIZON.md). The local link uses a 2 m lander reference and the availability baseline is at ground level.
 
 ## Architecture
 
