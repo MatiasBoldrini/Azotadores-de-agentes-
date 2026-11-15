@@ -1,12 +1,14 @@
-import {useEffect, type RefObject} from 'react';
+import {useEffect, type ComponentRef, type RefObject} from 'react';
 import {useThree} from '@react-three/fiber';
+import type {Line} from '@react-three/drei';
 import {Line3, MathUtils, Vector3} from 'three';
 
 type Point = [number, number, number];
+export type TerrainLine = RefObject<ComponentRef<typeof Line> | null>;
 
 export type TerrainRay = {
  id: 'sun' | 'earth' | 'link';
- points: [Point, Point];
+ line: TerrainLine;
  label: string;
  visible: boolean;
  color: string;
@@ -59,9 +61,12 @@ export function TerrainRayHover({rays, labels, orbiting, candidateHovered, onHov
    let hit: TerrainRay | undefined;
    let closest = Infinity;
    for (const ray of rays) {
-    const [start, end] = ray.points;
-    segment.start.fromArray(start).applyMatrix4(camera.matrixWorldInverse);
-    segment.end.fromArray(end).applyMatrix4(camera.matrixWorldInverse);
+    const line = ray.line.current;
+    if (!line) continue;
+    // Use the rendered endpoints, including the animated mast and rays that reach a disc on the sky shell.
+    const start = line.geometry.getAttribute('instanceStart'), end = line.geometry.getAttribute('instanceEnd');
+    segment.start.fromBufferAttribute(start, 0).applyMatrix4(line.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
+    segment.end.fromBufferAttribute(end, 0).applyMatrix4(line.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
     if (segment.start.z > near && segment.end.z > near) continue;
     const endpointOnScreen = segment.end.z <= near;
     if (segment.start.z > near) {
