@@ -1,36 +1,38 @@
-# Language agent for the operation planner
+# Proactive language agent (OpenAI)
 
-The "What to do next" panel in Designer accepts a request in plain words, in Spanish or English:
+The "What to do next" panel in Designer has three proactive parts and one input:
 
-> quiero correr el experimento 2 horas y después mandar los datos a la Tierra por media hora
-
-It becomes an ordered operation (`Sun 2 h → Earth 0.5 h`) and goes through the same deterministic planner as the presets: when to start from the timeline cursor, how late you can start, the fallback opportunity and a configuration that meets every constraint and finishes sooner.
+1. **Briefing** (top card). Every time the station, mast height, operation, constraints or timeline cursor change, the agent reviews the findings the deterministic advisor computed and says the single most important thing to do, with up to three findings ranked and explained. Nobody has to ask. It is refreshed after 1.2 s without changes and paused while the timeline plays.
+2. **Right now** alerts. The next Sun or Earth rise or set within 12 h of the cursor ("Earth sets in 7 h: transmit now"). Read directly from the visibility intervals on every cursor move, including during playback. No model involved.
+3. **Your operation** and **Watching this configuration**: the planner and advisor findings (when to start, slack, fallback, better configuration, blackouts, margins, cheapest fix).
+4. **Tell the agent what you need to do**: a request in Spanish or English ("cargar un día y después transmitir 1 h") becomes an ordered operation and goes through the same planner as the presets.
 
 ## Division of work
 
 | Part | Does | Never does |
 | --- | --- | --- |
-| Claude (`POST /api/agent/operation`, `siteforge/agent.py`) | Turns the words into steps: need (`sun`, `earth`, `both`), hours, a short label, and one sentence saying what it assumed | See or produce visibility figures, dates, outages or configurations |
-| Offline parser (`frontend/src/lib/intent.ts`) | Same translation from keywords and durations when no agent answers | Guess when the request names no Sun or Earth need |
-| Planner (`frontend/src/lib/planner.ts`) | Every time, duration and configuration shown, from the engine output | Use anything the agent wrote except the steps |
+| OpenAI `POST /api/agent/operation` (`siteforge/agent.py`) | Turns words into steps: need (`sun`, `earth`, `both`), hours, label, one sentence saying what it assumed | See or produce visibility figures |
+| OpenAI `POST /api/agent/briefing` | Chooses and explains up to 3 of the computed findings, plus a one-line headline | Add facts or numbers: the server rejects any number not present in the findings it was given, and any unknown finding id |
+| Offline parser and automatic briefing (`frontend/src/lib/intent.ts`, `localBriefing`) | Same jobs without a model: keyword parsing; the most urgent finding first | Guess a request that names no Sun or Earth need |
+| Planner, advisor, alerts (`planner.ts`, `advisor.ts`, `alerts.ts`) | Every time, duration, outage and configuration shown, from the engine output | Use anything a model wrote except the steps |
 
-The model receives only the operator's text and the system prompt. Its JSON answer is constrained by a JSON schema and validated again on the server and in the browser (1–4 steps, 0.5–336 h in 0.5 h steps, known needs). An answer outside those limits is rejected and the browser uses the offline parser; it is never repaired into something the model did not say. The panel always shows which path read the request ("Read by Claude" or "Read by the offline parser" with the reason).
+Both calls use Chat Completions with strict JSON-schema structured output. Answers are validated on the server and again in the browser; invalid answers are rejected, never repaired, and the browser falls back. The panel always labels the source: "Briefing by OpenAI, checked against the computed findings" or "Automatic briefing (reason)", "Read by OpenAI" or "Read by the offline parser (reason)". When the server shows it has no agent (404, 405, 501, 503) the page stops asking for the rest of the session.
 
-## Enable Claude on the backend
+## Enable OpenAI on the backend
 
-The static Vercel deployment has no backend, so it always uses the offline parser. To use Claude, run the FastAPI backend (see [HYBRID_BACKEND.md](HYBRID_BACKEND.md)) with credentials in its environment:
+The static Vercel deployment has no backend, so it always uses the offline parser and the automatic briefing. To use OpenAI, run the FastAPI backend (see [HYBRID_BACKEND.md](HYBRID_BACKEND.md)) with the key in its environment, and build the frontend with `VITE_API_BASE_URL` pointing at it when it is on another origin:
 
 ```sh
 pip install -r requirements.txt
-ANTHROPIC_API_KEY=... .venv/bin/python -m uvicorn siteforge.api:app --host 127.0.0.1 --port 8000
+OPENAI_API_KEY=... .venv/bin/python -m uvicorn siteforge.api:app --host 127.0.0.1 --port 8000
 ```
 
-- Model: `claude-opus-5-5` (override with `SITEFORGE_AGENT_MODEL`), low effort, structured JSON output, server-side refusal fallback enabled.
-- Without `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`) the endpoint answers 503 and the browser falls back.
-- Requests are limited to 500 characters. The key stays on the server; the frontend never holds it.
+- Model: `gpt-5-mini` by default; set `SITEFORGE_AGENT_MODEL` to any OpenAI model that supports structured outputs.
+- The key stays on the server; the frontend never holds it. Requests are size-limited (500 characters; 12 findings). There is no per-user rate limit: each pause or scrub of the timeline can trigger one briefing call, cached per set of findings.
 
 ## Verification
 
-- `tests/test_agent.mjs`: offline parser (Spanish and English, sequences, simultaneous and live operations, assumed and rounded durations, rejection of requests it cannot express), client fallback on 503, network failure and invalid payloads, and that a parsed request plans exactly like the matching preset on Ridge A.
-- `tests/test_agent_api.py`: endpoint with Claude stubbed: structured-output request, only the operator text sent, out-of-range answers rejected (502), refusal (422), truncation (502), length limits, 503 without credentials.
-- The real Anthropic SDK request was checked against a local stub server (model, `json_schema` format, effort, fallback beta). A live call to Claude was not made: no API key was available in the build environment.
+- `tests/test_agent.mjs` (11): offline parser in Spanish and English, sequences, simultaneous and live operations, assumed and rounded durations, rejection of requests it cannot express; client fallback on 503, network failure and invalid payloads; a parsed request plans exactly like the matching preset on Ridge A; right-now alerts match the Ridge A Earth interval (Earth up at 1 Nov 00:00 UTC, sets 07:00 UTC); briefing validation and fallback.
+- `tests/test_agent_api.py` (9): both endpoints with the OpenAI client stubbed: strict structured output, only the operator text or the findings are sent, out-of-range operations rejected (502), briefings with an invented number or finding rejected (502), refusal (422), truncation (502), size limits, 503 without a key.
+- The real OpenAI SDK requests were checked against a local stub server, and the full page was driven in a browser against the real FastAPI backend with that stub in place of OpenAI: briefing shown as "Briefing by OpenAI", typed request read by the OpenAI path, no agent calls while the timeline plays.
+- **No live OpenAI call was made**: no API key was available in the build environment.

@@ -2,8 +2,9 @@ import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ArrowRight} from 'lucide-react';
 import AnalysisDisclosure from './AnalysisDisclosure';
 import {backendBaseUrl} from './backendConfig';
-import {advise,type AdvisorInput,type Insight,type InsightAction} from './lib/advisor';
-import {askAgent,type AgentSource} from './lib/agentClient';
+import {advise,utcLabel,type AdvisorInput,type Insight,type InsightAction} from './lib/advisor';
+import {nowAlerts} from './lib/alerts';
+import {askAgent,askBriefing,localBriefing,type AgentSource,type Briefing} from './lib/agentClient';
 import {MAX_HOURS,MAX_STEPS,MIN_HOURS} from './lib/intent';
 import {NEED_LABEL,PRESETS,planInsights,type Need,type Operation} from './lib/planner';
 
@@ -31,9 +32,59 @@ function loadOperation():Operation {
 const toSaved = (op:Operation):Saved => op.id==='custom'?{id:'custom',name:op.name,steps:op.steps}:{id:op.id,hours:op.steps.map(s=>s.hours)};
 
 type Reply = {text:string;source:AgentSource;fallback?:string;error?:boolean};
-const SOURCE_LABEL:Record<AgentSource,string> = {claude:'Read by Claude',local:'Read by the offline parser'};
+const SOURCE_LABEL:Record<AgentSource,string> = {openai:'Read by OpenAI',local:'Read by the offline parser'};
 
-export default function Advisor({input,onAction}:{input:AdvisorInput;onAction:(action:InsightAction)=>void}){
+// Proactive briefing: refreshed on its own when the configuration, operation or cursor changes
+// (debounced, paused while the timeline plays). Cached per set of findings; once the server shows
+// it has no agent, the session stays on the automatic briefing.
+const briefingCache = new Map<string,Briefing>();
+let agentAbsent = false;
+const BRIEF_DEBOUNCE_MS = 1200;
+
+function useBriefing(items:Insight[],operation:string,context:string,playing:boolean){
+ const key = JSON.stringify([items.map(i=>[i.id,i.title,i.detail]),operation,context]);
+ const [state,setState] = useState<{briefing:Briefing|null;loading:boolean}>({briefing:null,loading:false});
+ useEffect(()=>{
+  const cached = briefingCache.get(key);
+  if(cached){setState({briefing:cached,loading:false});return;}
+  const askModel = !agentAbsent&&!playing;
+  setState({briefing:localBriefing(items,agentAbsent?'no language agent on this server':undefined),loading:askModel});
+  if(!askModel) return;
+  const controller = new AbortController();
+  const timer = setTimeout(async()=>{
+   try{
+    const r = await askBriefing(items,operation,context,{baseUrl:backendBaseUrl,signal:controller.signal});
+    if(r.absent) agentAbsent = true;
+    if(r.briefing?.source==='openai'){ if(briefingCache.size>50) briefingCache.clear(); briefingCache.set(key,r.briefing); }
+    setState({briefing:r.briefing,loading:false});
+   }catch{/* superseded */}
+  },BRIEF_DEBOUNCE_MS);
+  return ()=>{clearTimeout(timer);controller.abort();};
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[key,playing]);
+ return state;
+}
+
+function BriefingCard({briefing,loading,items,onAction}:{briefing:Briefing;loading:boolean;items:Insight[];onAction:(a:InsightAction)=>void}){
+ const byId = new Map(items.map(i=>[i.id,i]));
+ const label = loading?'OpenAI is reviewing the findings…'
+  : briefing.source==='openai'?'Briefing by OpenAI, checked against the computed findings'
+  : `Automatic briefing${briefing.fallbackReason?` (${briefing.fallbackReason})`:''}`;
+ return <div className="advisor-brief" aria-live="polite">
+  <p className="advisor-source">{label}</p>
+  <p className="advisor-headline">{briefing.headline}</p>
+  <ol className="advisor-picks">
+   {briefing.picks.map(p=>{const item = byId.get(p.id); if(!item) return null;
+    return <li key={p.id} className={item.tone}>
+     <span className="advisor-pick-title">{item.title}</span>
+     {p.reason&&<span className="advisor-pick-reason">{p.reason}</span>}
+     {item.action&&<button type="button" className="text-button advisor-action" onClick={()=>onAction(item.action!)}>{item.action.label}<ArrowRight size={13} aria-hidden="true"/></button>}
+    </li>;})}
+  </ol>
+ </div>;
+}
+
+export default function Advisor({input,onAction,playing=false}:{input:AdvisorInput;onAction:(action:InsightAction)=>void;playing?:boolean}){
  const [op,setOp] = useState<Operation>(loadOperation);
  const [custom,setCustom] = useState<Operation|null>(()=>{const o=loadOperation();return o.id==='custom'?o:null;});
  const [ask,setAsk] = useState('');
@@ -44,7 +95,14 @@ export default function Advisor({input,onAction}:{input:AdvisorInput;onAction:(a
  useEffect(()=>()=>pending.current?.abort(),[]);
  const plan = planInsights({...input,op});
  const general = advise(input,4);
- const risks = [...plan,...general].filter(i=>i.tone==='risk').length;
+ const alerts = nowAlerts(input.selected,input.index);
+ const findings = [...alerts,...plan,...general];
+ const risks = findings.filter(i=>i.tone==='risk').length;
+ const times = input.selected.series.timestamp_utc;
+ const cursor = times[Math.max(0,Math.min(input.index,times.length-1))];
+ const opText = `${op.name}: ${op.steps.map(s=>`${NEED_LABEL[s.need]} ${s.hours} h`).join(' then ')}`;
+ const context = `Station ${input.selected.candidate_id} with a ${input.selected.height_m} m mast; timeline cursor ${utcLabel(cursor)}`;
+ const brief = useBriefing(findings,opText,context,playing);
  const choose = (id:string) => setOp(id==='custom'&&custom?custom:PRESETS.find(p=>p.id===id)??PRESETS[0]);
  const setHours = (i:number,h:number) => setOp(o=>{
   const next = {...o,steps:o.steps.map((s,j)=>j===i?{...s,hours:h}:s)};
@@ -72,6 +130,7 @@ export default function Advisor({input,onAction}:{input:AdvisorInput;onAction:(a
  return <section className="advisor" aria-label="Mission advisor">
   <AnalysisDisclosure title="What to do next"
    summary={<span className={`advisor-count ${risks?'has-risk':''}`}>{risks?`${risks} risk${risks===1?'':'s'}`:'No risks flagged'}</span>}>
+   {brief.briefing&&<BriefingCard briefing={brief.briefing} loading={brief.loading} items={findings} onAction={onAction}/>}
    <form className="advisor-ask" onSubmit={submit}>
     <label htmlFor="advisor-ask-input">Tell the agent what you need to do</label>
     <div className="advisor-ask-row">
@@ -103,10 +162,12 @@ export default function Advisor({input,onAction}:{input:AdvisorInput;onAction:(a
      </li>)}
     </ol>
    </div>
+   {alerts.length>0&&<><h4 className="advisor-sub">Right now</h4><AdviceList items={alerts} onAction={onAction}/></>}
+   <h4 className="advisor-sub">Your operation</h4>
    <AdviceList items={plan} onAction={onAction}/>
    <h4 className="advisor-sub">Watching this configuration</h4>
    <AdviceList items={general} onAction={onAction}/>
-   <p className="fine">The agent only turns your words into steps. Times, durations and configurations come from the timeline at the cursor and the evaluated configurations. Steps run in order, each on one continuous visibility run. Geometric line of sight only.</p>
+   <p className="fine">The agent turns your words into steps and ranks the findings; it never computes them. Times, durations and configurations come from the timeline at the cursor and the evaluated configurations, and any number in the briefing must appear in those findings. Steps run in order, each on one continuous visibility run. Geometric line of sight only.</p>
   </AnalysisDisclosure>
  </section>;
 }
