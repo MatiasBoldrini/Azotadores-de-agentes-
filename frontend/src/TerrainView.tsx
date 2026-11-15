@@ -5,19 +5,31 @@ import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
 import type {EvaluatedPosition} from './PositionPicker';
 import {starfield} from './moon/stars';
-import {MOON_LIGHTS,MOON_TEXTURES,buildMoon,polarAlbedo} from './moon/globe';
-import {APPROACH_KM,LANDING_FOV,horizonPose,type SiteFrame} from './moon/frame';
-import {SITE01_SIZE,useSite01} from './site01';
+import {MOON_LIGHTS,MOON_TEXTURES,buildMoon,setMoonOpacity} from './moon/globe';
+import {APPROACH_KM,LANDING_FOV,heroPose,horizonPose,type Pose,type SiteFrame} from './moon/frame';
+import {SITE01_SIZE,useSite01,useSurround,type DemLevel} from './site01';
 import {TerrainRayHover,TerrainRayTooltip,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
 
 export const VERTICAL_EXAGGERATION = 4;
 // The mast glyph is stretched beyond the relief scale so that metre-scale heights read on a 2.5 km scene.
 export const MAST_EXAGGERATION=12;
 const MAST_BASE=.03,MAST_PER_M=MAST_EXAGGERATION/1000,RAY=.85;
-const FOV=40,DEG=Math.PI/180,HOME_KM=3.2,MAX_KM=80,DESCENT_MS=2400;
-// The tile relief eases into the sphere outside this rounded-square radius (4-norm, as a share of the
-// half-width); every evaluated cell lies inside it, the farthest at 0.598.
-const FULL_RELIEF=.6,SKIRT=.06;
+const FOV=40,HERO_HFOV=72,MIN_FOV=46,MAX_FOV=66,DEG=Math.PI/180,MAX_KM=9,DESCENT_MS=2400;
+// Hillshade light, as azimuth from local north and altitude above the horizon.
+const LIGHT_AZIMUTH=50,LIGHT_ALTITUDE=14;
+// Every evaluated cell lies within 0.598 of the half-width, so the tile keeps its own samples well past them.
+const TILE_BLEND=.92,SURROUND_BLEND=.85;
+// The Site01 DEM is cut to the largest disc around the tile it covers; its rim is the close-up's skyline.
+const DISC_KM=7.95;
+// Resting view: inside the back of the 5 m square, just above the crest, so the near field is all 5 m relief and
+// the summit's fall-off is the skyline; the frame reaches 9° above the horizontal, past the highest body.
+const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
+// Bodies are drawn on a sky shell around the camera at their apparent sizes (degrees).
+const SKY_KM=100,SUN_DEG=.53,EARTH_DEG=1.9;
+// Descent progress over which the landing globe fades out.
+const GLOBE_FADE=[.6,.9];
+const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
+const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#A3A3A3',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
 const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
@@ -34,7 +46,8 @@ function useFontReady(){
  return ready;
 }
 
-function Label({text,position,color='#F5F5F5',size=.082}:{text:string;position:[number,number,number];color?:string;size?:number}){
+// `size` is the label height in radians: labels keep their size on screen at any distance.
+function Label({text,position,color='#F5F5F5',size=.022,depthTest=false}:{text:string;position:[number,number,number];color?:string;size?:number;depthTest?:boolean}){
  const fontReady=useFontReady();
  const [texture,aspect]=useMemo(()=>{
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d')!;
@@ -46,89 +59,146 @@ function Label({text,position,color='#F5F5F5',size=.082}:{text:string;position:[
   const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;return [t,w/h] as const;
  },[text,color,fontReady]);
  useEffect(()=>()=>texture.dispose(),[texture]);
- return <sprite position={position} scale={[size*aspect,size,1]} renderOrder={100}><spriteMaterial map={texture} depthTest={false} transparent/></sprite>;
+ return <sprite position={position} scale={[size*aspect,size,1]} renderOrder={100}><spriteMaterial map={texture} depthTest={depthTest} depthWrite={false} sizeAttenuation={false} transparent/></sprite>;
 }
 
-type Albedo=(x:number,y:number,out:THREE.Color)=>THREE.Color;
-type Grid={rows:number;cols:number;row:(i:number)=>number;col:(j:number)=>number;height:(i:number,j:number)=>number};
-type Ground={terrain:Terrain;mean:number;frame:SiteFrame;albedo:Albedo|null};
+// Markers keep the size they have from MARKER_KM away, however close the camera comes.
+const MARKER_KM=4.5;
+function ScreenScale({position,children}:{position:[number,number,number];children:ReactNode}){
+ const g=useRef<THREE.Group>(null),at=useMemo(()=>new THREE.Vector3(),[]);
+ useFrame(({camera})=>{const o=g.current;if(o)o.scale.setScalar(THREE.MathUtils.clamp(camera.position.distanceTo(o.getWorldPosition(at))/MARKER_KM,.1,1.6));});
+ return <group ref={g} position={position}>{children}</group>;
+}
 
-const taper=(r:number,c:number,n:number)=>{const u=(2*c-n+1)/(n-1),v=(2*r-n+1)/(n-1);return 1-THREE.MathUtils.smoothstep(Math.sqrt(Math.sqrt(u**4+v**4)),FULL_RELIEF,1);};
+type Ground={terrain:Terrain;mean:number;frame:SiteFrame};
+type Rect=[number,number,number,number];
+
 export const terrainMean=(t:Terrain)=>{const z=t.elevation_m.flat().filter((x):x is number=>x!==null);return z.reduce((a,b)=>a+b,0)/z.length;};
-function surfaceAt({terrain,mean}:Ground,x:number,z:number){
- const n=terrain.original_shape[0],km=terrain.pixel_size_m/1000,r=THREE.MathUtils.clamp(Math.round(z/km+n/2),0,n-1),c=THREE.MathUtils.clamp(Math.round(x/km+n/2),0,n-1);
- const h=terrain.elevation_m[Math.min(terrain.elevation_m.length-1,Math.round(r/terrain.stride))][Math.min(terrain.elevation_m[0].length-1,Math.round(c/terrain.stride))]??mean;
- return (h-mean)*VERTICAL_EXAGGERATION/1000*taper(r,c,n);
+// Polar stereographic metres to the scene: kilometres from the tile centre, relief at the labeled exaggeration, on the sphere.
+function toScene({mean,frame}:Ground,x:number,y:number,h:number,out:Float32Array,k:number){
+ const sx=(x-frame.centerPs[0])/1000,sz=-(y-frame.centerPs[1])/1000;
+ out[k]=sx;out[k+1]=(h-mean)*VERTICAL_EXAGGERATION/1000-(sx*sx+sz*sz)/(2*frame.radiusKm);out[k+2]=sz;
+}
+function bilinear(l:DemLevel,x:number,y:number){
+ const fi=THREE.MathUtils.clamp((x-l.x0)/l.px-.5,0,l.n-1),fj=THREE.MathUtils.clamp((l.y0-y)/l.px-.5,0,l.n-1);
+ const i=Math.min(Math.floor(fi),l.n-2),j=Math.min(Math.floor(fj),l.n-2),tx=fi-i,ty=fj-j,d=l.data,n=l.n;
+ return (d[j*n+i]*(1-tx)+d[j*n+i+1]*tx)*(1-ty)+(d[(j+1)*n+i]*(1-tx)+d[(j+1)*n+i+1]*tx)*ty;
+}
+// The scene rectangle (x0, x1, z0, z1) a level's vertices cover, shrunk by `inset` kilometres.
+function extent(l:DemLevel,frame:SiteFrame,inset=0):Rect{
+ const [cx,cy]=frame.centerPs,a=l.px/2,b=(l.n-.5)*l.px;
+ return [(l.x0+a-cx)/1000+inset,(l.x0+b-cx)/1000-inset,-(l.y0-a-cy)/1000+inset,-(l.y0-b-cy)/1000-inset];
 }
 
-// Lays a DEM grid on the sphere through the tile's mean level: relief at the labeled exaggeration inside,
-// easing to the sphere at the border. The LROC mosaic records sunlight and shadow rather than albedo, so it
-// only tints the border, where the tile has to match the surrounding globe.
-function groundGeometry(grid:Grid,{terrain,mean,frame,albedo}:Ground){
- const {rows,cols}=grid,n=terrain.original_shape[0],km=terrain.pixel_size_m/1000,half=n/2;
- const heights=terrain.elevation_m.flat().filter((x):x is number=>x!==null),lo=Math.min(...heights),hi=Math.max(...heights);
- const count=rows*cols,edge=2*(rows+cols),pos=new Float32Array((count+edge)*3),nor=new Float32Array((count+edge)*3),col=new Float32Array((count+edge)*3);
- const x=(j:number)=>(grid.col(j)-half)*km,z=(i:number)=>(grid.row(i)-half)*km,color=new THREE.Color(),lroc=new THREE.Color();
- for(let i=0;i<rows;i++)for(let j=0;j<cols;j++){
-  const k=(i*cols+j)*3,h=grid.height(i,j),r=grid.row(i),c=grid.col(j),xx=x(j),zz=z(i),t=taper(r,c,n);
-  pos[k]=xx;pos[k+1]=(h-mean)*VERTICAL_EXAGGERATION/1000*t-(xx*xx+zz*zz)/(2*frame.radiusKm);pos[k+2]=zz;
-  const s=.08+Math.pow((h-lo)/(hi-lo||1),1.1)*.32;color.setRGB(s,s*.985,s*.96);
-  if(albedo&&t<1)color.lerp(albedo(frame.centerPs[0]+(c-half)*terrain.pixel_size_m,frame.centerPs[1]-(r-half)*terrain.pixel_size_m,lroc),1-t);
-  col[k]=color.r;col[k+1]=color.g;col[k+2]=color.b;
+// One DEM level as a grid of its pixel centres. Toward its border the relief eases into the next coarser
+// surface (`outer`, elevation in metres at polar stereographic metres), so neighbouring levels meet without a step.
+// With `clip` (km), samples beyond that radius of the tile centre move onto the circle, giving a round rim.
+function demGeometry(l:DemLevel,ground:Ground,outer:((x:number,y:number)=>number)|null,blend:number,clip=0,skirt=0){
+ const n=l.n,count=n*n,edge=skirt?4*(n-1):0,pos=new Float32Array((count+edge)*3),half=(n-1)/2,[cx,cy]=ground.frame.centerPs;
+ for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+  let x=l.x0+(j+.5)*l.px,y=l.y0-(i+.5)*l.px,h=l.data[i*n+j];
+  const r=Math.hypot(x-cx,y-cy)/1000;
+  if(clip&&r>clip){x=cx+(x-cx)*clip/r;y=cy+(y-cy)*clip/r;h=bilinear(l,x,y);}
+  if(outer){const u=Math.max(Math.abs(j-half),Math.abs(i-half))/half;if(u>blend)h+=(outer(x,y)-h)*THREE.MathUtils.smootherstep(u,blend,1);}
+  toScene(ground,x,y,h,pos,(i*n+j)*3);
  }
- const y=(i:number,j:number)=>pos[(THREE.MathUtils.clamp(i,0,rows-1)*cols+THREE.MathUtils.clamp(j,0,cols-1))*3+1];
- const v=new THREE.Vector3();
- for(let i=0;i<rows;i++)for(let j=0;j<cols;j++){
-  const k=(i*cols+j)*3,dx=x(Math.min(j+1,cols-1))-x(Math.max(j-1,0)),dz=z(Math.min(i+1,rows-1))-z(Math.max(i-1,0));
-  v.set(-(y(i,j+1)-y(i,j-1))/dx,1,-(y(i+1,j)-y(i-1,j))/dz).normalize();nor[k]=v.x;nor[k+1]=v.y;nor[k+2]=v.z;
+ const quads=(n-1)*(n-1),index=new Uint32Array(quads*6+edge*6);let q=0;
+ for(let i=0;i<n-1;i++)for(let j=0;j<n-1;j++){const a=i*n+j;index.set([a,a+n,a+1,a+1,a+n,a+n+1],q);q+=6;}
+ if(skirt){
+  // A skirt hangs from the rim so no gap opens against the globe while it is still in view.
+  const ring=[...Array.from({length:n-1},(_,j)=>j),...Array.from({length:n-1},(_,i)=>i*n+n-1),...Array.from({length:n-1},(_,j)=>(n-1)*n+n-1-j),...Array.from({length:n-1},(_,i)=>(n-1-i)*n)];
+  ring.forEach((a,s)=>{const b=count+s;pos.copyWithin(b*3,a*3,a*3+3);pos[b*3+1]-=skirt;});
+  ring.forEach((a,s)=>{const b=ring[(s+1)%ring.length],c=count+s,d=count+(s+1)%ring.length;index.set([a,b,c,b,d,c],q);q+=6;});
  }
- const index:number[]=[];
- for(let i=0;i<rows-1;i++)for(let j=0;j<cols-1;j++){const a=i*cols+j;index.push(a,a+cols,a+1,a+1,a+cols,a+cols+1);}
- // A skirt hangs from the border so no seam opens where the tile meets the faceted globe cap.
- const ring=[...Array.from({length:cols},(_,j)=>j),...Array.from({length:rows},(_,i)=>i*cols+cols-1),...Array.from({length:cols},(_,j)=>(rows-1)*cols+cols-1-j),...Array.from({length:rows},(_,i)=>(rows-1-i)*cols)];
- ring.forEach((a,s)=>{const b=count+s;for(let d=0;d<3;d++){pos[b*3+d]=pos[a*3+d];nor[b*3+d]=nor[a*3+d];col[b*3+d]=col[a*3+d];}pos[b*3+1]-=SKIRT;});
- for(let s=0;s<ring.length-1;s++)index.push(ring[s],ring[s+1],count+s,ring[s+1],count+s+1,count+s);
  const g=new THREE.BufferGeometry();
- g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(nor,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));
- g.setIndex(count+edge>65535?new THREE.Uint32BufferAttribute(index,1):new THREE.Uint16BufferAttribute(index,1));
+ g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+ g.setIndex(new THREE.BufferAttribute(index,1));
+ g.computeVertexNormals();
  g.computeBoundingSphere();
  return g;
 }
 
+// The snapshot's 20 m grid: the click target, the wireframe and the fallback before the 5 m tile arrives.
+function snapshotGeometry(ground:Ground){
+ const {terrain,mean}=ground,n=terrain.original_shape[0],s=terrain.stride,rows=terrain.elevation_m.length,cols=terrain.elevation_m[0].length;
+ const row=(i:number)=>i===rows-1?n-1:i*s,col=(j:number)=>j===cols-1?n-1:j*s,km=terrain.pixel_size_m/1000,pos=new Float32Array(rows*cols*3);
+ for(let i=0;i<rows;i++)for(let j=0;j<cols;j++){
+  const x=(col(j)-n/2)*km,z=(row(i)-n/2)*km,k=(i*cols+j)*3;
+  pos[k]=x;pos[k+1]=((terrain.elevation_m[i][j]??mean)-mean)*VERTICAL_EXAGGERATION/1000-(x*x+z*z)/(2*ground.frame.radiusKm);pos[k+2]=z;
+ }
+ const index:number[]=[];
+ for(let i=0;i<rows-1;i++)for(let j=0;j<cols-1;j++){const a=i*cols+j;index.push(a,a+cols,a+1,a+1,a+cols,a+cols+1);}
+ const g=new THREE.BufferGeometry();
+ g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setIndex(index);g.computeVertexNormals();
+ return g;
+}
+
+// Every terrain level shares one material, so the same albedo and light run unbroken across all of them;
+// each coarser level is cut away where a finer one takes over.
+function terrainMaterial(hole:Rect|null,offset:number){
+ const m=new THREE.MeshStandardMaterial({color:ALBEDO,roughness:1,metalness:0,polygonOffset:offset>0,polygonOffsetFactor:offset,polygonOffsetUnits:offset});
+ if(!hole)return m;
+ m.onBeforeCompile=shader=>{
+  shader.uniforms.hole={value:new THREE.Vector4(...hole)};
+  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vTerrainWorld;')
+   .replace('#include <project_vertex>','#include <project_vertex>\nvTerrainWorld=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform vec4 hole;\nvarying vec3 vTerrainWorld;')
+   .replace('void main() {','void main() {\n if(vTerrainWorld.x>hole.x&&vTerrainWorld.x<hole.y&&vTerrainWorld.z>hole.z&&vTerrainWorld.z<hole.w)discard;');
+ };
+ m.customProgramCacheKey=()=>'terrain-hole';
+ return m;
+}
+
 const noRaycast=()=>{};
 
-// The 5 m tile is what is drawn; the snapshot's 20 m grid stays the click target, the wireframe and the fallback.
-function Surface({ground,tile,wireframe,onPick}:{ground:Ground;tile:Float32Array|null;wireframe:boolean;onPick:(r:number,c:number)=>void}){
- const {terrain,mean}=ground,n=terrain.original_shape[0];
- const coarse=useMemo(()=>{
-  const rows=terrain.elevation_m.length,cols=terrain.elevation_m[0].length,s=terrain.stride;
-  // The last row and column reach the window border so the hole in the globe is covered.
-  return groundGeometry({rows,cols,row:i=>i===rows-1?n-1:i*s,col:j=>j===cols-1?n-1:j*s,height:(i,j)=>terrain.elevation_m[i][j]??mean},ground);
- },[ground,terrain,mean,n]);
- const fine=useMemo(()=>tile&&groundGeometry({rows:SITE01_SIZE,cols:SITE01_SIZE,row:i=>i,col:j=>j,height:(i,j)=>tile[i*SITE01_SIZE+j]},ground),[tile,ground]);
+type Levels={tile:DemLevel|null;surround:DemLevel[]|null};
+function useLevelGeometry(ground:Ground,{tile,surround}:Levels){
+ return useMemo(()=>{
+  if(!tile||!surround)return null;
+  const [near,far]=surround;
+  return [
+   {geometry:demGeometry(tile,ground,(x,y)=>bilinear(near,x,y),TILE_BLEND),hole:null,offset:0},
+   {geometry:demGeometry(near,ground,(x,y)=>bilinear(far,x,y),SURROUND_BLEND),hole:extent(tile,ground.frame,.006),offset:1},
+   {geometry:demGeometry(far,ground,null,1,DISC_KM,1.5),hole:extent(near,ground.frame,.012),offset:2},
+  ];
+ },[ground,tile,surround]);
+}
+
+function Surface({ground,levels,wireframe,onPick}:{ground:Ground;levels:Levels;wireframe:boolean;onPick:(r:number,c:number)=>void}){
+ const {terrain}=ground,n=terrain.original_shape[0],gl=useThree(s=>s.gl);
+ const coarse=useMemo(()=>snapshotGeometry(ground),[ground]);
+ const meshes=useLevelGeometry(ground,levels);
+ const materials=useMemo(()=>meshes?.map(m=>terrainMaterial(m.hole,m.offset))??[],[meshes]);
+ const solid=useMemo(()=>terrainMaterial(null,0),[]);
  useEffect(()=>()=>coarse.dispose(),[coarse]);
- useEffect(()=>()=>{fine?.dispose();},[fine]);
+ useEffect(()=>()=>{meshes?.forEach(m=>m.geometry.dispose());materials.forEach(m=>m.dispose());},[meshes,materials]);
+ // The light never moves, so the shadow map is drawn once per terrain.
+ useEffect(()=>{gl.shadowMap.autoUpdate=false;gl.shadowMap.needsUpdate=true;},[gl,meshes,coarse]);
  const pick=(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onPick(e.point.z*1000/terrain.pixel_size_m+n/2,e.point.x*1000/terrain.pixel_size_m+n/2);};
  return <>
-  {fine&&<mesh geometry={fine} raycast={noRaycast}><meshStandardMaterial vertexColors roughness={.95} metalness={0} side={THREE.DoubleSide}/></mesh>}
-  <mesh geometry={coarse} onClick={pick} visible={wireframe||!fine} position-y={fine&&wireframe?.004:0}><meshStandardMaterial vertexColors roughness={.95} metalness={0} side={THREE.DoubleSide} wireframe={wireframe}/></mesh>
+  {meshes?.map((m,i)=><mesh key={i} geometry={m.geometry} material={materials[i]} raycast={noRaycast} castShadow receiveShadow/>)}
+  <mesh geometry={coarse} material={wireframe?undefined:solid} onClick={pick} visible={wireframe||!meshes} castShadow receiveShadow position-y={meshes&&wireframe?.004:0}>
+   {wireframe&&<meshBasicMaterial color="#d4d4d4" wireframe transparent opacity={.35}/>}
+  </mesh>
  </>;
 }
 
-// The real Moon around the tile, at true scale: same LROC/LOLA globe as the landing, with the tile's square cut out of the cap.
-function ContextGlobe({frame,hole,textures:[color,polar,relief]}:{frame:SiteFrame;hole:number;textures:THREE.Texture[]}){
+// The real Moon around the site, at true scale: the landing's LROC/LOLA globe, with the site disc cut out and
+// its imagery yielding to the terrain albedo wherever it would be magnified. It carries the descent and is gone
+// by the time the camera settles, leaving only the Site01 DEM under the sky.
+function ContextGlobe({frame,hole,textures:[color,polar,relief],progress}:{frame:SiteFrame;hole:number;textures:THREE.Texture[];progress:RefObject<number>}){
  const {gl}=useThree();
- const moon=useMemo(()=>buildMoon(color,polar,relief,gl.capabilities.getMaxAnisotropy(),hole),[color,polar,relief,gl,hole]);
+ const magnified=useMemo(()=>({value:0}),[]);
+ const moon=useMemo(()=>buildMoon(color,polar,relief,gl.capabilities.getMaxAnisotropy(),{hole,neutral:ALBEDO.clone(),magnified}),[color,polar,relief,gl,hole,magnified]);
+ useFrame(()=>{const k=progress.current;magnified.value=k;setMoonOpacity(moon,1-THREE.MathUtils.smoothstep(k,GLOBE_FADE[0],GLOBE_FADE[1]));});
  return <group position={frame.center} quaternion={frame.rotation} scale={frame.scale}><primitive object={moon.sphere}/><primitive object={moon.cap}/></group>;
 }
 
-function DrapedSite({ground,...rest}:{ground:Ground;tile:Float32Array|null;wireframe:boolean;onPick:(r:number,c:number)=>void}){
+function SiteGround({ground,tile,surround,progress,...rest}:{ground:Ground;tile:DemLevel|null;surround:DemLevel[]|null;progress:RefObject<number>;wireframe:boolean;onPick:(r:number,c:number)=>void}){
  // Same URL list as the landing globe, so both canvases share one decoded copy of each texture.
  const textures=useLoader(THREE.TextureLoader,MOON_TEXTURES);
- const {terrain,frame}=ground,half=terrain.original_shape[1]*terrain.pixel_size_m/2,[x,y]=frame.centerPs;
- const albedo=useMemo(()=>polarAlbedo(textures[1].image as HTMLImageElement,x-half,y-half,x+half,y+half),[textures,x,y,half]);
- const draped=useMemo(()=>({...ground,albedo}),[ground,albedo]);
- return <><ContextGlobe frame={frame} hole={half/1000-.01} textures={textures}/><Surface ground={draped} {...rest}/></>;
+ const hole=surround?DISC_KM-.03:tile?1.27:0;
+ return <><ContextGlobe frame={ground.frame} hole={hole} textures={textures} progress={progress}/><Surface ground={ground} levels={{tile,surround}} {...rest}/></>;
 }
 
 class GlobeFallback extends Component<{fallback:ReactNode;children:ReactNode},{error:boolean}>{
@@ -137,45 +207,47 @@ class GlobeFallback extends Component<{fallback:ReactNode;children:ReactNode},{e
  render(){return this.state.error?this.props.fallback:this.props.children;}
 }
 
-type Rect={left:number;top:number;width:number;height:number};
-const lerpRect=(a:Rect,b:Rect,k:number):Rect=>({left:a.left+(b.left-a.left)*k,top:a.top+(b.top-a.top)*k,width:a.width+(b.width-a.width)*k,height:a.height+(b.height-a.height)*k});
+type ViewRect={left:number;top:number;width:number;height:number};
+const lerpRect=(a:ViewRect,b:ViewRect,k:number):ViewRect=>({left:a.left+(b.left-a.left)*k,top:a.top+(b.top-a.top)*k,width:a.width+(b.width-a.width)*k,height:a.height+(b.height-a.height)*k});
 // The landing globe fills the viewport and is shifted down on portrait screens; the hold matches it exactly.
-function landingRect():Rect{const w=document.documentElement.clientWidth,h=document.documentElement.clientHeight;return {left:0,top:h>w?h*.07:0,width:w,height:h};}
+function landingRect():ViewRect{const w=document.documentElement.clientWidth,h=document.documentElement.clientHeight;return {left:0,top:h>w?h*.07:0,width:w,height:h};}
 // The free stage between the glass panels; the canvas itself stays full-bleed.
-function stageRect(c:DOMRect,f?:DOMRect):Rect{
+function stageRect(c:DOMRect,f?:DOMRect):ViewRect{
  const left=Math.max(c.left,f?.left??c.left),top=Math.max(c.top,f?.top??c.top),width=Math.min(c.right,f?.right??c.right)-left,height=Math.min(c.bottom,f?.bottom??c.bottom)-top;
  return width<1||height<1?{left:c.left,top:c.top,width:c.width,height:c.height}:{left,top,width,height};
 }
 
-// The landing's light, carried into the site frame, gives way to the site rig as the camera descends.
-function Lights({sun,frame,progress}:{sun:[number,number,number];frame:SiteFrame;progress:RefObject<number>}){
+// The landing's light, carried into the site frame, gives way to the low hillshade light as the camera descends.
+function Lights({frame,progress}:{frame:SiteFrame;progress:RefObject<number>}){
  const rig=useRef<THREE.Group>(null);
  const [moonSun,moonBack]=useMemo(()=>[MOON_LIGHTS.sun.position,MOON_LIGHTS.back.position].map(p=>new THREE.Vector3(...p).normalize().multiplyScalar(5).applyQuaternion(frame.rotation).toArray()),[frame]);
+ const key=useMemo(()=>frame.horizontal(LIGHT_AZIMUTH).multiplyScalar(Math.cos(LIGHT_ALTITUDE*DEG)).setY(Math.sin(LIGHT_ALTITUDE*DEG)).multiplyScalar(40).toArray(),[frame]);
+ const small=Math.min(window.innerWidth,window.innerHeight)<700;
  useFrame(()=>{
   const k=progress.current;
-  rig.current?.children.forEach(o=>{const {base,site}=o.userData as {base:number;site:boolean};(o as THREE.Light).intensity=base*(site?k:1-k);});
+  rig.current?.children.forEach(o=>{const {base,site}=o.userData as {base:number;site:boolean};if(base!==undefined)(o as THREE.Light).intensity=base*(site?k:1-k);});
  });
  return <group ref={rig}>
-  <hemisphereLight args={['#c9d3dc','#0b0d0e']} userData={{base:.42,site:true}}/>
-  <directionalLight position={sun} color="#ffe3be" userData={{base:1.9,site:true}}/>
-  <directionalLight position={[-3,1.05,1.4]} userData={{base:1.6,site:true}}/>
-  <directionalLight position={[2.5,1.2,-2.5]} color="#a9bddc" userData={{base:.35,site:true}}/>
+  <hemisphereLight args={['#c3cbd4','#2a2826']} userData={{base:1.1,site:true}}/>
+  <directionalLight position={key} color="#fff4e6" userData={{base:3.2,site:true}} castShadow shadow-mapSize={small?[2048,2048]:[4096,4096]}
+   shadow-camera-left={-12} shadow-camera-right={12} shadow-camera-top={12} shadow-camera-bottom={-12} shadow-camera-near={10} shadow-camera-far={75} shadow-bias={-.0004} shadow-normalBias={.012}/>
   <directionalLight position={moonSun} color={MOON_LIGHTS.sun.color} userData={{base:MOON_LIGHTS.sun.intensity,site:false}}/>
   <directionalLight position={moonBack} userData={{base:MOON_LIGHTS.back.intensity,site:false}}/>
   <ambientLight userData={{base:MOON_LIGHTS.ambient,site:false}}/>
  </group>;
 }
 
-function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;progress:RefObject<number>}){
+function Camera({mapView,reset,controls,approach,focus,frame,progress,heroHeight}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach;focus?:RefObject<HTMLElement|null>;frame:SiteFrame;progress:RefObject<number>;heroHeight:number}){
  const {camera,gl}=useThree(),cam=camera as THREE.PerspectiveCamera;
- const aspect=useRef(16/9),goal=useRef(new THREE.Vector3()),moving=useRef(false),placed=useRef(false),descent=useRef<number|null>(null),view=useRef('');
+ const aspect=useRef(16/9),goal=useRef<Pose>({position:new THREE.Vector3(),target:new THREE.Vector3()}),moving=useRef(false),placed=useRef(false),descent=useRef<number|null>(null),view=useRef('');
  // A slow frame can deliver the tile hand-off and the arrival together, so leaving the hold always descends.
  const held=useRef(false);
- const homeKm=()=>Math.max(HOME_KM,1.45/(Math.tan(FOV/2*DEG)*aspect.current));
- const home=()=>horizonPose(homeKm(),frame.radiusKm,FOV).position;
- const top=()=>new THREE.Vector3(0,Math.max(3.6,1.42/(Math.tan(FOV/2*DEG)*Math.min(1,aspect.current))),.001);
- const approachPose=useMemo(()=>horizonPose(APPROACH_KM,frame.radiusKm,LANDING_FOV).position,[frame]);
+ const home=():Pose=>heroPose(frame,fovFor(aspect.current),HERO_BACK,heroHeight,HERO_SKY);
+ const top=():Pose=>({position:new THREE.Vector3(0,Math.max(3.6,1.42/(Math.tan(fovFor(aspect.current)/2*DEG)*Math.min(1,aspect.current))),.001),target:new THREE.Vector3()});
+ const rest=()=>mapView?top():home();
+ const approachPose=useMemo(()=>horizonPose(APPROACH_KM,frame,LANDING_FOV).position,[frame]);
  const busy=()=>held.current||descent.current!==null;
+ const place=(p:Pose)=>{camera.position.copy(p.position);camera.lookAt(p.target);controls.current?.target.copy(p.target);};
  useLayoutEffect(()=>{camera.manual=true;return()=>{camera.manual=false;cam.clearViewOffset();};},[camera,cam]);
  useEffect(()=>{
   const c=controls.current;
@@ -186,8 +258,8 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:
  },[approach,camera,controls,approachPose]);
  useEffect(()=>{
   if(!placed.current)return;
-  goal.current.copy(mapView?top():home());
-  moving.current=!busy();controls.current?.target.set(0,0,0);
+  const p=rest();goal.current.position.copy(p.position);goal.current.target.copy(p.target);
+  moving.current=!busy();
  },[camera,mapView,reset,controls]);
  useFrame((_,dt)=>{
   const canvas=gl.domElement.getBoundingClientRect();
@@ -195,25 +267,28 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:
   const stage=stageRect(canvas,focus?.current?.getBoundingClientRect());
   aspect.current=stage.width/stage.height;
   // The resting pose depends on the stage shape, which is only known once the canvas is laid out.
-  if(!placed.current){placed.current=true;if(!held.current){camera.position.copy(mapView?top():home());camera.lookAt(0,0,0);controls.current?.update();}}
+  if(!placed.current){placed.current=true;if(!held.current){place(rest());controls.current?.update();}}
   let k=1;
   if(held.current){k=0;camera.position.copy(approachPose);camera.lookAt(0,0,0);}
   else if(descent.current!==null){
-   const t=Math.min(1,(performance.now()-descent.current)/DESCENT_MS);
+   const t=Math.min(1,(performance.now()-descent.current)/DESCENT_MS),end=rest();
    k=easeInOutCubic(t);
-   const km=Math.exp(THREE.MathUtils.lerp(Math.log(APPROACH_KM),Math.log(homeKm()),k));
-   camera.position.copy(horizonPose(km,frame.radiusKm,THREE.MathUtils.lerp(LANDING_FOV,FOV,k)).position);camera.lookAt(0,0,0);
-   if(t>=1){descent.current=null;goal.current.copy(mapView?top():home());moving.current=mapView;const c=controls.current;if(c){c.target.set(0,0,0);c.enabled=true;c.update();}}
+   const km=Math.exp(THREE.MathUtils.lerp(Math.log(APPROACH_KM),Math.log(end.position.length()),k));
+   const w=THREE.MathUtils.smootherstep(k,.55,1);
+   camera.position.copy(horizonPose(km,frame,THREE.MathUtils.lerp(LANDING_FOV,fovFor(aspect.current),k)).position).lerp(end.position,w);
+   camera.lookAt(new THREE.Vector3().lerp(end.target,w));
+   if(t>=1){descent.current=null;goal.current=end;moving.current=false;place(end);const c=controls.current;if(c){c.enabled=true;c.update();}}
   }
   else if(moving.current){
-   camera.position.lerp(goal.current,Math.min(1,dt*5));
-   if(camera.position.distanceTo(goal.current)<.002){camera.position.copy(goal.current);moving.current=false;}
+   camera.position.lerp(goal.current.position,Math.min(1,dt*5));
+   controls.current?.target.lerp(goal.current.target,Math.min(1,dt*5));
+   if(camera.position.distanceTo(goal.current.position)<.002){place(goal.current);moving.current=false;}
    controls.current?.update();
   }
   progress.current=k;
-  const f=k<1?lerpRect(landingRect(),stage,k):stage,fov=THREE.MathUtils.lerp(LANDING_FOV,FOV,k);
+  const f=k<1?lerpRect(landingRect(),stage,k):stage,fov=THREE.MathUtils.lerp(LANDING_FOV,fovFor(aspect.current),k);
   const altitude=Math.max(.001,camera.position.distanceTo(frame.center)-frame.radiusKm);
-  const near=THREE.MathUtils.clamp(altitude*.004,.002,10),far=Math.sqrt(altitude*(2*frame.radiusKm+altitude))*1.25+60;
+  const near=THREE.MathUtils.clamp(altitude*.004,.002,10),far=Math.sqrt(altitude*(2*frame.radiusKm+altitude))*1.25+SKY_KM*1.5;
   const key=[f.left,f.top,f.width,f.height,canvas.left,canvas.top,canvas.width,canvas.height,fov,near,far].map(n=>n.toFixed(2)).join();
   if(key===view.current)return;
   view.current=key;
@@ -226,6 +301,48 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress}:{mapView:
 
 type Ray={body:'sun'|'earth';dir:[number,number,number];visible:boolean};
 
+function glowTexture(core:string,glow:string,disc:number){
+ const size=128,canvas=document.createElement('canvas');canvas.width=canvas.height=size;
+ const ctx=canvas.getContext('2d')!,g=ctx.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+ g.addColorStop(0,core);g.addColorStop(disc*.92,core);g.addColorStop(disc,glow);g.addColorStop(1,'rgba(0,0,0,0)');
+ ctx.fillStyle=g;ctx.fillRect(0,0,size,size);
+ const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+
+// The Sun and the Earth on the sky at their computed directions, shown only while the engine has them in view.
+function SkyBodies({rays}:{rays:Ray[]}){
+ const shell=useRef<THREE.Group>(null);
+ const looks=useMemo(()=>({
+  sun:{texture:glowTexture('#fffaf0','rgba(255,196,107,.35)',.12),size:SUN_DEG/.12},
+  earth:{texture:glowTexture('#9fdcff','rgba(143,211,255,.18)',.62),size:EARTH_DEG/.62},
+ }),[]);
+ useEffect(()=>()=>{looks.sun.texture.dispose();looks.earth.texture.dispose();},[looks]);
+ useFrame(({camera})=>{shell.current?.position.copy(camera.position);});
+ return <group ref={shell}>
+  {rays.filter(r=>r.visible).map(r=>{
+   const d=new THREE.Vector3(...r.dir).normalize(),{texture,size}=looks[r.body],scale=2*SKY_KM*Math.tan(size/2*DEG);
+   const p=d.clone().multiplyScalar(SKY_KM);
+   return <group key={r.body}>
+    <sprite position={p} scale={[scale,scale,1]} renderOrder={60}><spriteMaterial map={texture} depthWrite={false} transparent blending={THREE.AdditiveBlending}/></sprite>
+    <Label position={[p.x,p.y+SKY_KM*(r.body==='earth'?.034:.03),p.z]} color={C[r.body]} size={.02} depthTest text={`${r.body==='sun'?'SUN':'EARTH'} · IN VIEW`}/>
+   </group>;
+  })}
+ </group>;
+}
+
+// A thin ray from the mast head to where the body's disc sits on the sky shell around the camera. A body well
+// away from the view direction keeps a short ray pointing at it instead.
+function SkyRay({dir,color}:{dir:[number,number,number];color:string}){
+ const line=useRef<any>(null),from=useMemo(()=>new THREE.Vector3(),[]),to=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),d=useMemo(()=>new THREE.Vector3(...dir).normalize(),[dir]);
+ useFrame(({camera})=>{
+  const l=line.current;if(!l?.parent)return;
+  if(camera.getWorldDirection(ahead).dot(d)<.5)to.copy(d).multiplyScalar(RAY);
+  else{l.parent.getWorldPosition(from);to.copy(camera.position).addScaledVector(d,SKY_KM).sub(from);}
+  l.geometry.setPositions([0,0,0,to.x,to.y,to.z]);
+ });
+ return <Line ref={line} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
+}
+
 function Station({ground,height,label,rays,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];linkTo:[number,number,number]|null;linkVisible:boolean}){
  const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
  const target=MAST_BASE+height*MAST_PER_M;
@@ -236,17 +353,17 @@ function Station({ground,height,label,rays,linkTo,linkVisible}:{ground:[number,n
   if(head.current) head.current.position.y=level.current;
  });
  return <group position={ground}>
-  <mesh position={[0,.002,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.042,40]}/><meshBasicMaterial color={C.station} transparent opacity={.75} side={THREE.DoubleSide}/></mesh>
+  <ScreenScale position={[0,.002,0]}><mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.042,40]}/><meshBasicMaterial color={C.station} transparent opacity={.75} side={THREE.DoubleSide}/></mesh></ScreenScale>
   <mesh ref={mast}><cylinderGeometry args={[.0045,.0045,1,10]}/><meshBasicMaterial color={C.station}/></mesh>
   <group ref={head}>
    <mesh><octahedronGeometry args={[.024]}/><meshBasicMaterial color={C.station}/></mesh>
    {rays.map(({body,dir,visible})=>{
-    const color=visible?C[body]:BLOCKED_COLOR,order=visible?0:20;
-    // Visibility includes the regional horizon beyond the mesh, so blocked rays are drawn over the terrain.
-    return <group key={body}>
-     <Line points={[[0,0,0],dir]} color={color} lineWidth={visible?2.2:2.5} depthTest={visible} depthWrite={visible} transparent={!visible} renderOrder={order}/>
-     <mesh position={dir} renderOrder={order+1}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={visible} transparent={!visible}/></mesh>
-     <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.068} text={`${body==='sun'?'SUN':'EARTH'} · ${visible?'IN VIEW':'BLOCKED'}`}/>
+    const color=visible?C[body]:BLOCKED_COLOR;
+    // In-view rays run out to the body's disc on the sky; blocked rays stay short and draw over the terrain.
+    return visible?<SkyRay key={body} dir={dir} color={color}/>:<group key={body}>
+     <Line points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
+     <mesh position={dir} renderOrder={71}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={false} transparent/></mesh>
+     <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · BLOCKED`}/>
     </group>;
    })}
    <Label position={[0,.09,0]} color={C.station} text={label}/>
@@ -257,13 +374,13 @@ function Station({ground,height,label,rays,linkTo,linkVisible}:{ground:[number,n
 
 function PositionHighlight({label,position}:{label:string;position:[number,number,number]}){
  return <group position={position}>
-  <Billboard>
+  <ScreenScale position={[0,0,0]}><Billboard>
    <mesh renderOrder={90}>
     <ringGeometry args={[.024,.035,32]}/>
     <meshBasicMaterial color="#F5F5F5" transparent opacity={.95} toneMapped={false} depthTest={false} depthWrite={false}/>
    </mesh>
-  </Billboard>
-  <Html position={[0,.27,0]} zIndexRange={[1,0]} style={{pointerEvents:'none'}}>
+  </Billboard></ScreenScale>
+  <Html position={[0,.06,0]} zIndexRange={[1,0]} style={{pointerEvents:'none'}}>
    <div className="map-label position-preview-label" aria-hidden="true">{label}</div>
   </Html>
  </group>;
@@ -277,41 +394,51 @@ function Scene(p:SceneProps){
  const orbiting=useRef(false);
  useCursor(hovered!==null);
  const mean=useMemo(()=>terrainMean(p.terrain),[p.terrain]);
- const land=useMemo<Ground>(()=>({terrain:p.terrain,mean,frame:p.frame,albedo:null}),[p.terrain,mean,p.frame]);
- const tile=useSite01();
- const extent=p.terrain.original_shape[1]*p.terrain.pixel_size_m/1000;
- const point=(pos:Site|Analysis['position'],height=0):[number,number,number]=>[(pos.col-p.terrain.original_shape[1]/2)*p.terrain.pixel_size_m/1000,(pos.elevation_m-mean)*VERTICAL_EXAGGERATION/1000+height/1000,(pos.row-p.terrain.original_shape[0]/2)*p.terrain.pixel_size_m/1000];
+ const land=useMemo<Ground>(()=>({terrain:p.terrain,mean,frame:p.frame}),[p.terrain,mean,p.frame]);
+ const tileData=useSite01(),surround=useSurround();
+ const n=p.terrain.original_shape[0],px=p.terrain.pixel_size_m;
+ const tile=useMemo<DemLevel|null>(()=>tileData&&{data:tileData,n:SITE01_SIZE,px,x0:p.frame.centerPs[0]-(n/2+.5)*px,y0:p.frame.centerPs[1]+(n/2+.5)*px},[tileData,n,px,p.frame]);
+ const extentKm=p.terrain.original_shape[1]*px/1000;
+ const point=(pos:Site|Analysis['position'],height=0):[number,number,number]=>[(pos.col-p.terrain.original_shape[1]/2)*px/1000,(pos.elevation_m-mean)*VERTICAL_EXAGGERATION/1000+height/1000,(pos.row-p.terrain.original_shape[0]/2)*px/1000];
+ // The resting camera clears both the ground around it and the crest at the middle of the square.
+ const heroHeight=useMemo(()=>{
+  const t=p.terrain,km=px*t.stride/1000,cam=p.frame.bearing.clone().multiplyScalar(HERO_BACK);let ground=-Infinity,crest=-Infinity;
+  t.elevation_m.forEach((row,i)=>row.forEach((z,j)=>{
+   if(z===null)return;const x=j*km-extentKm/2,y=(z-mean)*VERTICAL_EXAGGERATION/1000;
+   if(Math.hypot(x-cam.x,i*km-extentKm/2-cam.z)<.35)ground=Math.max(ground,y);
+   if(Math.hypot(x,i*km-extentKm/2)<.45)crest=Math.max(crest,y);
+  }));
+  return Math.max(ground,crest)+HERO_CLEAR;
+ },[p.terrain,p.frame,mean,px,extentKm]);
  const ground=point(p.selected.position),lander=point(p.lander,2);
  const atLander=p.selected.position.row===p.lander.row&&p.selected.position.col===p.lander.col;
  const preview=p.positions.find(o=>o.id===(p.previewId??hovered));
  const select=(id:string)=>{setHovered(null);p.onSelect(id);};
  const pick=(r:number,c:number)=>{const nearest=p.positions.reduce((best,o)=>Math.hypot(o.position.row-r,o.position.col-c)<Math.hypot(best.position.row-r,best.position.col-c)?o:best);select(nearest.id);};
- const horizontal=(az:number,lon:number)=>[Math.sin(az)*Math.cos(lon)+Math.cos(az)*Math.sin(lon),Math.sin(az)*Math.sin(lon)-Math.cos(az)*Math.cos(lon)];
  const rays:Ray[]=BODY_KEYS.map(body=>{
-  const az=p.selected.series[`${body}_azimuth_deg`][p.time]*Math.PI/180,el=p.selected.series[`${body}_elevation_deg`][p.time]*Math.PI/180,lon=p.selected.position.longitude_deg*Math.PI/180;
-  const [x,z]=horizontal(az,lon);
-  return {body,visible:p.selected.series[`${body}_visible`][p.time],dir:[x*RAY*Math.cos(el),Math.sin(el)*RAY,z*RAY*Math.cos(el)]};
+  const el=p.selected.series[`${body}_elevation_deg`][p.time]*DEG,d=p.frame.horizontal(p.selected.series[`${body}_azimuth_deg`][p.time]);
+  return {body,visible:p.selected.series[`${body}_visible`][p.time],dir:[d.x*RAY*Math.cos(el),Math.sin(el)*RAY,d.z*RAY*Math.cos(el)]};
  });
  const add=(a:[number,number,number],b:[number,number,number]):[number,number,number]=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
  const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
  const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,points:[head,add(head,r.dir)],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
  if(!atLander) hoverRays.push({id:'link',points:[add(lander,[0,.02,0]),add(ground,[0,MAST_BASE,0])],label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
- const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
+ const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.filter(r=>!r.visible).map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
  if(!atLander) labelPositions.push(add(lander,[0,.1,0]));
- const sunLight=rays[0].dir.map(v=>v*5) as [number,number,number];
- const [nx,nz]=horizontal(0,p.lander.longitude_deg*Math.PI/180);
- const compass:[number,number,number]=[-extent*.42,surfaceAt(land,-extent*.42,extent*.42)+.03,extent*.42];
- // Stars travel with the camera, oriented as on the landing, and draw first so the true-scale globe occludes them.
+ const north=p.frame.horizontal(0),[nx,nz]=[north.x,north.z];
+ const compass:[number,number,number]=[-extentKm*.42,point({row:n*.92,col:n*.08,elevation_m:p.terrain.elevation_m[Math.round(n*.92/p.terrain.stride)]?.[Math.round(n*.08/p.terrain.stride)]??mean} as Site)[1]+.03,extentKm*.42];
+ // Stars travel with the camera, oriented as on the landing, and draw first so the globe and terrain occlude them.
  const stars=useMemo(()=>{const s=starfield();s.renderOrder=-1;(s.material as THREE.PointsMaterial).depthTest=false;return s;},[]);
  useEffect(()=>{stars.quaternion.copy(p.frame.rotation);},[stars,p.frame]);
  useFrame(({camera})=>{stars.position.copy(camera.position);});
  const progress=useRef(1);
- const surface=<Surface ground={land} tile={tile} wireframe={p.wireframe} onPick={pick}/>;
- return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress}/>
+ const surface=<Surface ground={land} levels={{tile:null,surround:null}} wireframe={p.wireframe} onPick={pick}/>;
+ return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach} focus={p.focus} frame={p.frame} progress={progress} heroHeight={heroHeight}/>
   <primitive object={stars}/>
-  <Lights sun={sunLight} frame={p.frame} progress={progress}/>
-  <GlobeFallback fallback={surface}><Suspense fallback={null}><DrapedSite ground={land} tile={tile} wireframe={p.wireframe} onPick={pick}/></Suspense></GlobeFallback>
-  {p.positions.map(o=>{const feasible=p.feasible?.has(o.id),rec=o.id===p.recommended,radius=feasible?.017:.012;return o.id===p.selected.candidate_id?null:<group key={o.id} position={point(o.position,2)}>
+  <Lights frame={p.frame} progress={progress}/>
+  <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} tile={tile} surround={surround} progress={progress} wireframe={p.wireframe} onPick={pick}/></Suspense></GlobeFallback>
+  <SkyBodies rays={rays}/>
+  {p.positions.map(o=>{const feasible=p.feasible?.has(o.id),rec=o.id===p.recommended,radius=feasible?.017:.012;return o.id===p.selected.candidate_id?null:<ScreenScale key={o.id} position={point(o.position,2)}>
    <mesh><sphereGeometry args={[radius,14,14]}/><meshBasicMaterial color={feasible?C.feasible:C.candidate} transparent opacity={feasible?1:.75}/></mesh>
    <mesh visible={false}
     onPointerMove={e=>{if(orbiting.current||e.pointerType==='touch')return;e.stopPropagation();if(hovered!==o.id)setHovered(o.id);}}
@@ -320,14 +447,14 @@ function Scene(p:SceneProps){
     <sphereGeometry args={[Math.max(radius,.023),8,8]}/><meshBasicMaterial/>
    </mesh>
    {rec&&<mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.038,32]}/><meshBasicMaterial color={C.recommended} side={THREE.DoubleSide}/></mesh>}
-  </group>;})}
+  </ScreenScale>;})}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
-  <group position={lander}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
+  <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
   <Station ground={ground} height={p.selected.height_m} rays={rays} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
   <group position={compass}>
    <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
-   <Label position={[nx*.24,.03,nz*.24]} text="N · LOCAL" size={.06} color="#D4D4D4"/>
+   <Label position={[nx*.24,.03,nz*.24]} text="N · LOCAL" size={.016} color="#D4D4D4"/>
   </group>
   <TerrainRayHover rays={hoverRays} labels={labelPositions} orbiting={orbiting} candidateHovered={Boolean(preview)} onHover={p.onRayHover}/>
   <OrbitControls ref={controls} makeDefault minDistance={.6} maxDistance={MAX_KM} maxPolarAngle={Math.PI*.49} enableDamping dampingFactor={.1}
@@ -335,7 +462,7 @@ function Scene(p:SceneProps){
  </>;
 }
 const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
- return <Canvas frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
+ return <Canvas shadows frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
 export default function TerrainView(props:Props){

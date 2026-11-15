@@ -1,7 +1,7 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
 import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,terrainMean} from './TerrainView';
-import {siteFrame} from './moon/frame';
+import {siteFrame,viewAzimuth} from './moon/frame';
 import {loadSite01} from './site01';
 import DateWindowPicker from './DateWindowPicker';
 import CompareUtcWindow from './CompareUtcWindow';
@@ -71,7 +71,12 @@ function App(){
   setData(d);setSiteId(d.sites[0].id);setCandidate(`r${d.sites[0].row}c${d.sites[0].col}`);
  })().catch(e=>{if(e.name!=='AbortError')setError(e.message);});return()=>controller.abort();},[]);
  useEffect(()=>{loadSite01();},[]);
- const frame=useMemo(()=>{if(!data)return null;const t=data.terrain,i=t.original_shape[0]/2/t.stride,j=t.original_shape[1]/2/t.stride;return siteFrame(t.latitude_deg[i][j],t.longitude_deg[i][j],terrainMean(t));},[data]);
+ const frame=useMemo(()=>{
+  if(!data)return null;const t=data.terrain,i=t.original_shape[0]/2/t.stride,j=t.original_shape[1]/2/t.stride;
+  // Faces what is in view at the opening instant of the first site; fixed afterwards so the terrain is built once.
+  const sweep=heightSweep(data.analyses,`r${data.sites[0].row}c${data.sites[0].col}`),peak=sweep.find(a=>a.height_m===peakHeight(sweep));
+  return siteFrame(t.latitude_deg[i][j],t.longitude_deg[i][j],terrainMean(t),viewAzimuth(sweep[0].series,peak?contrastIndex(sweep[0],peak):0));
+ },[data]);
  const site=data?.sites.find(s=>s.id===siteId);
  const siteCell=site?`r${site.row}c${site.col}`:'';
  const positions=useMemo<EvaluatedPosition[]>(()=>{const links=data?.links[siteId]??{};let n=0;return all.filter(a=>a.height_m===0).map(a=>{const lander=a.candidate_id===siteCell;if(!lander)n++;return {id:a.candidate_id,label:lander?'At lander':`Candidate ${String(n).padStart(2,'0')} · ${hours(Math.round(links[keyFor(a)]?.distance_m??0))} m away`,position:a.position};});},[all,data,siteId,siteCell]);

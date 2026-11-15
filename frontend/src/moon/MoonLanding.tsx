@@ -28,7 +28,7 @@ const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // The approach looks at the tile with the site's local up, which is upside down from the landing's north-up view.
 function approachPose(frame:SiteFrame){
- const pose={position:frame.toLanding(horizonPose(APPROACH_KM,frame.radiusKm,FOV).position),target:frame.toLanding(new THREE.Vector3())};
+ const pose={position:frame.toLanding(horizonPose(APPROACH_KM,frame,FOV).position),target:frame.toLanding(new THREE.Vector3())};
  const look=(up:THREE.Vector3)=>new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(pose.position,pose.target,up));
  const d=look(new THREE.Vector3(0,1,0)).invert().multiply(look(frame.upInLanding));
  let roll=2*Math.atan2(d.z,d.w);

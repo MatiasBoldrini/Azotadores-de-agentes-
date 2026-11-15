@@ -15,7 +15,8 @@ export type TerrainRay = {
 
 export type TerrainRayTip = {ray: TerrainRay; left: number; top: number};
 
-export const TERRAIN_LABEL_SIZE: Point = [.8, .1, 1];
+// Terrain labels keep a constant size on screen; this is their extent per unit of view depth.
+export const TERRAIN_LABEL_SIZE: Point = [.2, .026, 1];
 const TOOLTIP_WIDTH = 192;
 const TOOLTIP_HEIGHT = 54;
 const HIT_RADIUS = 7;
@@ -84,10 +85,10 @@ export function TerrainRayHover({rays, labels, orbiting, candidateHovered, onHov
    const labelBounds = labels.flatMap(position => {
     label.fromArray(position).applyMatrix4(camera.matrixWorldInverse);
     if (label.z > near) return [];
-    // The billboards' world-space sizes act along the camera's X and Y axes.
+    // The billboards' sizes act along the camera's X and Y axes and grow with depth.
     labelCorner.copy(label);
-    labelCorner.x += TERRAIN_LABEL_SIZE[0] / 2;
-    labelCorner.y += TERRAIN_LABEL_SIZE[1] / 2;
+    labelCorner.x += TERRAIN_LABEL_SIZE[0] / 2 * -label.z;
+    labelCorner.y += TERRAIN_LABEL_SIZE[1] / 2 * -label.z;
     toScreen(labelCorner);
     toScreen(label);
     return [{left: 2 * label.x - labelCorner.x, right: labelCorner.x, top: labelCorner.y, bottom: 2 * label.y - labelCorner.y}];
