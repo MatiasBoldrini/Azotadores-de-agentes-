@@ -20,6 +20,8 @@ import MoonLanding,{type MoonMode} from './moon/MoonLanding';
 import {Analysis,Bundle,Constraints,Link,keyFor,optimize,percent,violations} from './lib/science';
 import {maxObservationHours, observationDays, shardsForWindow} from './lib/observationEphemeris';
 import MissionOps from './MissionOps';
+import Advisor from './Advisor';
+import type {InsightAction} from './lib/advisor';
 import {timelineCsv} from './lib/missionOps';
 import {decodeShareState,encodeShareState,type ShareState,type ShareView} from './lib/shareLink';
 import {useObservationWindow} from './useObservationWindow';
@@ -294,6 +296,7 @@ function App(){
  };
  const runSearch=()=>{if(searching||designer.status==='loading')return;setShowConfigure(false);setDemoStep(null);performSearch(all,links,constraints);};
  const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else runSearch();};
+ const onAdvice=(a:InsightAction)=>{setDemoStep(null);setRaising(false);if(a.kind==='time'){setPlaying(false);setTime(a.index);setNotice('Timeline cursor moved to the suggested time.');return;}setCandidate(a.candidate);setHeight(a.height);setTab('Infrastructure Designer');setNotice(a.candidate===selected.candidate_id?`Loaded the precomputed ${a.height} m terrain horizon.`:`Station moved to the suggested cell with a ${a.height} m mast.`);};
  const exportCsv=()=>{const csv=timelineCsv(selected,{siteName:site.name,candidateId:selected.candidate_id,heightM:selected.height_m,sources:data.methodology.sources});const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download=`selenarc-${site.id}-${selected.height_m}m-${start.slice(0,10)}_${end.slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);};
  const shareView:ShareView=moon==='globe'?'globe':tab==='Infrastructure Designer'?'designer':tab==='Compare'?'compare':tab==='Science & Sources'?'science':'site';
  const copyLink=()=>{
@@ -384,6 +387,7 @@ function App(){
   </div>
  </div>;
  const results=<ResultsPanel selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} headerAction={showAnalysisDock?configure:undefined}>
+  <Advisor input={{selected,all,links,constraints,index}} onAction={onAdvice}/>
   <MissionOps analysis={selected} index={index} onExportCsv={exportCsv} onCopyLink={copyLink} copied={linkCopied}/>
  {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;
