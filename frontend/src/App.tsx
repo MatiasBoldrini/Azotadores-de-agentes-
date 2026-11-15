@@ -17,12 +17,15 @@ import {TimelineChart,TimelineStack} from './Charts';
 import {StoryBar} from './Story';
 import {ResultsPanel,OptimizerCard} from './Results';
 import MoonLanding,{type MoonMode} from './moon/MoonLanding';
-import {Analysis,Bundle,Constraints,Link,keyFor,optimize,percent,violations} from './lib/science';
+import {Analysis,Bundle,Constraints,Link,keyFor,percent,violations} from './lib/science';
 import {maxObservationHours, observationDays, shardsForWindow} from './lib/observationEphemeris';
 import MissionOps from './MissionOps';
 import {timelineCsv} from './lib/missionOps';
 import {decodeShareState,encodeShareState,type ShareState,type ShareView} from './lib/shareLink';
 import {useObservationWindow} from './useObservationWindow';
+import {optimizeHybrid, type ScienceSource} from './lib/hybridScience';
+import {backendBaseUrl} from './backendConfig';
+import observationManifest from './lib/observationEphemerisManifest.json';
 import {buildStory,constraintRows,contrastIndex,explainRecommendation,heightSweep,hours,peakHeight,type Search,type StoryAction} from './lib/story';
 const DEFAULT_CONSTRAINTS: Constraints = {minSun:70,minEarth:40,maxOutage:360,maxDistance:1000,maxSlope:20,requireLink:true};
 const fmt=(n:number,d=1)=>n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
@@ -75,20 +78,26 @@ function App(){
  const ReferencesIcon=showReferences?Eye:EyeOff;
  const SkyIcon=showSky?Eye:EyeOff;
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
- const searchTimer=useRef<number|undefined>(undefined);
  const [linkCopied,setLinkCopied]=useState(false);
  const pendingAt=useRef<string|null>(null);
  const pendingShare=useRef<Partial<ShareState>|null|undefined>(undefined);
+ const searchAbort=useRef<AbortController|null>(null),searchGeneration=useRef(0);
+ const [searchSource,setSearchSource]=useState<ScienceSource|null>(null);
+ const cancelSearch=()=>{searchAbort.current?.abort();searchGeneration.current++;setSearching(false);};
+ useEffect(()=>()=>{searchAbort.current?.abort();},[]);
  useEffect(()=>{const controller=new AbortController();(async()=>{
   const r=await fetch('/data/snapshot.json',{signal:controller.signal});
   if(!r.ok)throw new Error(`Scientific dataset could not be loaded (${r.status}).`);
-  const total=Number(r.headers.get('content-length'))||0;let d:Bundle;
+  const total=Number(r.headers.get('content-length'))||0;let d:Bundle;let snapshotBytes:Uint8Array;
   if(r.body&&total&&!r.headers.get('content-encoding')){
    const reader=r.body.getReader(),chunks:Uint8Array[]=[];let got=0,shown=0;
    for(;;){const {done,value}=await reader.read();if(done)break;chunks.push(value);got+=value.length;if(got/total-shown>.01){shown=got/total;setProgress(Math.min(1,shown));}}
    const bytes=new Uint8Array(got);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}
-   d=JSON.parse(new TextDecoder().decode(bytes));
-  } else d=await r.json();
+   snapshotBytes=bytes;d=JSON.parse(new TextDecoder().decode(bytes));
+  } else {snapshotBytes=new Uint8Array(await r.arrayBuffer());d=JSON.parse(new TextDecoder().decode(snapshotBytes));}
+  const hash=await crypto.subtle.digest('SHA-256',new Uint8Array(snapshotBytes).buffer);
+  const digest=Array.from(new Uint8Array(hash),byte=>byte.toString(16).padStart(2,'0')).join('');
+  if(digest!==observationManifest.snapshot_sha256)throw new Error('Scientific dataset version mismatch. Reload to obtain a consistent dataset.');
   if(!d.analyses?.length)throw new Error('The scientific cache contains no analyses.');
   setData(d);setSiteId(d.sites[0].id);setCandidate(`r${d.sites[0].row}c${d.sites[0].col}`);
  })().catch(e=>{if(e.name!=='AbortError')setError(e.message);});return()=>controller.abort();},[]);
@@ -109,7 +118,7 @@ function App(){
  const siteSweep=useMemo(()=>heightSweep(all,siteCell),[all,siteCell]);
  const sitePeak=peakHeight(siteSweep);
  const focusIndex=useMemo(()=>{const target=siteSweep.find(a=>a.height_m===sitePeak);return target?contrastIndex(siteSweep[0],target):0;},[siteSweep,sitePeak]);
- useEffect(()=>{window.clearTimeout(searchTimer.current);setSearching(false);setTime(focusIndex);setSearch(null);setPlaying(false);},[start,end,siteId,focusIndex]);
+ useEffect(()=>{cancelSearch();setSearchSource(null);setTime(focusIndex);setSearch(null);setPlaying(false);},[start,end,siteId,focusIndex]);
  useEffect(()=>{
   // A shared link's cursor time is applied once its window is loaded, after the window reset above.
   const at=pendingAt.current,shared=pendingShare.current;if(!at||!selected)return;
@@ -118,7 +127,7 @@ function App(){
   pendingAt.current=null;
   if(i>=0)setTime(i);
  },[selected,start,end,siteId,focusIndex]);
- useEffect(()=>{setSearch(null);},[constraints]);
+ useEffect(()=>{cancelSearch();setSearch(null);setSearchSource(null);},[constraints]);
  useEffect(()=>{
   if(!data||pendingShare.current!==undefined)return;
   const shared=decodeShareState(location.search,{sites:data.sites.map(s=>s.id),heights:[...new Set(data.analyses.map(a=>a.height_m))],validWindow:(a,b)=>{shardsForWindow(a,b);return true;}});
@@ -195,14 +204,22 @@ function App(){
  const sweep = useMemo(() => ridge&&data ? heightSweep(data.analyses,`r${ridge.row}c${ridge.col}`) : [], [data, ridge]);
  const plan = useMemo(() => demoSteps(sweep), [sweep]);
  const ridgeFocus = useMemo(() => { const peak = peakHeight(sweep), target = sweep.find(a => a.height_m === peak); return target ? contrastIndex(sweep[0], target) : 0; }, [sweep]);
- const performSearch=(analyses:Analysis[],links:Record<string,Link>,c:Constraints)=>{
-  window.clearTimeout(searchTimer.current);setSearching(true);setSearch(null);setNotice('');
-  searchTimer.current=window.setTimeout(()=>{const result=optimize(analyses,links,c);setSearch(result);setSearching(false);if(result.recommended){setCandidate(result.recommended.candidate_id);setHeight(result.recommended.height_m);setNotice(`Selected the lowest-cost feasible configuration from ${result.evaluated} evaluated configurations.`);}setTab('Infrastructure Designer');},650);
+ const performSearch=async(analyses:Analysis[],links:Record<string,Link>,c:Constraints,searchSiteId=siteId)=>{
+  cancelSearch();const generation=searchGeneration.current;const abort=new AbortController();searchAbort.current=abort;
+  setSearching(true);setSearch(null);setSearchSource(null);setNotice('');
+  try {
+   const response=await optimizeHybrid(analyses,links,c,searchSiteId,{signal:abort.signal,baseUrl:backendBaseUrl});
+   if(abort.signal.aborted||generation!==searchGeneration.current)return;
+   const result=response.result;setSearch(result);setSearchSource(response.source);
+   if(result.recommended){setCandidate(result.recommended.candidate_id);setHeight(result.recommended.height_m);setNotice(`Selected the lowest-cost feasible configuration from ${result.evaluated} evaluated configurations.`);}
+   setTab('Infrastructure Designer');
+  } catch(error) {
+   if(!abort.signal.aborted&&generation===searchGeneration.current)setNotice(error instanceof Error?error.message:'Scientific search unavailable.');
+  } finally {if(generation===searchGeneration.current)setSearching(false);}
  };
  const showRidgeHeight = (nextHeight: number) => {
   if (!ridge || !sweep.length) return;
-  window.clearTimeout(searchTimer.current);
-  setSearching(false);
+  cancelSearch();
   const times = sweep[0].series.timestamp_utc;
   setSiteId(ridge.id);
   setCandidate(sweep[0].candidate_id);
@@ -213,6 +230,7 @@ function App(){
   setTime(ridgeFocus);
   setPlaying(false);
   setSearch(null);
+  setSearchSource(null);
   setNotice('');
  };
  const startDemo = () => {
@@ -240,23 +258,24 @@ function App(){
    }
    const nextHeight = plan[next].height;
    if (nextHeight !== null) setHeight(nextHeight);
-   else performSearch(data.analyses, data.links[ridge.id], DEFAULT_CONSTRAINTS);
+   else void performSearch(data.analyses, data.links[ridge.id], DEFAULT_CONSTRAINTS,ridge.id);
    setDemoStep(next);
   }, plan[demoStep].ms);
   return () => window.clearTimeout(timer);
  }, [demoStep, data, ridge, sweep, plan]);
  const feasible=useMemo(()=>{if(!search?.recommended||!data)return undefined;const links=data.links[siteId];return new Set(all.filter(a=>violations(a,links[keyFor(a)],constraints).length===0).map(a=>a.candidate_id));},[search,all,data,siteId,constraints]);
  const index=Math.min(time,count-1);
- const stopDemo=()=>setDemoStep(null);
+ const stopDemo=()=>{cancelSearch();setDemoStep(null);};
  const flyTo=(id:string)=>{
+  cancelSearch();
   const s=data?.sites.find(x=>x.id===id);if(!s)return;
   setDemoStep(null);setTab('Landing Sites');setDescend(false);
   if(id!==siteId){setSiteId(id);setCandidate(`r${s.row}c${s.col}`);setHeight(0);setSearch(null);}
   window.scrollTo(0,0);
   setMoon(reducedMotion()?'site':'in');
  };
- const backToMoon=()=>{setShowConfigure(false);setDemoStep(null);setPlaying(false);setDescend(false);setTab('Landing Sites');setMoon(reducedMotion()?'globe':'out');};
- const openTab=(t:Tab)=>{setDemoStep(null);if(t==='Landing Sites'){if(moon==='site')backToMoon();return;}if(t!=='Infrastructure Designer')setShowConfigure(false);setTab(t);setMoon('site');};
+ const backToMoon=()=>{cancelSearch();setShowConfigure(false);setDemoStep(null);setPlaying(false);setDescend(false);setTab('Landing Sites');setMoon(reducedMotion()?'globe':'out');};
+ const openTab=(t:Tab)=>{cancelSearch();setDemoStep(null);if(t==='Landing Sites'){if(moon==='site')backToMoon();return;}if(t!=='Infrastructure Designer')setShowConfigure(false);setTab(t);setMoon('site');};
  const workspaceTab=tab==='Landing Sites'||tab==='Infrastructure Designer';
  const ready=Boolean(data&&selected&&baseline&&site);
  const shell=(content:ReactNode,actions?:ReactNode)=><div className={`app moon-${moon} ${workspaceTab&&moon!=='globe'?'is-workspace':''} ${demoStep!==null?'is-demo':''}`}>
@@ -266,6 +285,7 @@ function App(){
    <nav aria-label="Main navigation">{TABS.map(t=><button className={tab===t?'active':''} aria-label={t} aria-current={tab===t?'page':undefined} key={t} onClick={()=>openTab(t)}><span className="tab-full">{t}</span><span className="tab-short" aria-hidden="true">{SHORT_TABS[t]}</span></button>)}</nav>
    <div className="top-actions">
     {actions}
+    {ready&&workspaceTab&&moon==='site'&&(designer.status==='error'||designer.source==='cache'||searchSource==='cache')&&<span className="science-mode cache" role="status">{designer.status==='error'?'Scientific data unavailable':'Using backup NASA data'}</span>}
     <button className={`demo-button ${demoStep!==null?'running':''}`} disabled={!ready} onClick={demoStep === null ? startDemo : stopDemo}>{demoStep===null?<><Play size={13}/>Play 25 s demo</>:<><Pause size={13}/>Stop demo</>}</button>
    </div>
   </header>
@@ -280,19 +300,18 @@ function App(){
  const atSiteCell=selected.candidate_id===siteCell;
  const rows=constraintRows(selected,link,constraints);
  const story=buildStory({selected,baseline,sweep:selectedSweep,links,constraints,search,searching,evaluated:all.length});
- const chooseSite=(id:string)=>{setDemoStep(null);const s=data.sites.find(s=>s.id===id)!;setSiteId(id);setCandidate(`r${s.row}c${s.col}`);setHeight(0);setSearch(null);};
- const chooseCandidate=(id:string)=>{setDemoStep(null);setCandidate(id);setTab('Infrastructure Designer');setNotice('Station moved to the nearest evaluated terrain cell.');};
- const raiseMast=()=>{setDemoStep(null);setPlaying(false);setMapView(false);setShowSky(true);setHeight(heightsTested[0]??0);setRaising(true);setNotice('Raising the mast through each tested height. Each step loads that height’s own LOLA horizon.');};
+ const chooseSite=(id:string)=>{cancelSearch();setSearchSource(null);setDemoStep(null);const s=data.sites.find(s=>s.id===id)!;setSiteId(id);setCandidate(`r${s.row}c${s.col}`);setHeight(0);setSearch(null);};
+ const chooseCandidate=(id:string)=>{cancelSearch();setDemoStep(null);setCandidate(id);setTab('Infrastructure Designer');setNotice('Station moved to the nearest evaluated terrain cell.');};
+ const raiseMast=()=>{cancelSearch();setDemoStep(null);setPlaying(false);setMapView(false);setShowSky(true);setHeight(heightsTested[0]??0);setRaising(true);setNotice('Raising the mast through each tested height. Each step loads that height’s own LOLA horizon.');};
  const skyBase=selectedSweep[0];
  const gainedSun=selected.metrics.sun.total_hours-skyBase.metrics.sun.total_hours,gainedEarth=selected.metrics.earth.total_hours-skyBase.metrics.earth.total_hours;
- const chooseHeight=(h:number)=>{setDemoStep(null);setRaising(false);setHeight(h);setTab('Infrastructure Designer');setNotice(`Loaded the precomputed ${h} m terrain horizon; metrics re-integrated over the selected window.`);};
+ const chooseHeight=(h:number)=>{cancelSearch();setDemoStep(null);setRaising(false);setHeight(h);setTab('Infrastructure Designer');setNotice(`Selected the ${h} m station for the current observation window.`);};
  const setWindow=(nextStart:string,nextEnd:string)=>{
   setDemoStep(null);
-  window.clearTimeout(searchTimer.current);
-  setSearching(false);
+  cancelSearch();
   void designer.select(nextStart,nextEnd);
  };
- const runSearch=()=>{if(searching||designer.status==='loading')return;setShowConfigure(false);setDemoStep(null);performSearch(all,links,constraints);};
+ const runSearch=()=>{if(searching||designer.status==='loading')return;setShowConfigure(false);setDemoStep(null);void performSearch(all,links,constraints);};
  const onStoryAction=(a:StoryAction)=>{if(a.kind==='height')chooseHeight(a.height);else runSearch();};
  const exportCsv=()=>{const csv=timelineCsv(selected,{siteName:site.name,candidateId:selected.candidate_id,heightM:selected.height_m,sources:data.methodology.sources});const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download=`selenarc-${site.id}-${selected.height_m}m-${start.slice(0,10)}_${end.slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);};
  const shareView:ShareView=moon==='globe'?'globe':tab==='Infrastructure Designer'?'designer':tab==='Compare'?'compare':tab==='Science & Sources'?'science':'site';
@@ -303,11 +322,11 @@ function App(){
   const done=()=>{setLinkCopied(true);setNotice('Link copied: site, station, mast height, window, time and view.');window.setTimeout(()=>setLinkCopied(false),2400);};
   if(navigator.clipboard?.writeText)navigator.clipboard.writeText(url).then(done,()=>setNotice(`Copy this link: ${url}`));else setNotice(`Copy this link: ${url}`);
  };
- const exportResult=()=>{const blob=new Blob([JSON.stringify({analysis:selected,baseline,local_link:link,constraints,optimizer:search?{evaluated:search.evaluated,feasible:search.feasible,objective:'height/20 + distance/1000 + slope/90'}:null,methodology:data.methodology},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='selenarc-analysis.json';a.click();URL.revokeObjectURL(url);};
+ const exportResult=()=>{const blob=new Blob([JSON.stringify({analysis:selected,baseline,local_link:link,constraints,calculation_source:designer.source,optimizer_source:searchSource,snapshot_sha256:observationManifest.snapshot_sha256,optimizer:search?{evaluated:search.evaluated,feasible:search.feasible,objective:'height/20 + distance/1000 + slope/90'}:null,methodology:data.methodology},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='selenarc-analysis.json';a.click();URL.revokeObjectURL(url);};
 
  const demo=demoStep===null?null:{step:demoStep,total:plan.length,label:plan[demoStep].label,ms:plan[demoStep].ms};
  const stage=moon==='globe'?'hidden':moon==='in'?(descend?'descend':'arrive'):moon==='out'?'leave':'on';
- const compare=<MonthlyCompare sites={data.sites} renderTimelines={()=><>
+ const compare=<MonthlyCompare sites={data.sites} analyses={data.analyses} links={data.links} renderTimelines={()=><>
   <div className="compare-intro"><p>Choose independent UTC windows at ground level.</p></div>
   <div className="compare-grid">
    {data.sites.map((site, i)=>{
@@ -321,6 +340,7 @@ function App(){
       <div><h2>{site.name}</h2><small>{fmt(Math.abs(site.latitude_deg),5)}° S / {fmt(Math.abs(site.longitude_deg),5)}° W</small></div>
       <span className="eyebrow">0 M AGL</span>
      </div>
+     {(comparison.status==='error'||comparison.source==='cache')&&<p className="science-mode cache" role="status">{comparison.status==='error'?'Scientific data unavailable':'Using backup NASA data'}</p>}
      <DateWindowPicker days={observationDays} start={windowStart} end={windowEnd} label={`${site.name} observation window`} onChange={comparison.select} status={comparison.status}/>
      <p className="micro">Cursor: {utc(timestamps[cursor])} UTC</p>
      <div className="comparison-metrics">
@@ -347,7 +367,7 @@ function App(){
       <div><dt>Longest continuous Sun + Earth window</dt><dd>{fmt(analysis.metrics.both.longest_visible_hours)} h</dd></div>
       <div><dt>Local slope</dt><dd>{fmt(analysis.position.slope_deg??0)}°</dd></div>
      </dl>
-     <button className="secondary wide" onClick={()=>{chooseSite(site.id);setTab('Infrastructure Designer');}}>Engineer this site <ArrowRight size={15}/></button>
+     <button className="secondary wide" onClick={()=>{chooseSite(site.id);void designer.select(windowStart,windowEnd);setTab('Infrastructure Designer');}}>Engineer this site <ArrowRight size={15}/></button>
     </article>;
    })}
   </div>
@@ -379,7 +399,7 @@ function App(){
     </details>
     <div className="section-rule"/>
     <button className="constraints-toggle" aria-expanded={showConstraints} aria-controls="search-constraints" onClick={()=>setShowConstraints(!showConstraints)}><SlidersHorizontal size={14}/> Search constraints <ChevronDown size={14}/></button>
-    <div className="constraint-fields" id="search-constraints" hidden={!showConstraints}>{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label><p className="fine">{all.length} precomputed configurations across {positions.length} cells and {heightsTested.length} heights.</p></div>
+    <div className="constraint-fields" id="search-constraints" hidden={!showConstraints}>{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:maxObservationHours,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label><p className="fine">{all.length} evaluated configurations across {positions.length} cells and {heightsTested.length} heights.</p></div>
    </>}
   </div>
  </div>;
@@ -417,7 +437,7 @@ function App(){
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}
    </div>
-  {search&&<OptimizerCard search={search} lines={explainRecommendation(search,all,links,constraints,baseline)} links={links} selectedKey={keyFor(selected)} onPick={a=>{setDemoStep(null);setCandidate(a.candidate_id);setHeight(a.height_m);}} onClose={()=>setSearch(null)}/>}
+  {search&&<OptimizerCard search={search} lines={explainRecommendation(search,all,links,constraints,baseline)} links={links} selectedKey={keyFor(selected)} onPick={a=>{setDemoStep(null);setCandidate(a.candidate_id);setHeight(a.height_m);}} onClose={()=>{setSearch(null);setSearchSource(null);}}/>}
   </section>
   {results}
   <section className="timeline glass" ref={timelineRef} aria-label="Sun and Earth over time">
@@ -452,5 +472,5 @@ function Science({data}:{data:Bundle}){return <section className="science-page">
  <details><summary>Inspect dataset provenance</summary>
   <p>The local DEM covers {fmt(data.terrain.original_shape[1]*data.terrain.pixel_size_m/1000,2)} × {fmt(data.terrain.original_shape[0]*data.terrain.pixel_size_m/1000,2)} km.</p>
   <pre>{JSON.stringify(data.methodology.provenance,null,2)}</pre>
- </details><p className="footnote">Implemented with assistance from OpenAI Codex. {PRODUCT_NAME} is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>5 m / vertex, 10–20 m around</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Cached observation window</dt><dd>Nov 2026 – Apr 2027 UTC</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">Every result remains usable without a live NASA API connection. New terrain, dates outside the cache, or new candidate positions require regeneration of the scientific dataset.</p></aside></section>;}
+ </details><p className="footnote">Implemented with assistance from OpenAI Codex. {PRODUCT_NAME} is an independent prototype; no NASA endorsement or operational mission certification is implied.</p></article><aside><div className="science-stamp"><Mountain size={36}/><span className="eyebrow">CONNECTING RIDGE</span><strong>89.46° S</strong></div><dl className="facts"><div><dt>Reference sphere</dt><dd>1,737.4 km</dd></div><div><dt>Local DEM</dt><dd>5 m / pixel</dd></div><div><dt>Mesh display</dt><dd>5 m / vertex, 10–20 m around</dd></div><div><dt>Time resolution</dt><dd>30 minutes</dd></div><div><dt>Cached observation window</dt><dd>Nov 2026 – Apr 2027 UTC</dd></div><div><dt>Observer heights</dt><dd>0 / 2 / 5 / 10 / 20 m</dd></div><div><dt>Cached configurations</dt><dd>{data.analyses.length}</dd></div></dl><p className="micro">The app requests calculations from its scientific backend first. If the service is unavailable, verified NASA-derived cached data cover the same evaluated positions and dates. The interface labels fallback results. Positions and dates outside this coverage require additional scientific data.</p></aside></section>;}
 export default App;

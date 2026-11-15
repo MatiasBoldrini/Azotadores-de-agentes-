@@ -1,0 +1,127 @@
+{
+  "timestamp_utc": "2026-11-15T17:28:12.269507+00:00",
+  "snapshot_sha256": "0bbc60591c01d55a86dea65640230b95a08f7de2a1a921a280f5691bf6af8584",
+  "transport": "FastAPI TestClient, no listening HTTP server",
+  "mismatches": [
+    {
+      "kind": "frontend_supported_dates_rejected",
+      "site": "ridge-a",
+      "start": "2026-11-29",
+      "end": "2026-12-05",
+      "status": 422,
+      "detail": "Requested dates are outside the cached interval 2026-11-01T00:00:00+00:00 to 2026-12-01T00:00:00+00:00"
+    },
+    {
+      "kind": "frontend_supported_dates_rejected",
+      "site": "ridge-a",
+      "start": "2026-12-01",
+      "end": "2027-01-01",
+      "status": 422,
+      "detail": "Requested dates are outside the cached interval 2026-11-01T00:00:00+00:00 to 2026-12-01T00:00:00+00:00"
+    },
+    {
+      "kind": "frontend_supported_dates_rejected",
+      "site": "ridge-a",
+      "start": "2027-04-01",
+      "end": "2027-05-01",
+      "status": 422,
+      "detail": "Requested dates are outside the cached interval 2026-11-01T00:00:00+00:00 to 2026-12-01T00:00:00+00:00"
+    },
+    {
+      "kind": "frontend_supported_dates_rejected",
+      "site": "ridge-b",
+      "start": "2026-11-29",
+      "end": "2026-12-05",
+      "status": 422,
+      "detail": "Requested dates are outside the cached interval 2026-11-01T00:00:00+00:00 to 2026-12-01T00:00:00+00:00"
+    },
+    {
+      "kind": "frontend_supported_dates_rejected",
+      "site": "ridge-b",
+      "start": "2026-12-01",
+      "end": "2027-01-01",
+      "status": 422,
+      "detail": "Requested dates are outside the cached interval 2026-11-01T00:00:00+00:00 to 2026-12-01T00:00:00+00:00"
+    },
+    {
+      "kind": "frontend_supported_dates_rejected",
+      "site": "ridge-b",
+      "start": "2027-04-01",
+      "end": "2027-05-01",
+      "status": 422,
+      "detail": "Requested dates are outside the cached interval 2026-11-01T00:00:00+00:00 to 2026-12-01T00:00:00+00:00"
+    },
+    {
+      "kind": "optimizer_search_space",
+      "frontend": {
+        "site": "ridge-a",
+        "evaluated": 130,
+        "feasible": 17,
+        "recommended": "r256c256-5"
+      },
+      "backend": {
+        "site": "ridge-a",
+        "evaluated": 45,
+        "feasible": 6,
+        "recommended": "r256c256-5"
+      }
+    },
+    {
+      "kind": "optimizer_search_space",
+      "frontend": {
+        "site": "ridge-b",
+        "evaluated": 130,
+        "feasible": 11,
+        "recommended": "r160c352-10"
+      },
+      "backend": {
+        "site": "ridge-b",
+        "evaluated": 75,
+        "feasible": 9,
+        "recommended": "r182c329-5"
+      }
+    }
+  ],
+  "optimizations": [
+    {
+      "frontend": {
+        "site": "ridge-a",
+        "evaluated": 130,
+        "feasible": 17,
+        "recommended": "r256c256-5"
+      },
+      "backend": {
+        "site": "ridge-a",
+        "evaluated": 45,
+        "feasible": 6,
+        "recommended": "r256c256-5"
+      }
+    },
+    {
+      "frontend": {
+        "site": "ridge-b",
+        "evaluated": 130,
+        "feasible": 11,
+        "recommended": "r160c352-10"
+      },
+      "backend": {
+        "site": "ridge-b",
+        "evaluated": 75,
+        "feasible": 9,
+        "recommended": "r182c329-5"
+      }
+    }
+  ],
+  "passed_comparisons": {
+    "visibility": 780,
+    "links": 260,
+    "compare": 2
+  },
+  "frontend_api_connected": false,
+  "limitations": [
+    "Frontend still fetches static files; no end-to-end backend integration established.",
+    "No browser interaction or live HTTP transport verified.",
+    "Agreement does not independently validate source DEM or celestial ephemerides."
+  ],
+  "status": "incompatible"
+}

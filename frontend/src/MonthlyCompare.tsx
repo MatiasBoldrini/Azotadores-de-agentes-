@@ -1,7 +1,8 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import CompareUtcWindow from './CompareUtcWindow';
 import { type MonthlyScan, type MonthlyWindow, parseMonthlyScan } from './lib/monthlyScan';
-import type { Site } from './lib/science';
+import {type Site, type Analysis, type Link, keyFor, violations} from './lib/science';
+import {useObservationWindow} from './useObservationWindow';
 import './MonthlyCompare.css';
 
 const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -25,7 +26,7 @@ function Visibility({ label, color, hours, month }: { label: string; color: stri
   </div>;
 }
 
-export default function MonthlyCompare({ sites, renderTimelines }: { sites: Site[]; renderTimelines: () => ReactNode }) {
+export default function MonthlyCompare({ sites, analyses, links, renderTimelines }: { sites: Site[]; analyses: Analysis[]; links: Record<string,Record<string,Link>>; renderTimelines: () => ReactNode }) {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const [view, setView] = useState<'monthly' | 'timeline'>('monthly');
   const [monthId, setMonthId] = useState('2026-11');
@@ -62,6 +63,8 @@ export default function MonthlyCompare({ sites, renderTimelines }: { sites: Site
     </p>}
     {showTimelines ? renderTimelines() : load.status === 'ready' ? <MonthlyResults
       scan={load.scan}
+      analyses={analyses}
+      links={links}
       sites={sites}
       month={load.scan.months.find(item => item.id === monthId) ?? load.scan.months[0]}
       height={height}
@@ -71,8 +74,10 @@ export default function MonthlyCompare({ sites, renderTimelines }: { sites: Site
   </section>;
 }
 
-function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
+function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyses, links }: {
   scan: MonthlyScan;
+  analyses: Analysis[];
+  links: Record<string,Record<string,Link>>;
   sites: Site[];
   month: MonthlyWindow;
   height: number;
@@ -81,6 +86,10 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
 }) {
   const ridgeSites = sites.filter(site => site.id in month.sites);
   const limits = scan.defaults;
+  const fixed = useMemo(()=>analyses.filter(a=>sites.some(site=>site.row===a.position.row&&site.col===a.position.col)),[analyses,sites]);
+  const observations = useObservationWindow(fixed,month.start_utc,month.end_utc);
+  const current=Date.parse(observations.window.start)===Date.parse(month.start_utc)&&Date.parse(observations.window.end)===Date.parse(month.end_utc);
+  const available=current&&observations.status===null;
 
   return <div className="monthly-compare">
     <p className="monthly-context">Fixed landing points on Connecting Ridge. Each height is measured above the terrain at the same point.</p>
@@ -97,10 +106,15 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
       </label>
     </div>
 
-    <div className="compare-grid">
+    {(observations.status==='error'||(available&&observations.source==='cache'))&&<p className="science-mode cache" role="status">{observations.status==='error'?'Scientific data unavailable. Choose another month to retry.':'Using backup NASA data'}</p>}
+    {!available&&observations.status!=='error'&&<p className="micro">Loading observations…</p>}
+    {available&&<div className="compare-grid">
       {ridgeSites.map(site => {
-        const result = month.sites[site.id];
-        const selected = result.heights.find(item => item.height_m === height)!;
+        const sweep=observations.window.analyses.filter(a=>a.position.row===site.row&&a.position.col===site.col);
+        const selectedAnalysis=sweep.find(a=>a.height_m===height)!;
+        const selected={sun_hours:selectedAnalysis.metrics.sun.total_hours,earth_hours:selectedAnalysis.metrics.earth.total_hours,both_longest_outage_hours:selectedAnalysis.metrics.both.longest_outage_hours};
+        const qualifying=sweep.filter(a=>violations(a,links[site.id][keyFor(a)],limits).length===0).sort((a,b)=>a.height_m-b.height_m);
+        const result={minimum_height_m:qualifying[0]?.height_m??null};
         return <article className="comparison monthly-result" key={site.id}>
           <div className="comparison-title">
             <div>
@@ -126,7 +140,7 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight }: {
           </div>
         </article>;
       })}
-    </div>
+    </div>}
 
     <div className="monthly-history">
       <h2>Lowest qualifying height by month</h2>

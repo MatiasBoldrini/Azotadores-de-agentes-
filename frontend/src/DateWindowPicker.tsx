@@ -105,7 +105,7 @@ export default function DateWindowPicker({days, start, end, label, onChange, sta
         )}
       </div>
       {status && <p className="micro" role="status">{status === 'loading'
-        ? 'Loading cached observations…'
+        ? 'Loading observations…'
         : 'Could not load that window. Choose the date again to retry.'}</p>}
     </div>
   );

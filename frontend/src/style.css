@@ -686,3 +686,7 @@ option{background:#111}
 @media(max-width:1180px){:where(.workspace:not(.has-analysis-dock)) .results .mission-ops{grid-column:1/-1;border-bottom:0}}
 @media(max-width:900px){.results .mission-ops{grid-column:1/-1}}
 
+
+.science-mode{font-size:11px;line-height:1.35;color:var(--muted,#9ca3af);max-width:170px}
+.science-mode.backend{color:#9ad4b4}.science-mode.cache{color:#e0bf82}
+@media(max-width:600px){.top-actions .science-mode{max-width:90px;font-size:10px}}

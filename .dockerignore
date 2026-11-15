@@ -1,0 +1,11 @@
+.git
+.venv
+frontend/node_modules
+frontend/*.tsbuildinfo
+dist
+release
+**/__pycache__
+**/*.pyc
+data/*.tif
+data/.mplcache
+.DS_Store
