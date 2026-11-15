@@ -12,6 +12,7 @@ export type TerrainRay = {
  label: string;
  visible: boolean;
  color: string;
+ markerRadius?: number;
  detail?: string;
 };
 
@@ -63,12 +64,15 @@ export function TerrainRayHover({rays, labels, orbiting, candidateHovered, onHov
    for (const ray of rays) {
     const line = ray.line.current;
     if (!line) continue;
-    // Use the rendered endpoints, including the animated mast and rays that reach a disc on the sky shell.
+    // Use the rendered endpoints, including the animated mast and the distant body markers.
     const start = line.geometry.getAttribute('instanceStart'), end = line.geometry.getAttribute('instanceEnd');
     segment.start.fromBufferAttribute(start, 0).applyMatrix4(line.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
     segment.end.fromBufferAttribute(end, 0).applyMatrix4(line.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
     if (segment.start.z > near && segment.end.z > near) continue;
     const endpointOnScreen = segment.end.z <= near;
+    const endpointRadius = ray.markerRadius && endpointOnScreen
+     ? Math.max(ENDPOINT_RADIUS, ray.markerRadius * camera.projectionMatrix.elements[5] * height / (-2 * segment.end.z))
+     : 0;
     if (segment.start.z > near) {
      segment.start.lerp(segment.end, (segment.start.z - near) / (segment.start.z - segment.end.z));
     } else if (!endpointOnScreen) {
@@ -79,7 +83,7 @@ export function TerrainRayHover({rays, labels, orbiting, candidateHovered, onHov
     if (segment.distanceSq() < 1e-6) nearest.copy(segment.end);
     else segment.closestPointToPoint(pointer, true, nearest);
     const distance = nearest.distanceTo(pointer);
-    const endpointHit = ray.id !== 'link' && endpointOnScreen && segment.end.distanceTo(pointer) <= ENDPOINT_RADIUS;
+    const endpointHit = endpointRadius > 0 && segment.end.distanceTo(pointer) <= endpointRadius;
     if ((distance <= HIT_RADIUS || endpointHit) && distance < closest) {
      hit = ray;
      closest = distance;

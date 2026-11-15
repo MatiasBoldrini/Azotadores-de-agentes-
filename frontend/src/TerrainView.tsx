@@ -27,7 +27,8 @@ const DISC_KM=7.95;
 // the summit's fall-off is the skyline; the frame reaches 9° above the horizontal, past the highest body.
 const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
 // Schematic marker distance and size. The direction from the mast uses the computed azimuth and elevation.
-const SKY_KM=100,BODY_DEG={sun:1.3,earth:1.6},BODY_LABEL_OFFSET=2.9;
+const SKY_KM=100,BODY_DEG={sun:1.3,earth:3.2};
+const EARTH_PHOTO='/earth/apollo-17-blue-marble.jpg';
 // Descent progress over which the landing globe fades out.
 const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
@@ -305,19 +306,40 @@ function Camera({mapView,reset,controls,approach,focus,frame,progress,heroHeight
 type Point=[number,number,number];
 type Ray={body:'sun'|'earth';end:Point;visible:boolean};
 const RAY_START:Point=[0,0,0],LINK_START:Point=[0,MAST_BASE,0];
-const bodyLabel=([x,y,z]:Point):Point=>[x,y+BODY_LABEL_OFFSET,z];
+const bodyRadius=(body:Ray['body'])=>SKY_KM*Math.tan(BODY_DEG[body]*DEG/2);
+const bodyLabel=({body,end:[x,y,z]}:Ray):Point=>[x,y+bodyRadius(body)+1.7,z];
 
-function SkyBody({body,end,visible}:Ray){
- const color=C[body],radius=SKY_KM*Math.tan(BODY_DEG[body]*DEG/2);
- // A blocked marker stays readable over the terrain as an outline in the body's own color.
+function EarthDisc({radius,visible}:{radius:number;visible:boolean}){
+ const [map,setMap]=useState<THREE.Texture|null>(null);
+ useEffect(()=>{
+  let mounted=true;
+  const texture=new THREE.TextureLoader().load(EARTH_PHOTO,loaded=>{if(mounted)setMap(loaded);});
+  // The NASA scan has a black border around the globe. The circular mesh masks it,
+  // and these UVs fit the photographed limb to the disk.
+  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.repeat.set(424/640,430/640);
+  texture.offset.set(109/640,99/640);
+  return()=>{mounted=false;texture.dispose();};
+ },[]);
+ return <mesh renderOrder={60} raycast={noRaycast}>
+  <circleGeometry args={[radius,48]}/>
+  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={map?'#ffffff':C.earth} depthTest={visible}
+   depthWrite={false} transparent opacity={visible ? 1 : map ? .76 : .22} toneMapped={false}/>
+ </mesh>;
+}
+
+function SkyBody(ray:Ray){
+ const {body,end,visible}=ray;
+ const color=C[body],radius=bodyRadius(body);
  return <>
   <Billboard position={end}>
-   <mesh renderOrder={60} raycast={noRaycast}>
-    {visible?<circleGeometry args={[radius,40]}/>:<ringGeometry args={[radius*.82,radius,40]}/>}
+   {body==='earth'&&<EarthDisc radius={radius} visible={visible}/>}
+   {(body==='sun'||!visible)&&<mesh renderOrder={61} raycast={noRaycast}>
+    {visible?<circleGeometry args={[radius,40]}/>:<ringGeometry args={[radius*(body==='earth' ? .94 : .82),radius,48]}/>}
     <meshBasicMaterial color={color} depthTest={visible} depthWrite={false} transparent opacity={visible?1:.82} toneMapped={false}/>
-   </mesh>
+   </mesh>}
   </Billboard>
-  <Label position={bodyLabel(end)} color={color} size={.018} depthTest={visible} text={BODY_LABELS[body].toUpperCase()}/>
+  <Label position={bodyLabel(ray)} color={color} size={.018} depthTest={visible} text={BODY_LABELS[body].toUpperCase()}/>
  </>;
 }
 
@@ -398,9 +420,9 @@ function Scene(p:SceneProps){
  }),[p.selected.series,p.frame,p.time]);
  const add=(a:[number,number,number],b:[number,number,number]):[number,number,number]=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
  const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
- const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
+ const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,markerRadius:bodyRadius(r.body),detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
  if(!atLander) hoverRays.push({id:'link',line:lines.link,label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
- const labelPositions:Point[]=[add(head,[0,.09,0]),...rays.map(r=>add(head,bodyLabel(r.end)))];
+ const labelPositions:Point[]=[add(head,[0,.09,0]),...rays.map(r=>add(head,bodyLabel(r)))];
  if(!atLander) labelPositions.push(add(lander,[0,.1,0]));
  const north=p.frame.horizontal(0),[nx,nz]=[north.x,north.z];
  const compass:[number,number,number]=[-extentKm*.42,point({row:n*.92,col:n*.08,elevation_m:p.terrain.elevation_m[Math.round(n*.92/p.terrain.stride)]?.[Math.round(n*.08/p.terrain.stride)]??mean} as Site)[1]+.03,extentKm*.42];
