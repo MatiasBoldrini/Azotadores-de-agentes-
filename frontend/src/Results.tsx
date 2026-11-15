@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import {useState,type ReactNode} from 'react';
 import {Check,Minus,Radio,Sun,Globe2,X,Info,ArrowUpRight} from 'lucide-react';
 import {keyFor,percent,type Analysis,type Constraints,type Link} from './lib/science';
 import {hours,pct,signed,type ConstraintRow,type Search,type Segment} from './lib/story';
@@ -23,23 +23,61 @@ function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analy
 }
 
 function HeightResponse({sweep,selected,onHeight,recommended,constraints}:{sweep:Analysis[];selected:Analysis;onHeight:(h:number)=>void;recommended?:string;constraints:Constraints}){
+ const [hovered,setHovered]=useState<number>();
+ const [focused,setFocused]=useState<number>();
  if(sweep.length<2) return null;
- const window=sweep[0].metrics.sun.duration_hours;
- return <div className="height-response">
-  <div className="block-head"><span>Visibility by height</span><span className="legend"><i className="earth-sq"/>Earth <i className="sun-sq"/>Sun <i className="req-sq"/>Min</span></div>
-  <div className="hr-plot">
-   <div className="hr-guides" aria-hidden>
-    <span className="hr-req earth" style={{bottom:`${constraints.minEarth}%`}}><em>{constraints.minEarth}%</em></span>
-    <span className="hr-req sun" style={{bottom:`${constraints.minSun}%`}}><em style={Math.abs(constraints.minSun-constraints.minEarth)<14?{top:constraints.minSun>=constraints.minEarth?-15:1}:undefined}>{constraints.minSun}%</em></span>
-   </div>
-   {sweep.map(a=>{const current=a.height_m===selected.height_m,rec=recommended===keyFor(a);return <button key={a.height_m} className={`hr-col ${current?'current':''}`} aria-pressed={current}
-    aria-label={`${a.height_m} metre mast: Earth ${hours(a.metrics.earth.total_hours)} hours, Sun ${hours(a.metrics.sun.total_hours)} hours${rec?', recommended':''}`} onClick={()=>onHeight(a.height_m)}>
-    <span className="hr-val">{hours(a.metrics.earth.total_hours)}</span>
-    <span className="hr-pair"><i className="earth" style={{height:`${a.metrics.earth.total_hours/window*100}%`}}/><i className="sun" style={{height:`${a.metrics.sun.total_hours/window*100}%`}}/></span>
-    <span className="hr-h">{a.height_m} m{rec&&<em>REC</em>}</span>
-   </button>;})}
+
+ const minHeight=sweep[0].height_m,maxHeight=sweep[sweep.length-1].height_m;
+ const x=(height:number)=>(height-minHeight)/(maxHeight-minHeight)*100;
+ const points=sweep.map(analysis=>({analysis,position:x(analysis.height_m)}));
+ const tracks=[
+  {body:'sun',label:'Sun',min:constraints.minSun},
+  {body:'earth',label:'Earth',min:constraints.minEarth},
+ ] as const;
+ const active=sweep.find(a=>a.height_m===(hovered??focused))??selected;
+ const recommendedHeight=sweep.find(a=>keyFor(a)===recommended)?.height_m;
+
+ return <section className="height-response" aria-labelledby="height-response-title">
+  <h3 className="block-head" id="height-response-title">Visibility by mast height</h3>
+  <div className="hr-readout">
+   <b>{active.height_m} m</b>
+   {tracks.map(({body,label})=><span key={body} className={body}>{label} <b>{hours(active.metrics[body].total_hours)} h</b></span>)}
+   {recommendedHeight!==undefined&&<span className="hr-rec">{recommendedHeight} m recommended</span>}
   </div>
- </div>;
+  <div className="hr-axis-title">% of window</div>
+  <div className="hr-plot">
+   <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
+    {[0,50,100].map(value=><line key={value} className="hr-grid" x1="0" x2="100" y1={100-value} y2={100-value}/>)}
+    {tracks.map(({body,min})=><line key={body} className={`hr-limit ${body}`} x1="0" x2="100" y1={100-min} y2={100-min}/>)}
+    <line className="hr-selected" x1={x(selected.height_m)} x2={x(selected.height_m)} y1="0" y2="100"/>
+    {active.height_m!==selected.height_m&&<line className="hr-preview" x1={x(active.height_m)} x2={x(active.height_m)} y1="0" y2="100"/>}
+    {tracks.map(({body})=><polyline key={body} className={`hr-series ${body}`}
+     points={points.map(({analysis,position})=>`${position},${100-percent(analysis.metrics[body])}`).join(' ')}/>)}
+   </svg>
+   {[0,50,100].map(value=><span key={value} className="hr-tick" aria-hidden="true" style={{bottom:`${value}%`}}>{value}</span>)}
+   {tracks.map(({body})=>points.map(({analysis,position})=><span key={`${body}-${analysis.height_m}`} aria-hidden="true"
+    className={`hr-marker ${body}${analysis===active?' active':''}${analysis.height_m===selected.height_m?' current':''}`}
+    style={{left:`${position}%`,bottom:`${percent(analysis.metrics[body])}%`}}/>))}
+   <div className="hr-options" role="group" aria-label="Tested mast heights" onPointerLeave={()=>setHovered(undefined)}>
+    {points.map(({analysis,position},index)=>{
+     const {height_m:height,metrics}=analysis;
+     const current=height===selected.height_m,rec=keyFor(analysis)===recommended;
+     const left=index>0?(points[index-1].position+position)/2:-8;
+     const right=index<points.length-1?(points[index+1].position+position)/2:104;
+     return <button key={height} className="hr-option" style={{left:`${left}%`,width:`${right-left}%`}}
+      aria-pressed={current} aria-label={`${height} metre mast, Sun ${hours(metrics.sun.total_hours)} hours, Earth ${hours(metrics.earth.total_hours)} hours${rec?', recommended':''}`}
+      onPointerEnter={event=>{if(event.pointerType==='mouse'||event.pointerType==='pen')setHovered(height);}}
+      onFocus={()=>{setHovered(undefined);setFocused(height);}} onBlur={()=>setFocused(undefined)}
+      onClick={()=>{onHeight(height);setFocused(undefined);}}>
+      <span className="hr-height" aria-hidden="true" style={{left:`${(position-left)/(right-left)*100}%`}}>{height} m</span>
+     </button>;
+    })}
+   </div>
+  </div>
+  <div className="hr-limits">
+   {tracks.map(({body,label,min})=><span key={body} className={body}><i aria-hidden="true"/>{label} min {min}%</span>)}
+  </div>
+ </section>;
 }
 
 function Checks({rows}:{rows:ConstraintRow[]}){
@@ -69,7 +107,7 @@ export function ResultsPanel({window,selected,baseline,sweep,link,rows,constrain
    <div><dt>Longest gap with Sun or Earth blocked</dt><dd className={m.both.longest_outage_hours<b.both.longest_outage_hours?'good':''}>{hours(m.both.longest_outage_hours)} h{!same&&<small>{hours(b.both.longest_outage_hours)} h at ground</small>}</dd></div>
    <div><dt><Radio size={12}/>Lander ↔ station</dt><dd className={link?.visible?'good':'warn'}>{link?.visible?'Clear line of sight':'Terrain obstructed'}{link&&link.distance_m>=1&&<small>{hours(Math.round(link.distance_m))} m apart</small>}</dd></div>
   </dl>
-  <HeightResponse sweep={sweep} selected={selected} onHeight={onHeight} recommended={recommended} constraints={constraints}/>
+  <HeightResponse key={selected.candidate_id} sweep={sweep} selected={selected} onHeight={onHeight} recommended={recommended} constraints={constraints}/>
   <Checks rows={rows}/>
  </aside>;
 }
