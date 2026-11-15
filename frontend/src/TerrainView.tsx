@@ -1,22 +1,26 @@
-import {useMemo,useRef,useEffect,useState,memo,Suspense} from 'react';
+import {useMemo,useRef,useEffect,useLayoutEffect,useState,memo,Suspense,type RefObject} from 'react';
 import {Canvas,ThreeEvent,useFrame,useThree} from '@react-three/fiber';
-import {Billboard,Html,OrbitControls,Line,Stars,useCursor} from '@react-three/drei';
+import {Billboard,Html,OrbitControls,Line,useCursor} from '@react-three/drei';
 import * as THREE from 'three';
 import type {Analysis,Site,Terrain} from './lib/science';
 import type {EvaluatedPosition} from './PositionPicker';
+import {starfield} from './moon/stars';
 import {TerrainRayHover,TerrainRayTooltip,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
 
 export const VERTICAL_EXAGGERATION = 4;
 // The mast glyph is stretched beyond the relief scale so that metre-scale heights read on a 2.5 km scene.
 export const MAST_EXAGGERATION=12;
 const MAST_BASE=.03,MAST_PER_M=MAST_EXAGGERATION/1000,RAY=.85;
-const HOME:[number,number,number]=[1.95,1.5,2.25],TOP:[number,number,number]=[0,3.6,.001];
-const C={sun:'#f4b860',earth:'#82b8ec',station:'#f4b860',lander:'#eef2ef',candidate:'#9aa6a2',feasible:'#8fd6a0',ok:'#8fd6a0',bad:'#f2836b',grid:'#2a3236'};
+const HOME:[number,number,number]=[1.95,1.5,2.25],TOP:[number,number,number]=[0,3.6,.001],OVERVIEW:[number,number,number]=[.35,5.6,.55];
+const DESCENT_MS=900;
+const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#A3A3A3',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
 const BODIES={sun:{label:'Sun',color:C.sun},earth:{label:'Earth',color:C.earth}} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#ff625e';
 
-type Props={terrain:Terrain;positions:EvaluatedPosition[];previewId:string|null;selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean;feasible?:Set<string>;recommended?:string};
+type Approach='hold'|'descend'|null;
+type Props={active:boolean;approach:Approach;focus?:RefObject<HTMLElement|null>;terrain:Terrain;positions:EvaluatedPosition[];previewId:string|null;selected:Analysis;lander:Site;time:number;onSelect:(id:string)=>void;wireframe:boolean;mapView:boolean;reset:number;linkVisible:boolean;feasible?:Set<string>;recommended?:string};
 
 export function CelestialRayLegend({selected,time}:Pick<Props,'selected'|'time'>){
  return <ul className="celestial-ray-legend" aria-label="Celestial sightlines">
@@ -30,16 +34,38 @@ export function CelestialRayLegend({selected,time}:Pick<Props,'selected'|'time'>
  </ul>;
 }
 
-function Label({text,position,color='#dce7d8',size=.082}:{text:string;position:[number,number,number];color?:string;size?:number}){
+const LABEL_FONT='600 34px Inter, system-ui, sans-serif';
+function useFontReady(){
+ const [ready,setReady]=useState(()=>document.fonts?.check(LABEL_FONT)??true);
+ useEffect(()=>{if(!ready)document.fonts.load(LABEL_FONT).then(()=>setReady(true),()=>setReady(true));},[ready]);
+ return ready;
+}
+
+function Label({text,position,color='#F5F5F5',size=.082}:{text:string;position:[number,number,number];color?:string;size?:number}){
+ const fontReady=useFontReady();
  const [texture,aspect]=useMemo(()=>{
-  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d')!,font='600 40px "IBM Plex Mono", ui-monospace, monospace';
-  ctx.font=font;const w=Math.ceil(ctx.measureText(text).width)+44,h=72;canvas.width=w;canvas.height=h;
-  ctx.fillStyle='rgba(12,15,17,.88)';ctx.fillRect(0,0,w,h);ctx.strokeStyle=color;ctx.globalAlpha=.7;ctx.lineWidth=2;ctx.strokeRect(1,1,w-2,h-2);ctx.globalAlpha=1;
-  ctx.font=font;ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,w/2,h/2+2);
+  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d')!;
+  const prepare=()=>{ctx.font=LABEL_FONT;ctx.letterSpacing='3px';};
+  prepare();const w=Math.ceil(ctx.measureText(text).width)+52,h=72;canvas.width=w;canvas.height=h;
+  ctx.fillStyle='rgba(5,5,5,.78)';ctx.beginPath();ctx.roundRect(2,2,w-4,h-4,22);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=2;ctx.stroke();
+  prepare();ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,w/2+1.5,h/2+1);
   const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;return [t,w/h] as const;
- },[text,color]);
+ },[text,color,fontReady]);
  useEffect(()=>()=>texture.dispose(),[texture]);
  return <sprite position={position} scale={[size*aspect,size,1]} renderOrder={100}><spriteMaterial map={texture} depthTest={false} transparent/></sprite>;
+}
+
+// Soft edge so the official 2.56 km window dissolves into the starfield instead of ending in a hard cut.
+function edgeFade(){
+ const size=256,canvas=document.createElement('canvas');canvas.width=canvas.height=size;
+ const ctx=canvas.getContext('2d')!,img=ctx.createImageData(size,size),margin=.07;
+ for(let j=0;j<size;j++)for(let i=0;i<size;i++){
+  const e=Math.min(i,j,size-1-i,size-1-j)/(size-1),t=Math.min(1,e/margin),a=Math.round(t*t*(3-2*t)*255),o=(j*size+i)*4;
+  img.data[o]=img.data[o+1]=img.data[o+2]=img.data[o+3]=a;
+ }
+ ctx.putImageData(img,0,0);
+ return new THREE.CanvasTexture(canvas);
 }
 
 function Surface({terrain,wireframe,onPick}:{terrain:Terrain;wireframe:boolean;onPick:(r:number,c:number)=>void}){
@@ -47,33 +73,73 @@ function Surface({terrain,wireframe,onPick}:{terrain:Terrain;wireframe:boolean;o
   const rows=terrain.elevation_m.length,cols=terrain.elevation_m[0].length;
   const valid=terrain.elevation_m.flat().filter((x):x is number=>x!==null);
   const mean=valid.reduce((a,b)=>a+b,0)/valid.length,lo=Math.min(...valid),hi=Math.max(...valid);
-  const pos:number[]=[],indices:number[]=[],colors:number[]=[];
+  const pos:number[]=[],indices:number[]=[],colors:number[]=[],uv:number[]=[];
   for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
    const h=terrain.elevation_m[r][c]??mean;
    pos.push((c*terrain.stride-terrain.original_shape[1]/2)*terrain.pixel_size_m/1000,(h-mean)*VERTICAL_EXAGGERATION/1000,(r*terrain.stride-terrain.original_shape[0]/2)*terrain.pixel_size_m/1000);
-   const t=Math.pow((h-lo)/(hi-lo||1),1.1),shade=.08+t*.32;colors.push(shade*.98,shade*.98,shade);
+   const t=Math.pow((h-lo)/(hi-lo||1),1.1),shade=.08+t*.32;colors.push(shade,shade*.985,shade*.96);uv.push(c/(cols-1),1-r/(rows-1));
    if(r<rows-1&&c<cols-1){const i=r*cols+c;indices.push(i,i+cols,i+1,i+1,i+cols,i+cols+1);}
   }
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setIndex(indices);g.computeVertexNormals();return g;
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return g;
  },[terrain]);
  useEffect(()=>()=>geometry.dispose(),[geometry]);
  const pick=(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onPick(e.point.z*1000/terrain.pixel_size_m+terrain.original_shape[0]/2,e.point.x*1000/terrain.pixel_size_m+terrain.original_shape[1]/2);};
- return <mesh geometry={geometry} onClick={pick}><meshStandardMaterial vertexColors roughness={.94} metalness={.04} side={THREE.DoubleSide} wireframe={wireframe}/></mesh>;
+ const edge=useMemo(edgeFade,[]);
+ useEffect(()=>()=>edge.dispose(),[edge]);
+ return <mesh geometry={geometry} onClick={pick}><meshStandardMaterial vertexColors roughness={.94} metalness={.04} side={THREE.DoubleSide} wireframe={wireframe} alphaMap={wireframe?null:edge} transparent={!wireframe}/></mesh>;
 }
 
-function Camera({mapView,reset,controls}:{mapView:boolean;reset:number;controls:React.RefObject<any>}){
- const {camera}=useThree(),goal=useRef(new THREE.Vector3(...HOME)),moving=useRef(false),first=useRef(true);
+function Camera({mapView,reset,controls,approach}:{mapView:boolean;reset:number;controls:React.RefObject<any>;approach:Approach}){
+ const {camera}=useThree(),goal=useRef(new THREE.Vector3(...HOME)),moving=useRef(false),first=useRef(true),descent=useRef<number|null>(null);
+ const overview=useMemo(()=>new THREE.Vector3(...OVERVIEW),[]);
+ // A slow frame can deliver the tile hand-off and the arrival together, so leaving the hold always descends.
+ const held=useRef(false);
+ useEffect(()=>{
+  if(approach==='hold'){descent.current=null;moving.current=false;controls.current?.target.set(0,0,0);camera.position.copy(overview);camera.lookAt(0,0,0);controls.current?.update();}
+  else if(held.current)descent.current=performance.now();
+  held.current=approach==='hold';
+ },[approach,camera,controls,overview]);
  useEffect(()=>{
   goal.current.set(...(mapView?TOP:HOME));
   if(first.current){first.current=false;camera.position.copy(goal.current);camera.lookAt(0,0,0);return;}
   moving.current=true;controls.current?.target.set(0,0,0);
  },[camera,mapView,reset,controls]);
  useFrame((_,dt)=>{
+  if(descent.current!==null){
+   const t=Math.min(1,(performance.now()-descent.current)/DESCENT_MS);
+   camera.position.lerpVectors(overview,goal.current,easeInOutCubic(t));camera.lookAt(0,0,0);controls.current?.update();
+   if(t>=1)descent.current=null;
+   return;
+  }
   if(!moving.current)return;
   camera.position.lerp(goal.current,Math.min(1,dt*5));
   if(camera.position.distanceTo(goal.current)<.002){camera.position.copy(goal.current);moving.current=false;}
   controls.current?.update();
  });
+ return null;
+}
+
+// Centers the projection on the free stage area between the glass panels while the canvas stays full-bleed.
+function ViewOffset({focus}:{focus?:RefObject<HTMLElement|null>}){
+ const {camera,gl,size}=useThree();
+ useLayoutEffect(()=>{
+  const cam=camera as THREE.PerspectiveCamera,canvas=gl.domElement;
+  camera.manual=true;
+  const apply=()=>{
+   const c=canvas.getBoundingClientRect(),f=focus?.current?.getBoundingClientRect();
+   if(!c.width||!c.height)return;
+   const left=Math.max(c.left,f?.left??c.left),top=Math.max(c.top,f?.top??c.top),right=Math.min(c.right,f?.right??c.right),bottom=Math.min(c.bottom,f?.bottom??c.bottom);
+   const r={left,top,width:right-left,height:bottom-top};
+   const same=r.width<1||r.height<1||Math.abs(r.left-c.left)+Math.abs(r.top-c.top)+Math.abs(r.width-c.width)+Math.abs(r.height-c.height)<2;
+   const frame=same?{left:c.left,top:c.top,width:c.width,height:c.height}:r;
+   cam.aspect=frame.width/frame.height;
+   if(same)cam.clearViewOffset();else cam.setViewOffset(frame.width,frame.height,c.left-frame.left,c.top-frame.top,c.width,c.height);
+   cam.updateProjectionMatrix();
+  };
+  apply();
+  const observer=new ResizeObserver(apply);observer.observe(canvas);if(focus?.current)observer.observe(focus.current);
+  return()=>{observer.disconnect();camera.manual=false;cam.clearViewOffset();cam.aspect=size.width/size.height;cam.updateProjectionMatrix();};
+ },[camera,gl,size,focus]);
  return null;
 }
 
@@ -104,7 +170,7 @@ function Station({ground,height,label,rays,linkTo,linkVisible}:{ground:[number,n
    })}
    <Label position={[0,.09,0]} color={C.station} text={label}/>
   </group>
-  {linkTo&&<Line points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:C.bad} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
+  {linkTo&&<Line points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:BLOCKED_COLOR} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
  </group>;
 }
 
@@ -113,7 +179,7 @@ function PositionHighlight({label,position}:{label:string;position:[number,numbe
   <Billboard>
    <mesh renderOrder={90}>
     <ringGeometry args={[.024,.035,32]}/>
-    <meshBasicMaterial color="#b9e9d7" transparent opacity={.95} toneMapped={false} depthTest={false} depthWrite={false}/>
+    <meshBasicMaterial color="#F5F5F5" transparent opacity={.95} toneMapped={false} depthTest={false} depthWrite={false}/>
    </mesh>
   </Billboard>
   <Html position={[0,.27,0]} zIndexRange={[1,0]} style={{pointerEvents:'none'}}>
@@ -146,18 +212,17 @@ function Scene(p:SceneProps){
  const add=(a:[number,number,number],b:[number,number,number]):[number,number,number]=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
  const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
  const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,points:[head,add(head,r.dir)],label:`${BODIES[r.body].label} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
- if(!atLander) hoverRays.push({id:'link',points:[add(lander,[0,.02,0]),add(ground,[0,MAST_BASE,0])],label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:C.bad});
+ if(!atLander) hoverRays.push({id:'link',points:[add(lander,[0,.02,0]),add(ground,[0,MAST_BASE,0])],label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
  const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
  if(!atLander) labelPositions.push(add(lander,[0,.1,0]));
  const sunLight=rays[0].dir.map(v=>v*5) as [number,number,number];
  const [nx,nz]=horizontal(0,p.lander.longitude_deg*Math.PI/180);
  const compass:[number,number,number]=[-extent*.42,base+.034,extent*.42];
- return <><Camera mapView={p.mapView} reset={p.reset} controls={controls}/>
-  <Stars radius={25} depth={10} count={450} factor={1.1} saturation={0} fade speed={0}/>
+ const stars=useMemo(()=>starfield(),[]);
+ return <><Camera mapView={p.mapView} reset={p.reset} controls={controls} approach={p.approach}/><ViewOffset focus={p.focus}/>
+  <primitive object={stars}/>
   <hemisphereLight args={['#c9d3dc','#0b0d0e',.42]}/><directionalLight position={sunLight} intensity={1.9} color="#ffe3be"/><directionalLight position={[-3,1.05,1.4]} intensity={1.6}/><directionalLight position={[2.5,1.2,-2.5]} intensity={.35} color="#a9bddc"/>
   <Surface terrain={p.terrain} wireframe={p.wireframe} onPick={pick}/>
-  <gridHelper args={[extent,10,C.grid,C.grid]} position={[0,base,0]}/>
-  <Line points={[[-extent/2,base,-extent/2],[extent/2,base,-extent/2],[extent/2,base,extent/2],[-extent/2,base,extent/2],[-extent/2,base,-extent/2]]} color="#3a454b" lineWidth={1}/>
   {p.positions.map(o=>{const feasible=p.feasible?.has(o.id),rec=o.id===p.recommended,radius=feasible?.017:.012;return o.id===p.selected.candidate_id?null:<group key={o.id} position={point(o.position,2)}>
    <mesh><sphereGeometry args={[radius,14,14]}/><meshBasicMaterial color={feasible?C.feasible:C.candidate} transparent opacity={feasible?1:.75}/></mesh>
    <mesh visible={false}
@@ -166,15 +231,15 @@ function Scene(p:SceneProps){
     onClick={e=>{e.stopPropagation();select(o.id);}}>
     <sphereGeometry args={[Math.max(radius,.023),8,8]}/><meshBasicMaterial/>
    </mesh>
-   {rec&&<mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.038,32]}/><meshBasicMaterial color={C.feasible} side={THREE.DoubleSide}/></mesh>}
+   {rec&&<mesh rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.03,.038,32]}/><meshBasicMaterial color={C.recommended} side={THREE.DoubleSide}/></mesh>}
   </group>;})}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
-  <group position={lander}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5c6763"/></mesh>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
+  <group position={lander}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
   <Station ground={ground} height={p.selected.height_m} rays={rays} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
   <group position={compass}>
-   <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#cfd8d4" lineWidth={1.6}/>
-   <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#cfd8d4"/></mesh>
-   <Label position={[nx*.24,.03,nz*.24]} text="N · LOCAL" size={.06} color="#cfd8d4"/>
+   <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
+   <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
+   <Label position={[nx*.24,.03,nz*.24]} text="N · LOCAL" size={.06} color="#D4D4D4"/>
   </group>
   <TerrainRayHover rays={hoverRays} labels={labelPositions} orbiting={orbiting} candidateHovered={Boolean(preview)} onHover={p.onRayHover}/>
   <OrbitControls ref={controls} makeDefault minDistance={.6} maxDistance={7} maxPolarAngle={Math.PI*.49} enableDamping dampingFactor={.1}
@@ -182,7 +247,7 @@ function Scene(p:SceneProps){
  </>;
 }
 const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
- return <Canvas camera={{position:HOME,fov:40,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true,alpha:true}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
+ return <Canvas frameloop={props.active?'always':'never'} camera={{position:HOME,fov:40,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true,alpha:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
 export default function TerrainView(props:Props){
