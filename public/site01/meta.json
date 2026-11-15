@@ -1,0 +1,47 @@
+{
+  "file": "elevation.f32",
+  "format": "row-major little-endian float32, metres",
+  "shape": [
+    512,
+    512
+  ],
+  "derived_from": "data/terrain.npz (the engine terrain cache), cast to float32",
+  "source": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif",
+  "product_page": "https://pgda.gsfc.nasa.gov/products/78",
+  "source_sha256": "3ba7b97cb00a2bcf21189c3aeb535f65afc21207154ab9f0d43c5bdc1f7e747e",
+  "source_shape": [
+    3200,
+    3200
+  ],
+  "window": [
+    1344,
+    1344,
+    512,
+    512
+  ],
+  "transform": [
+    5.0,
+    0.0,
+    -12280.0,
+    0.0,
+    -5.0,
+    -10720.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "pixel_size_m": 5,
+  "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+  "vertical_datum": "Radial elevation relative to 1737.4 km sphere",
+  "sites": {
+    "ridge-a": {
+      "row": 256,
+      "col": 256
+    },
+    "ridge-b": {
+      "row": 160,
+      "col": 352
+    }
+  },
+  "note": "Visual only. Visibility numbers come from public/data/snapshot.json."
+}
