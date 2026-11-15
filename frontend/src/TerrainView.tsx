@@ -555,7 +555,7 @@ function Scene(p:SceneProps){
   <primitive object={stars}/>
   <Lights frame={p.frame} progress={progress}/>
   <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} tile={tile} surround={surround} progress={progress} wireframe={p.wireframe} onPick={pick} occluder={occluder}/></Suspense></GlobeFallback>
-  <DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} hidden={p.mapView||!p.active||p.approach!==null}/>
+  <DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} hidden={!p.active||p.approach!==null}/>
   {p.positions.map(o=>{
    if(o.id===p.selected.candidate_id)return null;
    const marker=o.id===p.recommended?'recommended':p.feasible?.has(o.id)?'feasible':'evaluated';

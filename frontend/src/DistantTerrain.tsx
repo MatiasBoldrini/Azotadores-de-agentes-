@@ -3,6 +3,7 @@ import {Html,Line} from '@react-three/drei';
 import {useFrame} from '@react-three/fiber';
 import * as THREE from 'three';
 import type {Analysis} from './lib/science';
+import {distantTerrainShell} from './lib/distantTerrainGeometry';
 import {distantCrest,geographicPoint,profileFor,type DistantHorizon} from './lib/distantHorizon';
 import {DETAIL_RADIUS_KM,sceneProjection,type Vec3} from './lib/sceneGeometry';
 import type {SiteFrame} from './moon/frame';
@@ -34,13 +35,10 @@ function Skyline({analysis,time,frame,mean,progress,occluder,hidden,data}:Props&
  const profile=profileFor(data,analysis);
  const peaks=useMemo(()=>profile?.points.map(id=>projection.point(geographicPoint(data.points[id])))??[],[profile,data,projection]);
  const geometry=useMemo(()=>{
-  const positions=new Float32Array(peaks.length*6),indices:number[]=[];
-  peaks.forEach((p,i)=>{
-   positions.set(p,i*6);positions.set([p[0],-80,p[2]],i*6+3);
-   const a=i*2,b=((i+1)%peaks.length)*2;indices.push(a,a+1,b,b,a+1,b+1);
-  });
+  const observer=projection.point(analysis.position,analysis.height_m);
+  const {positions,indices}=distantTerrainShell(peaks,observer);
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(positions,3));g.setIndex(indices);g.computeBoundingSphere();return g;
- },[peaks]);
+ },[analysis.height_m,analysis.position,peaks,projection]);
  useEffect(()=>()=>geometry.dispose(),[geometry]);
  const [selected,setSelected]=useState<string|null>(null);
  const crests=(['sun','earth'] as const).flatMap(body=>{
