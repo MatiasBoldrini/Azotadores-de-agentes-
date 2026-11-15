@@ -8,6 +8,7 @@ import {VERTICAL_EXAGGERATION} from '../TerrainView';
 import {MOON_LIGHTS,MOON_TEXTURES,angularDistanceDeg,buildMoon,easeInOutCubic,latLonToVec,setMoonOpacity,vecToLatLon} from './globe';
 import {APPROACH_KM,LANDING_FOV as FOV,horizonPose,type Pose,type SiteFrame} from './frame';
 import {starfield} from './stars';
+import {TAGLINE} from '../brand';
 
 export type MoonMode='globe'|'in'|'site'|'out';
 
@@ -193,6 +194,7 @@ export default function MoonLanding(p:Props){
   </div>
   <div ref={tooltip} className="moon-tooltip glass" role="tooltip" hidden/>
   <section className="moon-copy" aria-labelledby="moon-title">
+   <p className="moon-tagline">{TAGLINE}</p>
    <h2 id="moon-title">{p.sites.length?`${count} analyzed sites on Connecting Ridge.`:'Analyzed sites on Connecting Ridge.'}</h2>
    <p className="lede">Drag to rotate the whole Moon and scroll to zoom. Click anywhere on the globe to fly to {lead?.name??'Ridge A'}, the working site on Connecting Ridge. Pins mark the sites with cached analysis.</p>
    <div className="moon-actions">
@@ -201,6 +203,6 @@ export default function MoonLanding(p:Props){
    </div>
   </section>
   <p className="moon-caption">LROC WAC mosaic · NASA LOLA relief ×{VERTICAL_EXAGGERATION} · drag to rotate · scroll to zoom</p>
-  <div className="moon-loading" aria-hidden="true"><span>Loading the Moon</span></div>
+  <div className="moon-loading" aria-hidden="true"><div className="moon-placeholder"/><span>Loading the Moon</span></div>
  </div>;
 }

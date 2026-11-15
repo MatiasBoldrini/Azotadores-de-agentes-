@@ -69,6 +69,7 @@ option{background:#111}
 .moon-canvas{position:absolute!important;inset:0}
 .moon-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 70% at 50% 50%,transparent 52%,rgba(5,5,5,.35) 78%,rgba(5,5,5,.82) 100%)}
 .moon-copy{position:absolute;top:calc(var(--header-h) + 32px);left:40px;width:min(520px,calc(100% - 80px));z-index:4;pointer-events:none;transition:opacity .45s var(--ease)}
+.moon-tagline{margin-bottom:12px;font-size:14px;font-weight:600;color:var(--text-2)}
 .moon-copy h2{font-size:42px;line-height:1.15;letter-spacing:-.028em;text-wrap:balance}
 .moon-copy .lede{margin-top:14px;max-width:440px;color:var(--muted);font-size:14px;line-height:1.5}
 .moon-actions{margin-top:22px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;pointer-events:auto}
@@ -97,8 +98,13 @@ option{background:#111}
 .moon-pin:focus-visible .pin-dot{outline:2px solid var(--earth);outline-offset:4px}
 .moon-tooltip{position:absolute;left:0;top:0;z-index:6;padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;white-space:nowrap;pointer-events:none}
 .moon-tooltip[hidden]{display:none}
-.moon-loading{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--bg);transition:opacity .5s;pointer-events:none}
-.moon-loading span{font:600 16px var(--display);letter-spacing:.04em}
+.moon-loading{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--bg);transition:opacity .5s;pointer-events:none;container-type:size}
+.moon-loading span{position:relative;font:600 16px var(--display);letter-spacing:.04em;text-shadow:0 1px 12px #000}
+/* A ~30 KB render of the opening globe while its 5.8 MB of textures load: the disc plus a 3% margin, in the
+   footprint introDistance() gives it (radius 0.436 of the height, or 0.44 of the width on portrait screens,
+   where the camera sits farther out and the portrait render, made at phone proportions, matches it). */
+.moon-placeholder{position:absolute;left:50%;top:50%;width:89.8cqmin;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:url(/moon/landing-placeholder.jpg) center/cover no-repeat}
+@container (aspect-ratio < 1){.moon-placeholder{top:57%;width:90.6cqmin;background-image:url(/moon/landing-placeholder-portrait.jpg)}}
 .moon-layer.is-loaded .moon-loading{opacity:0;visibility:hidden;transition:opacity .5s,visibility 0s linear .5s}
 .moon-unavailable{position:absolute;inset:0;display:grid;place-items:center;padding:24px;color:var(--muted);text-align:center}
 

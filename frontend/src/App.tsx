@@ -1,8 +1,10 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
-import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Map} from 'lucide-react';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,terrainMean} from './TerrainView';
+import TopographicMap from './TopographicMap';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {REGIONAL_SOURCES,loadSite01} from './site01';
+import {TAGLINE} from './brand';
 import DateWindowPicker from './DateWindowPicker';
 import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
@@ -24,6 +26,7 @@ const utc=(s:string)=>new Date(s).toLocaleString('en-GB',{timeZone:'UTC',day:'2-
 type Tab='Landing Sites'|'Infrastructure Designer'|'Compare'|'Science & Sources';
 const TABS:Tab[]=['Landing Sites','Infrastructure Designer','Compare','Science & Sources'];
 const SHORT_TABS:Record<Tab,string>={'Landing Sites':'Sites','Infrastructure Designer':'Designer','Compare':'Compare','Science & Sources':'Science'};
+const TOPOGRAPHIC_DESKTOP='(min-width: 901px) and (hover: hover) and (pointer: fine)';
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const MOON_IMAGERY_SOURCES=[
  {href:'https://www.lroc.asu.edu/',label:'NASA/GSFC/Arizona State University (LROC)'},
@@ -48,6 +51,8 @@ function App(){
  const compareB=useObservationWindow(comparisonRight);
  const {start,end,analyses:all}=designer.window;
  const [time,setTime]=useState(0),[playing,setPlaying]=useState(false),[wire,setWire]=useState(false),[mapView,setMapView]=useState(false),[reset,setReset]=useState(0);
+ const [topographic,setTopographic]=useState(false);
+ const [desktopMap,setDesktopMap]=useState(()=>matchMedia(TOPOGRAPHIC_DESKTOP).matches);
  const [constraints,setConstraints]=useState<Constraints>(DEFAULT_CONSTRAINTS);
  const [demoStep,setDemoStep]=useState<number|null>(null);
  const [autoDemo,setAutoDemo]=useState(()=>new URLSearchParams(location.search).get('demo')==='1');
@@ -71,6 +76,12 @@ function App(){
   setData(d);setSiteId(d.sites[0].id);setCandidate(`r${d.sites[0].row}c${d.sites[0].col}`);
  })().catch(e=>{if(e.name!=='AbortError')setError(e.message);});return()=>controller.abort();},[]);
  useEffect(()=>{loadSite01();},[]);
+ useEffect(()=>{
+  const viewport=matchMedia(TOPOGRAPHIC_DESKTOP);
+  const update=()=>setDesktopMap(viewport.matches);
+  viewport.addEventListener('change',update);
+  return()=>viewport.removeEventListener('change',update);
+ },[]);
  const frame=useMemo(()=>{
   if(!data)return null;const t=data.terrain,i=t.original_shape[0]/2/t.stride,j=t.original_shape[1]/2/t.stride;
   // Faces what is in view at the opening instant of the first site; fixed afterwards so the terrain is built once.
@@ -140,6 +151,7 @@ function App(){
   setShowConstraints(false);
   setShowConfigure(false);
   setMapView(false);
+  setTopographic(false);
   setReset(r => r + 1);
   setDemoStep(0);
  };
@@ -173,7 +185,7 @@ function App(){
   window.scrollTo(0,0);
   setMoon(reducedMotion()?'site':'in');
  };
- const backToMoon=()=>{setShowConfigure(false);setDemoStep(null);setPlaying(false);setDescend(false);setTab('Landing Sites');setMoon(reducedMotion()?'globe':'out');};
+ const backToMoon=()=>{setTopographic(false);setShowConfigure(false);setDemoStep(null);setPlaying(false);setDescend(false);setTab('Landing Sites');setMoon(reducedMotion()?'globe':'out');};
  const openTab=(t:Tab)=>{setDemoStep(null);if(t==='Landing Sites'){if(moon==='site')backToMoon();return;}if(t!=='Infrastructure Designer')setShowConfigure(false);setTab(t);setMoon('site');};
  const workspaceTab=tab==='Landing Sites'||tab==='Infrastructure Designer';
  const ready=Boolean(data&&selected&&baseline&&site);
@@ -192,7 +204,7 @@ function App(){
   {content}
  </div>;
  if(error)return shell(moon==='globe'?null:<div className="loading"><AlertTriangle/><h2>Scientific data unavailable</h2><p>{error}</p><p>No synthetic results have been substituted.</p><button onClick={()=>location.reload()}>Retry loading</button></div>);
- if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">Don’t find the perfect landing site. Engineer one!</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
+ if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">{TAGLINE}</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
  const links=data.links[siteId];
  const heightsTested=[...new Set(all.map(a=>a.height_m))].sort((a,b)=>a-b);
  const selectedSweep=heightSweep(all,selected.candidate_id);
@@ -262,8 +274,9 @@ function App(){
   </div>
   <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
  </>}/>;
+ const showTopographic=desktopMap&&topographic&&moon==='site';
  const workspace=<main className={`workspace stage-${stage}`} inert={moon==='globe'||moon==='out'}>
-  <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
+  <div className={`scene-layer ${showTopographic?'is-topographic':''}`} inert={showTopographic}><SceneBoundary><TerrainView active={!showTopographic&&(moon==='in'||moon==='site')} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
@@ -296,11 +309,17 @@ function App(){
      </div>
      <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
     </div>
-  <ul className="map-legend" aria-label="Map legend">
+  {!showTopographic&&<ul className="map-legend" aria-label="Map legend">
    <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
    <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
-  </ul>
-  <div className="map-tools"><button title="Reset camera" aria-label="Reset camera" onClick={()=>setReset(reset+1)}><RotateCcw size={16}/></button><button title="Toggle top view" aria-label="Toggle top view" aria-pressed={mapView} onClick={()=>setMapView(!mapView)}><Maximize2 size={16}/></button><button title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={wire} onClick={()=>setWire(!wire)}><Layers3 size={16}/></button></div>
+  </ul>}
+  <div className="map-tools">
+   <button type="button" title="Reset camera" aria-label="Reset camera" onClick={()=>{setTopographic(false);setReset(r=>r+1);}}><RotateCcw size={16}/></button>
+   <button type="button" title="Toggle top view" aria-label="Toggle top view" aria-pressed={!showTopographic&&mapView} onClick={()=>{setTopographic(false);setMapView(showTopographic||!mapView);}}><Maximize2 size={16}/></button>
+   <button type="button" title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={!showTopographic&&wire} onClick={()=>{setTopographic(false);setWire(showTopographic||!wire);}}><Layers3 size={16}/></button>
+   {desktopMap&&moon==='site'&&<button type="button" title={showTopographic?'Return to 3D terrain':'Topographic map'} aria-label="Topographic map" aria-pressed={showTopographic} onClick={()=>setTopographic(on=>!on)}><Map size={16}/></button>}
+  </div>
+  {showTopographic&&<TopographicMap terrain={data.terrain} frame={frame} positions={positions} previewId={positionPreview} selectedId={selected.candidate_id} lander={site} onSelect={chooseCandidate} feasible={feasible} recommended={search?.recommended?.candidate_id}/>}
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}
    </div>

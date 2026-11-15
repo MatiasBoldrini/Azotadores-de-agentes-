@@ -22,6 +22,11 @@ Relief: ldem_4_displacement.png
   Converted to 8-bit, linearly stretched to the file range -8878.5 m .. 10504.0 m.
   The globe shows this relief with the same 4x vertical exaggeration as the site view.
 
+Loading placeholders: landing-placeholder.jpg, landing-placeholder-portrait.jpg
+  Small renders of this globe (the textures above) at the landing's opening view,
+  on landscape and on phone-shaped portrait screens, shown while those textures
+  download on slow connections.
+
 Close-up terrain: public/site01/ (see meta.json)
   NASA PGDA LOLA product 78, Site01 5 m DEM, the same file the engine uses:
   https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif
