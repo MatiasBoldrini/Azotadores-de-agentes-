@@ -5,19 +5,18 @@ import * as THREE from 'three';
 import {ArrowRight} from 'lucide-react';
 import type {Site} from '../lib/science';
 import {VERTICAL_EXAGGERATION} from '../TerrainView';
-import {angularDistanceDeg,buildMoon,easeInOutCubic,latLonToVec,setMoonOpacity,vecToLatLon} from './globe';
+import {MOON_LIGHTS,MOON_TEXTURES,angularDistanceDeg,buildMoon,easeInOutCubic,latLonToVec,setMoonOpacity,vecToLatLon} from './globe';
+import {APPROACH_KM,LANDING_FOV as FOV,horizonPose,type Pose,type SiteFrame} from './frame';
 import {starfield} from './stars';
 
 export type MoonMode='globe'|'in'|'site'|'out';
 
-type Pose={position:THREE.Vector3;target:THREE.Vector3};
-const FLIGHT_MS=3200,RETURN_MS=1800;
-// Flight timeline: approach on the globe, fade the globe to stars, then the site terrain takes over.
-const T_GLOBE_END=.62,T_GLOBE_HIDE=.74;
+// Flight: arc to a pose high over the pole that the site view shares exactly, hold it while the
+// site canvas crossfades in on top, then the site view continues the dive on the same globe.
+const ARC_MS=2000,CROSSFADE_MS=450,RETURN_MS=1800;
 const SITE_RADIUS_DEG=4;
 // The globe zoom stops before the 32 ppd polar mosaic and the equirectangular pole start to smear.
-const MIN_DISTANCE=1.58,MAX_DISTANCE=8,FOV=42;
-const SUN_DIR:[number,number,number]=[.35,.04,1];
+const MIN_DISTANCE=1.58,MAX_DISTANCE=8;
 const WORDS=['No','One','Two','Three','Four','Five','Six'];
 const coordinate=(n:number)=>Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:5,maximumFractionDigits:5});
 export const siteCoordinates=(s:Site)=>`${coordinate(s.latitude_deg)}° S · ${coordinate(s.longitude_deg)}° W`;
@@ -25,8 +24,17 @@ export const siteCoordinates=(s:Site)=>`${coordinate(s.latitude_deg)}° S · ${c
 // Keeps the globe radius near 44% of the shorter viewport side, so portrait screens see the whole Moon.
 const introDistance=(w:number,h:number)=>{const k=h/2/Math.tan(FOV/2*Math.PI/180)/(.44*Math.min(w,h));return Math.max(3.15,Math.hypot(1,k));};
 const introPose=(w:number,h:number):Pose=>({position:latLonToVec(-36,-18,introDistance(w,h)),target:new THREE.Vector3()});
-const approachPose=(s:Site):Pose=>({position:latLonToVec(-71.5,s.longitude_deg,1.78),target:latLonToVec(s.latitude_deg,s.longitude_deg,.92)});
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// The approach looks at the tile with the site's local up, which is upside down from the landing's north-up view.
+function approachPose(frame:SiteFrame){
+ const pose={position:frame.toLanding(horizonPose(APPROACH_KM,frame.radiusKm,FOV).position),target:frame.toLanding(new THREE.Vector3())};
+ const look=(up:THREE.Vector3)=>new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(pose.position,pose.target,up));
+ const d=look(new THREE.Vector3(0,1,0)).invert().multiply(look(frame.upInLanding));
+ let roll=2*Math.atan2(d.z,d.w);
+ if(roll>Math.PI)roll-=2*Math.PI;else if(roll<-Math.PI)roll+=2*Math.PI;
+ return {...pose,roll};
+}
 
 function arcPose(t:number,a:Pose,b:Pose):Pose{
  const k=easeInOutCubic(THREE.MathUtils.clamp(t,0,1));
@@ -35,10 +43,10 @@ function arcPose(t:number,a:Pose,b:Pose):Pose{
  return {position:position.add(lift),target:new THREE.Vector3().lerpVectors(a.target,b.target,k)};
 }
 
-type SceneProps={sites:Site[];mode:MoonMode;pins:RefObject<(HTMLElement|null)[]>;tooltip:RefObject<HTMLDivElement|null>;loadingText:string|null;onLoaded:()=>void;onFly:(id:string)=>void;onTile:()=>void;onArrive:()=>void;onLeft:()=>void};
+type SceneProps={sites:Site[];frame:SiteFrame|null;mode:MoonMode;pins:RefObject<(HTMLElement|null)[]>;tooltip:RefObject<HTMLDivElement|null>;loadingText:string|null;onLoaded:()=>void;onFly:(id:string)=>void;onTile:()=>void;onArrive:()=>void;onLeft:()=>void};
 
 function Globe(p:SceneProps){
- const [color,polar,relief]=useLoader(THREE.TextureLoader,['/moon/lroc_wac_gray.jpg','/moon/wac_south_summer.jpg','/moon/ldem_4_displacement.png']);
+ const [color,polar,relief]=useLoader(THREE.TextureLoader,MOON_TEXTURES);
  const {gl,camera,size}=useThree();
  const moon=useMemo(()=>buildMoon(color,polar,relief,gl.capabilities.getMaxAnisotropy()),[color,polar,relief,gl]);
  const stars=useMemo(()=>starfield(),[]);
@@ -49,6 +57,7 @@ function Globe(p:SceneProps){
  callbacks.current=p;
  const lead=p.sites[0];
  const intro=useMemo(()=>introPose(size.width,size.height),[size.width,size.height]);
+ const approach=useMemo(()=>p.frame&&approachPose(p.frame),[p.frame]);
  const placed=useRef(false);
  useEffect(()=>{p.onLoaded();},[]);
  useLayoutEffect(()=>{
@@ -68,27 +77,30 @@ function Globe(p:SceneProps){
   if(p.tooltip.current)p.tooltip.current.hidden=true;
  },[p.mode,camera,moon]);
 
- const apply=(pose:Pose)=>{
+ const apply=(pose:Pose,roll=0)=>{
   camera.position.copy(pose.position);
   controls.current?.target.copy(pose.target);
   camera.lookAt(pose.target);
+  if(roll)camera.rotateZ(roll);
  };
  const fade=(o:number)=>{opacity.current=o;setMoonOpacity(moon,o);};
 
  const normal=new THREE.Vector3(),world=new THREE.Vector3(),toCamera=new THREE.Vector3();
  useFrame(()=>{
   const f=flight.current;
-  if(f&&lead){
-   const t=reducedMotion()?1:Math.min(1,(performance.now()-f.t0)/(f.mode==='in'?FLIGHT_MS:RETURN_MS));
-   const approach=approachPose(lead);
+  if(f&&!approach){
+   if(!f.done){f.done=true;flight.current=null;if(f.mode==='in'){callbacks.current.onTile();callbacks.current.onArrive();}else callbacks.current.onLeft();}
+  } else if(f&&approach){
+   const elapsed=reducedMotion()?Infinity:performance.now()-f.t0;
    if(f.mode==='in'){
-    if(t<=T_GLOBE_END){fade(1);apply(arcPose(t/T_GLOBE_END,f.from,approach));}
-    else {apply(approach);fade(1-(t-T_GLOBE_END)/(T_GLOBE_HIDE-T_GLOBE_END));}
-    if(t>=T_GLOBE_HIDE&&!f.tile){f.tile=true;callbacks.current.onTile();}
-    if(t>=1&&!f.done){f.done=true;callbacks.current.onArrive();}
+    const t=Math.min(1,elapsed/ARC_MS);
+    fade(1);apply(arcPose(t,f.from,approach),approach.roll*easeInOutCubic(t));
+    if(t>=1&&!f.tile){f.tile=true;callbacks.current.onTile();}
+    if(elapsed>=ARC_MS+CROSSFADE_MS&&!f.done){f.done=true;callbacks.current.onArrive();}
    } else {
+    const t=Math.min(1,elapsed/RETURN_MS);
     fade(Math.min(1,t/.25));
-    apply(arcPose(t,approach,intro));
+    apply(arcPose(t,approach,intro),approach.roll*(1-easeInOutCubic(t)));
     if(t>=1&&!f.done){f.done=true;flight.current=null;callbacks.current.onLeft();}
    }
   }
@@ -129,9 +141,9 @@ function Globe(p:SceneProps){
 
  return <>
   <primitive object={stars}/>
-  <directionalLight position={SUN_DIR} intensity={2.35} color="#fff3e0"/>
-  <ambientLight intensity={.045}/>
-  <directionalLight position={[-1,-.2,-.4]} intensity={.08}/>
+  <directionalLight position={MOON_LIGHTS.sun.position} intensity={MOON_LIGHTS.sun.intensity} color={MOON_LIGHTS.sun.color}/>
+  <ambientLight intensity={MOON_LIGHTS.ambient}/>
+  <directionalLight position={MOON_LIGHTS.back.position} intensity={MOON_LIGHTS.back.intensity}/>
   <primitive object={moon.sphere}/>
   <primitive object={moon.cap}/>
   <mesh visible={false} onPointerMove={hover} onPointerOut={leave} onClick={click}><sphereGeometry args={[1.004,64,32]}/><meshBasicMaterial/></mesh>
@@ -148,7 +160,7 @@ class GlobeBoundary extends Component<{children:ReactNode;onError:()=>void},{err
  render(){return this.state.error?<p className="moon-unavailable">The 3D Moon could not be rendered on this device. Use “Fly to Ridge A” to open the analysis.</p>:this.props.children;}
 }
 
-type Props={sites:Site[];ready:boolean;progress:number|null;error:string;mode:MoonMode;onFly:(id:string)=>void;onTile:()=>void;onArrive:()=>void;onLeft:()=>void};
+type Props={sites:Site[];frame:SiteFrame|null;ready:boolean;progress:number|null;error:string;mode:MoonMode;onFly:(id:string)=>void;onTile:()=>void;onArrive:()=>void;onLeft:()=>void};
 
 export default function MoonLanding(p:Props){
  const pins=useRef<(HTMLElement|null)[]>([]);
@@ -168,7 +180,7 @@ export default function MoonLanding(p:Props){
    <Canvas className="moon-canvas" frameloop={p.mode==='site'?'never':'always'} dpr={[1,2]} camera={{fov:FOV,near:.02,far:80,position:latLonToVec(-36,-18,3.15).toArray()}}
     gl={{antialias:true,powerPreference:'high-performance'}} onCreated={({gl})=>{gl.setClearColor('#050505',1);gl.toneMappingExposure=1.05;}}>
     <Suspense fallback={null}>
-     <Globe sites={p.sites} mode={p.mode} pins={pins} tooltip={tooltip} loadingText={loadingText} onLoaded={onLoaded} onFly={p.onFly} onTile={p.onTile} onArrive={p.onArrive} onLeft={p.onLeft}/>
+     <Globe sites={p.sites} frame={p.frame} mode={p.mode} pins={pins} tooltip={tooltip} loadingText={loadingText} onLoaded={onLoaded} onFly={p.onFly} onTile={p.onTile} onArrive={p.onArrive} onLeft={p.onLeft}/>
     </Suspense>
    </Canvas>
   </GlobeBoundary>

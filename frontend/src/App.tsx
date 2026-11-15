@@ -1,6 +1,8 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
 import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
-import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION} from './TerrainView';
+import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,terrainMean} from './TerrainView';
+import {siteFrame} from './moon/frame';
+import {loadSite01} from './site01';
 import DateWindowPicker from './DateWindowPicker';
 import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
@@ -60,6 +62,8 @@ function App(){
   if(!d.analyses?.length)throw new Error('The scientific cache contains no analyses.');
   setData(d);const s=d.analyses[0].series.timestamp_utc;setStart(s[0]);setEnd(s[s.length-1]);setCompareStart(s[0]);setCompareEnd(s[s.length-1]);setSiteId(d.sites[0].id);setCandidate(`r${d.sites[0].row}c${d.sites[0].col}`);
  })().catch(e=>{if(e.name!=='AbortError')setError(e.message);});return()=>controller.abort();},[]);
+ useEffect(()=>{loadSite01();},[]);
+ const frame=useMemo(()=>{if(!data)return null;const t=data.terrain,i=t.original_shape[0]/2/t.stride,j=t.original_shape[1]/2/t.stride;return siteFrame(t.latitude_deg[i][j],t.longitude_deg[i][j],terrainMean(t));},[data]);
  const all=useMemo(()=>{if(!data||!start||!end)return [];try{return data.analyses.map(a=>sliceAnalysis(a,start,end));}catch{return [];}},[data,start,end]);
  const site=data?.sites.find(s=>s.id===siteId);
  const siteCell=site?`r${site.row}c${site.col}`:'';
@@ -171,11 +175,11 @@ function App(){
     <button className={`demo-button ${demoStep!==null?'running':''}`} disabled={!ready} onClick={demoStep === null ? startDemo : stopDemo}>{demoStep===null?<><Play size={13}/>Play 25 s demo</>:<><Pause size={13}/>Stop demo</>}</button>
    </div>
   </header>
-  <MoonLanding sites={data?.sites??[]} ready={ready} progress={progress} error={error} mode={moon} onFly={flyTo} onTile={()=>setDescend(true)} onArrive={()=>{setMoon('site');setDescend(false);}} onLeft={()=>setMoon('globe')}/>
+  <MoonLanding sites={data?.sites??[]} frame={frame} ready={ready} progress={progress} error={error} mode={moon} onFly={flyTo} onTile={()=>setDescend(true)} onArrive={()=>{setMoon('site');setDescend(false);}} onLeft={()=>setMoon('globe')}/>
   {content}
  </div>;
  if(error)return shell(moon==='globe'?null:<div className="loading"><AlertTriangle/><h2>Scientific data unavailable</h2><p>{error}</p><p>No synthetic results have been substituted.</p><button onClick={()=>location.reload()}>Retry loading</button></div>);
- if(!data||!selected||!baseline||!site)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">Don’t find the perfect landing site. Engineer one!</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
+ if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">Don’t find the perfect landing site. Engineer one!</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
  const links=data.links[siteId];
  const times=data.analyses[0].series.timestamp_utc,days=times.filter((_,i)=>i%48===0);
  const heightsTested=[...new Set(all.map(a=>a.height_m))].sort((a,b)=>a-b);
@@ -243,7 +247,7 @@ function App(){
   <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
  </>}/>;
  const workspace=<main className={`workspace stage-${stage}`} inert={moon==='globe'||moon==='out'}>
-  <div className="scene-layer"><SceneBoundary><TerrainView active={moon!=='globe'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
+  <div className="scene-layer"><SceneBoundary><TerrainView active={moon!=='globe'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
