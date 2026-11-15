@@ -45,7 +45,9 @@ const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HF
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#C7C9CD',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
-const SKY_DISC_COLOR={sun:'#ffe17a',earth:C.earth};
+const SKY_DISC_COLOR={sun:'#f5f5f5',earth:C.earth};
+// Raise the grayscale HMI browse image's exposure without tinting or flattening its limb.
+const SOLAR_EXPOSURE=new THREE.Color(3.5,3.5,3.5);
 const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#ff625e';
@@ -340,14 +342,6 @@ const STATION_LABEL:Point=[0,.13,0];
 const bodyRadius=(body:Ray['body'])=>SKY_KM*Math.tan(BODY_PHOTOS[body].diameter*DEG/2);
 const rayLabel=({end:[x,y,z]}:Ray):Point=>[x,y+.06,z];
 
-const renderSolarContinuum:THREE.MeshBasicMaterial['onBeforeCompile']=shader=>{
- // The HMI JPEG is colorized. The green channel retains contrast where red clips across the disc.
- shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
-  float intensity = min(1.0, 1.38 * sqrt(diffuseColor.g));
-  diffuseColor.rgb = intensity * vec3(1.0, 0.75, 0.19);
- `);
-};
-
 function BodyDisc({body,radius,visible}:{body:Ray['body'];radius:number;visible:boolean}){
  const [map,setMap]=useState<THREE.Texture|null>(null);
  useEffect(()=>{
@@ -360,10 +354,10 @@ function BodyDisc({body,radius,visible}:{body:Ray['body'];radius:number;visible:
   texture.offset.set(photo.offset[0],photo.offset[1]);
   return()=>{mounted=false;texture.dispose();};
  },[body]);
+ const color=map?(body==='sun'?SOLAR_EXPOSURE:'#ffffff'):SKY_DISC_COLOR[body];
  return <mesh renderOrder={60} raycast={noRaycast}>
   <circleGeometry args={[radius,64]}/>
-  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={map?'#ffffff':SKY_DISC_COLOR[body]}
-   onBeforeCompile={map&&body==='sun'?renderSolarContinuum:undefined}
+  <meshBasicMaterial key={map?'photo':'placeholder'} map={map} color={color}
    depthWrite={false} transparent opacity={visible?1:.22} toneMapped={false}/>
  </mesh>;
 }
