@@ -62,6 +62,7 @@ function App(){
  const configureRef=useRef<HTMLDivElement>(null),configureButton=useRef<HTMLButtonElement>(null);
  const configurePanel=useRef<HTMLDivElement>(null);
  const [showConfigure,setShowConfigure]=useState(false);
+ const [showReferences,setShowReferences]=useState(true);
  const [search,setSearch]=useState<Search|null>(null),[searching,setSearching]=useState(false),[showConstraints,setShowConstraints]=useState(false),[notice,setNotice]=useState('');
  const searchTimer=useRef<number|undefined>(undefined);
  useEffect(()=>{const controller=new AbortController();(async()=>{
@@ -332,20 +333,23 @@ function App(){
  </ResultsPanel>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>
   <div className="scene-layer"><SceneBoundary><TerrainView active={moon==='in'||moon==='site'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} frame={frame} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
-  <StoryBar story={story} demo={demo} hideSummary={!!search} onAction={onStoryAction} onStopDemo={stopDemo}/>
+  <div className="workspace-heading">
+   <StoryBar story={story} demo={demo} hideSummary={!!search} onAction={onStoryAction} onStopDemo={stopDemo}/>
+   <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
+  </div>
   <section className="terrain-panel" aria-label="Interactive lunar terrain">
    <div ref={focusRef} className="map-frame">
     <div className="map-references">
-     <ul className="map-legend" aria-label="Map legend">
-      <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
-      <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
-     </ul>
-     <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
+     <div className="map-reference-content" id="map-reference-content" hidden={!showReferences}>
+      <ul className="map-legend" aria-label="Map legend">
+       <li><i className="lg-station"/>Station mast</li><li><i className="lg-lander"/>Lander</li><li><i className="lg-cell"/>Evaluated cell</li>{feasible&&<li><i className="lg-feasible"/>Feasible cell</li>}
+       <li><i className="lg-ray"/>In view <i className="lg-ray blocked"/>Blocked</li>
+      </ul>
+      <TerrainScope terrain={data.terrain} analysis={selected} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
+     </div>
+     <button type="button" className="map-references-toggle" aria-expanded={showReferences} aria-controls="map-reference-content" onClick={()=>setShowReferences(value=>!value)}><ChevronDown size={14} aria-hidden="true"/>{showReferences?'Hide references':'Show references'}</button>
     </div>
-    <div className="map-actions">
-     {!showAnalysisDock&&configure}
-     <button type="button" className={`primary map-optimize ${searching?'is-busy':''}`} onClick={runSearch} aria-disabled={searching||designer.status==='loading'}>Find optimal configuration<ArrowUpRight size={15} aria-hidden="true"/></button>
-    </div>
+    {!showAnalysisDock&&<div className="map-actions">{configure}</div>}
   <div className="map-tools"><button title="Reset camera" aria-label="Reset camera" onClick={()=>setReset(reset+1)}><RotateCcw size={16}/></button><button title="Toggle top view" aria-label="Toggle top view" aria-pressed={mapView} onClick={()=>setMapView(!mapView)}><Maximize2 size={16}/></button><button title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed={wire} onClick={()=>setWire(!wire)}><Layers3 size={16}/></button></div>
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}

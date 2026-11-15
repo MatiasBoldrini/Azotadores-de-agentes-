@@ -159,6 +159,9 @@ option{background:#111}
 .workspace.stage-arrive>*{transition:none}
 .workspace.stage-leave>*{transition:opacity .35s var(--ease)}
 .workspace.stage-on>:not(.scene-layer){transition-delay:.1s}
+.workspace>.workspace-heading{grid-area:story;display:flex;align-items:flex-start;gap:20px;min-width:0;pointer-events:none}
+.workspace-heading>.story{flex:1;pointer-events:auto}
+.workspace-heading>.map-optimize{flex:none;margin-left:auto;pointer-events:auto}
 .results{grid-area:results;display:flex;flex-direction:column;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent;padding:18px 18px 16px}
 .panel-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted)}
 .control-label{display:block;margin-top:10px;font-size:13px;color:var(--text-2)}
@@ -190,12 +193,12 @@ option{background:#111}
 .scene-layer .terrain-view,.scene-layer .scene-error{position:absolute;inset:0}
 .terrain-panel{grid-area:stage;min-width:0;min-height:0;pointer-events:none!important}
 .terrain-panel:has(.map-config-panel:not([hidden])){z-index:2}
-.terrain-panel>.optimizer-card,.map-actions button,.map-config-panel,.map-tools button{pointer-events:auto}
+.terrain-panel>.optimizer-card,.map-actions button,.map-config-panel,.map-tools button,.map-references-toggle{pointer-events:auto}
 .map-frame{position:relative;height:100%;display:grid;grid-template-columns:auto minmax(0,1fr);align-content:start;align-items:start;column-gap:16px}
 .terrain-scope{display:grid;gap:2px;width:fit-content;max-width:100%;padding:5px 8px;border-radius:6px;background:rgba(5,5,5,.76);color:var(--text-2);font-size:12px;line-height:1.4;font-variant-numeric:tabular-nums}
 .terrain-scope strong{color:var(--text);font-weight:600}
 .map-actions{position:relative;grid-area:1/1;z-index:6;display:flex;gap:8px;flex-wrap:wrap;width:fit-content;max-width:100%;margin-top:10px}
-.map-actions>.map-optimize,.map-actions>.map-config>button{min-height:40px;padding-inline:12px;backdrop-filter:blur(14px)}
+.workspace-heading>.map-optimize,.map-actions>.map-config>button{min-height:40px;padding-inline:12px;backdrop-filter:blur(14px)}
 .map-optimize{background:linear-gradient(var(--earth-soft),var(--earth-soft)),rgba(5,5,5,.72)}
 .map-optimize:hover:not([aria-disabled=true]){background:linear-gradient(rgba(143,211,255,.24),rgba(143,211,255,.24)),rgba(5,5,5,.72)}
 .map-optimize[aria-disabled=true]{cursor:progress}
@@ -204,6 +207,12 @@ option{background:#111}
 .map-config-panel{position:absolute;top:calc(100% + 8px);left:0;width:min(334px,calc(100vw - 32px));padding:14px;background:rgba(13,13,14,.94);border-radius:var(--radius-sm);overscroll-behavior:contain}
 .map-config-panel .constraint-fields{max-height:min(270px,38vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .map-references{grid-area:1/2;z-index:2;display:grid;justify-items:end;gap:8px;min-width:0;margin-top:8px}
+.map-reference-content{display:grid;justify-items:end;gap:8px;min-width:0}
+.map-reference-content[hidden]{display:none}
+.map-references-toggle{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 8px;border-radius:6px;background:rgba(5,5,5,.6);color:var(--muted);font-size:12px}
+.map-references-toggle:hover{color:var(--text);background:rgba(28,28,28,.85)}
+.map-references-toggle svg{transition:transform .2s var(--ease)}
+.map-references-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
 .map-legend{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:4px 14px;margin:0;padding:0;list-style:none;font-size:12px;color:var(--text);text-shadow:0 1px 3px #000}
 .map-legend li{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .map-legend i{display:inline-block;filter:drop-shadow(0 1px 2px #000)}
@@ -413,7 +422,7 @@ option{background:#111}
  grid-template-areas:"story results" "stage results" "timeline results";
 }
 .workspace.has-analysis-dock>.scene-layer{inset:0;grid-area:auto}
-.has-analysis-dock>.story{margin-top:14px}
+.has-analysis-dock>.workspace-heading{margin-top:14px}
 .workspace.has-analysis-dock>.results{z-index:4;overflow-y:auto;overscroll-behavior:contain;border-radius:0;padding:22px 24px 20px}
 .has-analysis-dock>.results>*{flex-shrink:0}
 .has-analysis-dock .timeline{
@@ -598,8 +607,8 @@ option{background:#111}
  :root{--header-h:110px}
  .workspace{grid-template-columns:1fr;grid-template-rows:none;grid-template-areas:"story" "stage" "results" "timeline";padding:calc(var(--header-h) + 16px) 16px 20px;gap:14px}
  .map-frame{display:block;height:420px}
- .map-references{display:block;justify-items:normal;margin-top:0}
- .map-legend{display:none}
+ .map-references{margin-top:0}
+ .map-legend{gap:4px 10px;font-size:11px}
  .workspace>.scene-layer{bottom:auto;height:420px}
  .optimizer-card{position:relative;bottom:auto;width:auto;max-width:440px;margin-top:12px}
  .results{grid-template-columns:1fr 1fr}
@@ -629,12 +638,14 @@ option{background:#111}
  .is-demo .story-title{font-size:24px}
  .story-actions{width:100%;flex-wrap:wrap}
  .story-actions button{flex:1}
+ .workspace>.workspace-heading{flex-wrap:wrap;gap:12px}
+ .workspace-heading>.story{flex-basis:100%}
  .results{display:flex}
  .results .height-response{align-self:stretch}
  .metric-pair{grid-template-columns:1fr}
  .metric-value b{font-size:48px}
  .map-actions{gap:6px}
- .map-actions>.map-optimize,.map-actions>.map-config>button{min-height:44px;padding-inline:8px;gap:5px;font-size:12px}
+ .workspace-heading>.map-optimize,.map-actions>.map-config>button{min-height:44px;padding-inline:8px;gap:5px;font-size:12px}
  .map-actions button svg{width:13px;height:13px}
  .pin-card span{display:none}
  .pin-card{padding:6px 12px}
