@@ -11,8 +11,8 @@ import {SITE01_SIZE,useSite01,useSurround,type DemLevel} from './site01';
 import {TerrainRayHover,TerrainRayTooltip,type TerrainLabel,type TerrainLine,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
 import {TerrainSightline} from './TerrainSightline';
 import {createStationClickGuard} from './lib/stationClick';
-import DistantTerrain,{useDistantHorizon} from './DistantTerrain';
-import {profileFor} from './lib/distantHorizon';
+import DistantTerrain from './DistantTerrain';
+import {SKY_DISTANCE_KM as SKY_KM} from './lib/stationHorizon';
 import {DETAIL_RADIUS_KM,RELIEF_SCALE,sceneProjection,type Vec3} from './lib/sceneGeometry';
 import SkyDome from './SkyDome';
 
@@ -31,7 +31,7 @@ const DISC_KM=DETAIL_RADIUS_KM;
 // the summit's fall-off is the skyline; the frame reaches 9° above the horizontal, past the highest body.
 const HERO_BACK=1.2,HERO_CLEAR=.24,HERO_SKY=9;
 // Schematic marker distance and size. The direction from the mast uses the computed azimuth and elevation.
-const SKY_KM=400,RAY_KM=.85,STATION_TRAVEL_SECONDS=.65;
+const RAY_KM=.85,STATION_TRAVEL_SECONDS=.65;
 // Display diameters in degrees, enlarged for legibility.
 const BODY_PHOTOS={
  sun:{diameter:2.2,url:'/sky/sun-hmi.jpg',repeat:[960/1024,960/1024],offset:[32/1024,32/1024]},
@@ -377,8 +377,8 @@ function SkyBody({body,sky,visible}:Ray){
  </Billboard>;
 }
 
-function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisible,sky}:{sky?:ReactNode;ground:Point;surfaceHeight:(x:number,z:number)=>number;height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:Point|null;linkVisible:boolean}){
- const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
+function Station({ground,surfaceHeight,height,label,rays,lines,linkTo,linkVisible,sky,head}:{sky?:ReactNode;head:RefObject<THREE.Group|null>;ground:Point;surfaceHeight:(x:number,z:number)=>number;height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:Point|null;linkVisible:boolean}){
+ const mast=useRef<THREE.Mesh>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
  const target=MAST_BASE+height*MAST_PER_M;
  const root=useRef<THREE.Group>(null),initial=useRef(ground);
  const travel=useRef<{from:THREE.Vector3;to:THREE.Vector3;elapsed:number}|null>(null);
@@ -487,6 +487,7 @@ type SceneProps=Props&{onRayHover:(tip:TerrainRayTip|null)=>void;canSelect:(even
 function Scene(p:SceneProps){
  const controls=useRef<any>(null);
  const occluder=useRef<THREE.Mesh>(null);
+ const stationHead=useRef<THREE.Group>(null);
  const lines=useMemo(()=>({sun:createRef<ComponentRef<typeof Line>>(),earth:createRef<ComponentRef<typeof Line>>(),link:createRef<ComponentRef<typeof Line>>()}),[]);
  const [hovered,setHovered]=useState<string|null>(null);
  const candidateMarkers=useCandidateMarkers();
@@ -555,7 +556,6 @@ function Scene(p:SceneProps){
   <primitive object={stars}/>
   <Lights frame={p.frame} progress={progress}/>
   <GlobeFallback fallback={surface}><Suspense fallback={null}><SiteGround ground={land} tile={tile} surround={surround} progress={progress} wireframe={p.wireframe} onPick={pick} occluder={occluder}/></Suspense></GlobeFallback>
-  <DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} hidden={!p.active||p.approach!==null}/>
   {p.positions.map(o=>{
    if(o.id===p.selected.candidate_id)return null;
    const marker=o.id===p.recommended?'recommended':p.feasible?.has(o.id)?'feasible':'evaluated';
@@ -574,7 +574,8 @@ function Scene(p:SceneProps){
   })}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
-  <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:lander} linkVisible={p.linkVisible} sky={sky}/>
+  <Station ground={ground} surfaceHeight={surfaceHeight} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:lander} linkVisible={p.linkVisible} sky={sky} head={stationHead}/>
+  <DistantTerrain analysis={p.selected} time={p.time} frame={p.frame} mean={mean} progress={progress} occluder={occluder} observer={stationHead} hidden={!p.active||p.approach!==null}/>
   <group position={compass}>
    <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
@@ -589,13 +590,12 @@ const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
  return <Canvas shadows events={terrainEvents} frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
-export function TerrainScope({terrain,analysis,regionalRadiusM,sky}:{terrain:Terrain;analysis:Analysis;regionalRadiusM?:number;sky?:boolean}){
+export function TerrainScope({terrain,regionalRadiusM,sky}:{terrain:Terrain;regionalRadiusM?:number;sky?:boolean}){
  const tile=useSite01(),surround=useSurround();
- const horizon=useDistantHorizon();
  const closeupKm=terrain.original_shape[1]*terrain.pixel_size_m/1000;
  const footprint=tile&&surround?`~${Math.round(DISC_KM)} km radius`:`${closeupKm.toFixed(2)} km across`;
  return <p className="terrain-scope">
-  <span><strong>3D display</strong> · {VERTICAL_EXAGGERATION}× vertical relief · {footprint}{horizon&&profileFor(horizon,analysis)&&' + regional ridge silhouettes'}</span>
+  <span><strong>3D display</strong> · {VERTICAL_EXAGGERATION}× vertical relief · {footprint} + station horizon</span>
   <span><strong>Sun/Earth visibility</strong> · {regionalRadiusM?`LOLA terrain to ${regionalRadiusM/1000} km`:'LOLA elevations'}</span>
   {sky&&<span><strong>Sky paths</strong> · geometric line of sight from LOLA terrain, drawn with the same {VERTICAL_EXAGGERATION}× vertical exaggeration</span>}
  </p>;

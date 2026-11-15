@@ -21,8 +21,8 @@ export function lowPower(){
 
 /**
  * The sky seen from the mast top, drawn on a dome around the station: the engine's horizon at the selected
- * height, the Sun and Earth tracks over the window (coloured in view, red dashed when blocked (hidden where the drawn terrain covers them), green where the
- * mast gains them over ground level), and the band of sky the mast clears. Directions use the same scene
+ * height, the Sun and Earth tracks over the window (coloured in view, red dashed when blocked, green where the mast gains them over ground level),
+ * and the band of sky the mast clears. The tracks are overlays so readers can follow their blocked portions across the horizon mask. Directions use the same scene
  * transform as the terrain and the Sun/Earth markers, so the vertical exaggeration applies to the dome too.
  */
 export default function SkyDome({analysis,reference,direction,progress,label}:{
@@ -62,7 +62,7 @@ export default function SkyDome({analysis,reference,direction,progress,label}:{
   {referenceRing&&<Line points={referenceRing} raycast={noRaycast} color="#9a9a9a" lineWidth={1} dashed dashSize={3} gapSize={3} transparent opacity={.7} depthTest={false} depthWrite={false} renderOrder={55} toneMapped={false}/>}
   <Line points={ring} raycast={noRaycast} color="#f2f2f2" lineWidth={light?1.2:1.6} transparent opacity={.85} depthTest={false} depthWrite={false} renderOrder={56} toneMapped={false}/>
   {tracks.map(t=><group key={t.body}>
-   {t.blocked.length>0&&<Line segments points={t.blocked} raycast={noRaycast} color={BLOCKED} lineWidth={width*.7} dashed dashSize={1.4} gapSize={1.6} transparent opacity={.6} depthTest depthWrite={false} renderOrder={57} toneMapped={false}/>}
+   {t.blocked.length>0&&<Line segments points={t.blocked} raycast={noRaycast} color={BLOCKED} lineWidth={width*.7} dashed dashSize={1.4} gapSize={1.6} transparent opacity={.6} depthTest={false} depthWrite={false} renderOrder={57} toneMapped={false}/>}
    {t.visible.length>0&&<Line segments points={t.visible} raycast={noRaycast} color={COLORS[t.body]} lineWidth={width} transparent opacity={.95} depthTest={false} depthWrite={false} renderOrder={58} toneMapped={false}/>}
    {t.gained.length>0&&<>
     <Line segments points={t.gained} raycast={noRaycast} color={GAINED_COLOR} lineWidth={width*3} transparent opacity={.4} depthTest={false} depthWrite={false} renderOrder={58} toneMapped={false}/>
