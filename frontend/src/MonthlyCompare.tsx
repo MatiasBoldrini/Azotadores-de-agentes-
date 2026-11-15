@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 import CompareUtcWindow from './CompareUtcWindow';
 import { type MonthlyScan, type MonthlyWindow, parseMonthlyScan } from './lib/monthlyScan';
 import {type Site, type Analysis, type Link, keyFor, violations} from './lib/science';
@@ -81,7 +81,7 @@ export default function MonthlyCompare({ sites, analyses, links, renderTimelines
   return <section className="compare-page">
     <div className="compare-mode">
       <h1>Compare landing sites</h1>
-      {load.status !== 'unavailable' && <div className="compare-mode-buttons" role="group" aria-label="Comparison view">
+      {load.status !== 'unavailable' && <div className="compare-mode-buttons" role="group" aria-label="Comparison view" style={{'--seg': showTimelines ? 1 : 0} as CSSProperties}>
         <button type="button" aria-pressed={!showTimelines} onClick={() => setView('monthly')}>Monthly comparison</button>
         <button type="button" aria-pressed={showTimelines} onClick={() => setView('timeline')}>Observation timelines</button>
       </div>}
@@ -162,8 +162,18 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
       {season && <p>{season}</p>}
     </div>
 
-    {(observations.status==='error'||(available&&observations.source==='cache'))&&<p className="science-mode cache" role="status">{observations.status==='error'?'Scientific data unavailable. Choose another month to retry.':'Using backup NASA data'}</p>}
-    {!available&&observations.status!=='error'&&<p className="micro">Loading observations…</p>}
+    {available&&observations.source==='cache'&&<p className="science-mode cache" role="status">Using backup NASA data</p>}
+    {observations.status==='error'&&<div className="compare-error" role="alert">
+      <p>Scientific data for {labelFor(month)} could not be loaded.</p>
+      <button type="button" className="secondary" onClick={()=>void observations.select(month.start_utc,month.end_utc)}>Try again</button>
+    </div>}
+    {!available&&observations.status!=='error'&&<div className="compare-grid is-loading" role="status" aria-label="Loading observations">
+      {ridgeSites.map(site=><div className="comparison skeleton-card" key={site.id} aria-hidden="true">
+        <i className="sk sk-title"/><i className="sk sk-line"/>
+        <div className="sk-metrics"><i className="sk sk-num"/><i className="sk sk-num"/><i className="sk sk-num"/></div>
+        <i className="sk sk-line wide"/>
+      </div>)}
+    </div>}
     {available&&<div className="compare-grid">
       {cards.map(({ site, sun, earth, gap, minimum }, index) => <article className={`comparison monthly-result ${leadMast(index) ?? ''}`} key={site.id}>
         <div className="comparison-title">

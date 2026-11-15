@@ -338,7 +338,7 @@ function App(){
     return <article className="comparison" key={site.id}>
      <div className="comparison-title">
       <div><h2>{site.name}</h2><small>{fmt(Math.abs(site.latitude_deg),5)}° S / {fmt(Math.abs(site.longitude_deg),5)}° W</small></div>
-      <span className="eyebrow">0 M AGL</span>
+      <span className="eyebrow">Ground level</span>
      </div>
      {(comparison.status==='error'||comparison.source==='cache')&&<p className="science-mode cache" role="status">{comparison.status==='error'?'Scientific data unavailable':'Using backup NASA data'}</p>}
      <DateWindowPicker days={observationDays} start={windowStart} end={windowEnd} label={`${site.name} observation window`} onChange={comparison.select} status={comparison.status}/>

@@ -13,6 +13,7 @@
  --text-1:var(--text);--text-2:#C2BCB4;--text-3:var(--muted);
  --glass-wash:rgba(14,13,12,.8);--glass-border:rgba(238,230,220,.10);--glass-highlight:rgba(238,230,220,.04);
  --radius:12px;--radius-sm:8px;--blur:18px;
+ --dur-instant:110ms;--dur-fast:180ms;--dur-base:240ms;--dur-deliberate:380ms;
  --space-1:8px;--space-2:16px;--space-3:24px;--space-4:40px;--space-5:64px;
  --sans:Geist,system-ui,-apple-system,'Segoe UI',sans-serif;--display:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
  --header-h:64px;
@@ -913,3 +914,30 @@ select{border-radius:var(--radius-sm);background:var(--surface);border-color:var
 .analysis-disclosure-toggle{text-transform:none;letter-spacing:0}
 /* Flat ground: no radial glow behind the pages. */
 .app.moon-site:not(.is-workspace):before{content:none}
+
+/* ================= States & motion (AppBuilder: every state designed, motion only with a reason) ================= */
+/* Segmented view switch: one indicator slides between two equal halves (occasional control, so it may move). */
+.compare-mode-buttons{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:0}
+.compare-mode-buttons::before{content:'';position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:6px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line-strong);transform:translateX(calc(var(--seg,0) * 100%));transition:transform var(--dur-base) var(--ease-in-out)}
+.compare-mode-buttons button{position:relative;z-index:1;background:transparent!important;box-shadow:none!important;transition:color var(--dur-fast) ease}
+.compare-mode-buttons button[aria-pressed="true"]{color:var(--text)}
+/* Loading: the cards' shape, not a sentence. */
+.skeleton-card{display:flex;flex-direction:column;gap:14px;min-height:260px}
+.sk{display:block;height:12px;border-radius:4px;background:linear-gradient(90deg,var(--fill) 0%,var(--fill-active) 50%,var(--fill) 100%);background-size:200% 100%;animation:sk-sweep 1.4s linear infinite}
+.sk-title{width:38%;height:22px}
+.sk-line{width:52%}
+.sk-line.wide{width:100%;margin-top:auto}
+.sk-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:22px}
+.sk-num{height:40px}
+@keyframes sk-sweep{from{background-position:100% 0}to{background-position:-100% 0}}
+/* Error: says what failed and offers the way back. */
+.compare-error{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin:0 0 var(--space-4);padding:18px 20px;border:1px solid rgba(217,102,91,.35);border-radius:var(--radius);animation:err-in var(--dur-fast) var(--ease-out) both}
+.compare-error p{color:var(--text-2)}
+@keyframes err-in{from{opacity:0;transform:translateX(-4px)}}
+/* The one earned moment: the optimizer lands on a recommendation. */
+.tone-optimal .story-status{animation:land var(--dur-deliberate) cubic-bezier(.34,1.56,.64,1) both}
+@keyframes land{0%{opacity:0;transform:translateY(6px) scale(.96)}60%{opacity:1}100%{transform:none}}
+/* Exits faster than entries. */
+.moon-layer.is-site{transition:opacity var(--dur-deliberate) var(--ease),visibility 0s linear var(--dur-deliberate)}
+@media (prefers-reduced-motion:reduce){.compare-mode-buttons::before{transition:none}.sk{animation:none}}
+.comparison .eyebrow,.comparison-metrics dt{font:500 13px/1.4 var(--sans)!important;letter-spacing:-.005em!important;text-transform:none!important}
