@@ -244,6 +244,12 @@ function terrainMaterial(hole:Rect|null,offset:number,mosaic?:Mosaic){
 
 const noRaycast=()=>{};
 
+// Compiles the programs of everything under `root`, hidden objects included, and uses each once. First use reads
+// a program back from the GPU, so left to the first draw it would wait behind the terrain's draws.
+function warmPrograms(gl:THREE.WebGLRenderer,root:THREE.Object3D,camera:THREE.Camera,scene:THREE.Scene){
+ for(const m of gl.compile(root,camera,scene))for(const program of (gl.properties.get(m) as {programs?:Map<string,{getUniforms:()=>unknown}>}).programs?.values()??[])program.getUniforms();
+}
+
 // Clicks land on the drawn relief anywhere out to the rim: the ray is marched over the DEM levels the terrain is
 // built from, finest first, since the GPU meshes keep no vertices to test.
 function levelRaycast(ground:Ground,list:DemLevel[]){
@@ -318,8 +324,7 @@ function ContextGlobe({frame,hole,fade,textures:[color,polar,relief],magnified,p
  useLayoutEffect(()=>{
   if(!group.current)return;
   setMoonOpacity(moon,1);
-  // First use reads the programs back from the GPU; done later, it would wait behind the terrain's draws.
-  for(const m of gl.compile(group.current,camera,scene))for(const program of (gl.properties.get(m) as {programs?:Map<string,{getUniforms:()=>unknown}>}).programs?.values()??[])program.getUniforms();
+  warmPrograms(gl,group.current,camera,scene);
  },[moon,gl,camera,scene]);
  useFrame(({camera})=>{
   const k=progress.current,altitude=camera.position.distanceTo(frame.center)-frame.radiusKm;
@@ -504,12 +509,14 @@ function glowTexture(core:string,glow:string,disc:number){
 
 // The Sun and the Earth on the sky at their computed directions, shown only while the engine has them in view.
 function SkyBodies({rays}:{rays:Ray[]}){
- const shell=useRef<THREE.Group>(null);
+ const shell=useRef<THREE.Group>(null),{gl,camera,scene}=useThree();
  const looks=useMemo(()=>({
   sun:{texture:glowTexture('#fffaf0','rgba(255,196,107,.35)',.12),size:SUN_DEG/.12},
   earth:{texture:glowTexture('#9fdcff','rgba(143,211,255,.18)',.62),size:EARTH_DEG/.62},
  }),[]);
  useEffect(()=>()=>{looks.sun.texture.dispose();looks.earth.texture.dispose();},[looks]);
+ // A body out of view is first drawn only when it comes into view, by then behind the terrain on the GPU.
+ useLayoutEffect(()=>{if(shell.current)warmPrograms(gl,shell.current,camera,scene);},[gl,camera,scene]);
  useFrame(({camera})=>{shell.current?.position.copy(camera.position);});
  return <group ref={shell}>
   {rays.map(r=>{
