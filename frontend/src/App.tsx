@@ -2,6 +2,7 @@ import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
 import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,Telescope,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Radio,Target} from 'lucide-react';
 import TerrainView,{CelestialRayLegend,MAST_EXAGGERATION,VERTICAL_EXAGGERATION} from './TerrainView';
 import DateWindowPicker from './DateWindowPicker';
+import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
 import PositionPicker,{type EvaluatedPosition} from './PositionPicker';
 import {demoSteps} from './RidgeDemo';
@@ -19,7 +20,7 @@ type Tab='Landing Sites'|'Infrastructure Designer'|'Compare'|'Science & Sources'
 const TABS:Tab[]=['Landing Sites','Infrastructure Designer','Compare','Science & Sources'];
 const SOURCES=[{href:'https://pgda.gsfc.nasa.gov/products/78',label:'NASA LOLA · PGDA 78 · Site01 5 m DEM'},{href:'https://pgda.gsfc.nasa.gov/products/90',label:'NASA LOLA · PGDA 90 · regional 80 m'},{href:'https://ssd.jpl.nasa.gov/horizons/',label:'JPL Horizons · Sun & Earth ephemerides'}];
 class SceneBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return {error:true};}render(){return this.state.error?<div className="scene-error"><Mountain/><p>3D rendering is unavailable on this device.</p><span>Use the station selector and scientific charts below.</span></div>:this.props.children;}}
-function MetricBlock({label,value,unit,detail,color}:{label:string;value:string;unit:string;detail:string;color:string}){return <div className="metric-block"><span className={`eyebrow ${color}`}>{label}</span><div className="metric-number">{value}<small>{unit}</small></div><span className="metric-detail">{detail}</span></div>;}
+function MetricBlock({label,value,unit,detail,color}:{label:string;value:string;unit:string;detail:ReactNode;color:string}){return <div className="metric-block"><span className={`eyebrow ${color}`}>{label}</span><div className="metric-number">{value}<small>{unit}</small></div><span className="metric-detail">{detail}</span></div>;}
 function VisibilityWindow({analysis,id}:{analysis:Analysis;id:string}){
  const times=analysis.series.timestamp_utc;
  const dates=windowDates.formatRange(new Date(times[0]),new Date(times[times.length-1]));
@@ -152,7 +153,52 @@ function App(){
   </div>
  </header>
  {workspaceTab&&<StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>}
- {tab==='Science & Sources'?<Science data={data}/>:tab==='Compare'?<MonthlyCompare sites={data.sites} renderNovember={()=><><div className="compare-intro"><p>Choose independent November 2026 windows at ground level. All times are UTC.</p></div><div className="compare-grid">{data.sites.map((s,i)=>{const raw=data.analyses.find(a=>a.position.row===s.row&&a.position.col===s.col&&a.height_m===0)!;const a=sliceAnalysis(raw,i===0?start:compareStart,i===0?end:compareEnd);return <article className="comparison" key={s.id}><div className="comparison-title"><div><h2>{s.name}</h2><small>{fmt(Math.abs(s.latitude_deg),5)}° S / {fmt(Math.abs(s.longitude_deg),5)}° W</small></div><span className="eyebrow">0 M AGL</span></div><DateWindowPicker days={days} start={i?compareStart:start} end={i?compareEnd:end} label={`${s.name} observation window`} onChange={i?setCompareWindow:setWindow}/><p className="micro">Cursor: {utc(a.series.timestamp_utc[Math.min(time,a.series.timestamp_utc.length-1)])} UTC</p><div className="comparison-metrics" aria-describedby={`${s.id}-visibility-window`}><VisibilityWindow analysis={a} id={`${s.id}-visibility-window`}/>{(['sun','earth','both'] as const).map(body=><MetricBlock key={body} label={body==='both'?'SIMULTANEOUS':body==='sun'?'SOLAR EXPOSURE':'EARTH VISIBILITY'} value={fmt(a.metrics[body].total_hours)} unit="h" detail={`${fmt(percent(a.metrics[body]),1)}% of window`} color={body}/>)}</div><TimelineChart analysis={a} index={Math.min(time,a.series.timestamp_utc.length-1)} onIndex={setTime} body="sun"/><TimelineChart analysis={a} index={Math.min(time,a.series.timestamp_utc.length-1)} onIndex={setTime} body="earth"/><dl className="facts"><div><dt>Longest solar outage</dt><dd>{fmt(a.metrics.sun.longest_outage_hours)} h</dd></div><div><dt>Longest Earth outage</dt><dd>{fmt(a.metrics.earth.longest_outage_hours)} h</dd></div><div><dt>Longest continuous Sun + Earth window</dt><dd>{fmt(a.metrics.both.longest_visible_hours)} h</dd></div><div><dt>Local slope</dt><dd>{fmt(a.position.slope_deg??0)}°</dd></div></dl><button className="secondary wide" onClick={()=>{chooseSite(s.id);setTab('Infrastructure Designer');}}>Engineer this site <ArrowRight size={15}/></button></article>;})}</div><p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p></>}/>:<>
+ {tab==='Science & Sources'?<Science data={data}/>:tab==='Compare'?<MonthlyCompare sites={data.sites} renderNovember={()=><>
+  <div className="compare-intro"><p>Choose independent November 2026 windows at ground level.</p></div>
+  <div className="compare-grid">
+   {data.sites.map((site, i)=>{
+    const raw = data.analyses.find(a=>a.position.row===site.row&&a.position.col===site.col&&a.height_m===0)!;
+    const analysis = sliceAnalysis(raw, i===0 ? start : compareStart, i===0 ? end : compareEnd);
+    const timestamps = analysis.series.timestamp_utc;
+    const windowStart = timestamps[0], windowEnd = timestamps[timestamps.length-1];
+    const cursor = Math.min(time, timestamps.length-1);
+    return <article className="comparison" key={site.id}>
+     <div className="comparison-title">
+      <div><h2>{site.name}</h2><small>{fmt(Math.abs(site.latitude_deg),5)}° S / {fmt(Math.abs(site.longitude_deg),5)}° W</small></div>
+      <span className="eyebrow">0 M AGL</span>
+     </div>
+     <DateWindowPicker days={days} start={windowStart} end={windowEnd} label={`${site.name} observation window`} onChange={i===0 ? setWindow : setCompareWindow}/>
+     <p className="micro">Cursor: {utc(timestamps[cursor])} UTC</p>
+     <div className="comparison-metrics">
+      {(['sun','earth','both'] as const).map(body=>{
+       const metric = analysis.metrics[body];
+       return <MetricBlock
+        key={body}
+        label={body==='both'?'SIMULTANEOUS':body==='sun'?'SOLAR EXPOSURE':'EARTH VISIBILITY'}
+        value={fmt(metric.total_hours)}
+        unit="h"
+        detail={<>
+         {fmt(percent(metric),1)}% of {windowHours.format(metric.duration_hours)}&nbsp;h
+         <CompareUtcWindow start={windowStart} end={windowEnd}/>
+        </>}
+        color={body}
+       />;
+      })}
+     </div>
+     <TimelineChart analysis={analysis} index={cursor} onIndex={setTime} body="sun"/>
+     <TimelineChart analysis={analysis} index={cursor} onIndex={setTime} body="earth"/>
+     <dl className="facts">
+      <div><dt>Longest solar outage</dt><dd>{fmt(analysis.metrics.sun.longest_outage_hours)} h</dd></div>
+      <div><dt>Longest Earth outage</dt><dd>{fmt(analysis.metrics.earth.longest_outage_hours)} h</dd></div>
+      <div><dt>Longest continuous Sun + Earth window</dt><dd>{fmt(analysis.metrics.both.longest_visible_hours)} h</dd></div>
+      <div><dt>Local slope</dt><dd>{fmt(analysis.position.slope_deg??0)}°</dd></div>
+     </dl>
+     <button className="secondary wide" onClick={()=>{chooseSite(site.id);setTab('Infrastructure Designer');}}>Engineer this site <ArrowRight size={15}/></button>
+    </article>;
+   })}
+  </div>
+  <p className="footnote">Curves share elapsed sample time from each window’s start; the shorter window stops at its endpoint. For matching dates, cursors show the same UTC instant. Each cursor’s timestamp is shown above.</p>
+ </>}/>:<>
  <main className="workspace">
  <aside className="controls" aria-label="Site, station and search controls">
   <div className="panel-heading"><span className="eyebrow">01 / Landing site</span><Telescope size={14}/></div>

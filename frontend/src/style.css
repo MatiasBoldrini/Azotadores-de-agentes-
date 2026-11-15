@@ -342,6 +342,7 @@ footer>button:hover{color:var(--text-1)}
 .metric-number{font-size:38px;font-weight:450;letter-spacing:-1.4px;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}
 .metric-number small{font-size:16px;color:var(--text-3);margin-left:5px}
 .metric-detail{font-size:12px;color:var(--text-2)}
+.compare-utc-window{display:block;margin-top:4px;font-size:11px;line-height:1.45;color:var(--text-3)}
 .comparison .time-chart{margin:18px 0}
 .facts{margin:16px 0;font-size:12.5px}
 .facts>div{display:flex;justify-content:space-between;gap:10px;margin:9px 0}
