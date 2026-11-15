@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 data/*.tif
 frontend/node_modules/
+mcp/node_modules/
 frontend/*.tsbuildinfo
 dist/
 .openai-local/
