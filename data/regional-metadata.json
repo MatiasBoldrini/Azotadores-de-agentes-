@@ -1,0 +1,57 @@
+{
+  "source": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF",
+  "product": "https://pgda.gsfc.nasa.gov/products/90",
+  "citation": "Barker et al. 2023, Planetary Science Journal 4, 183; doi:10.3847/PSJ/acf3e1",
+  "data_doi": "10.60903/gsfcpgda-lola-spole",
+  "accessed_utc": "2026-11-14T23:20:49.127395+00:00",
+  "frame": "MOON_ME_DE421",
+  "radius_m": 1737400.0,
+  "units": "radial elevation metres",
+  "source_shape": [
+    7600,
+    7600
+  ],
+  "source_resolution_m": 80,
+  "window": [
+    1782,
+    2070,
+    3760,
+    3760
+  ],
+  "crs": "PROJCS[\"Moon (2015) - Sphere / Ocentric / South Polar\",GEOGCS[\"Moon (2015) - Sphere / Ocentric\",DATUM[\"Moon (2015) - Sphere\",SPHEROID[\"Moon (2015) - Sphere\",1737400,0,AUTHORITY[\"IAU\",\"30100\"]],AUTHORITY[\"IAU\",\"30100\"]],PRIMEM[\"Reference Meridian\",0,AUTHORITY[\"IAU\",\"30100\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"IAU\",\"30100\"]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH],AUTHORITY[\"IAU\",\"30135\"]]",
+  "source_tags": {
+    "NC_GLOBAL#Conventions": "CF-1.7",
+    "NC_GLOBAL#description": "Mean value per bin",
+    "NC_GLOBAL#GMT_version": "6.5.0_2402709_2023.01.09 [64-bit]",
+    "NC_GLOBAL#history": "gmt grdmath ldem_80s_final_adj_80mpp_surf.grd 1000.0 MUL = test.grd",
+    "NC_GLOBAL#node_offset": "1",
+    "NC_GLOBAL#title": "Produced by grdmath",
+    "x#actual_range": "{-304,304}",
+    "x#axis": "X",
+    "x#long_name": "x",
+    "y#actual_range": "{-304,304}",
+    "y#axis": "Y",
+    "y#long_name": "y",
+    "z#actual_range": "{-7295.51708984375,7026.3310546875}",
+    "z#long_name": "z",
+    "z#_FillValue": "nan",
+    "AREA_OR_POINT": "Area"
+  },
+  "near_resolution_m": 80,
+  "near_radius_m": 30000,
+  "far_block_size_m": 320,
+  "max_radius_m": 150000,
+  "near_points": 440718,
+  "far_points": 662634,
+  "total_points": 1103352,
+  "local_overlap": "Regional samples inside the 5 m ROI are removed; local DEM takes precedence",
+  "sampling": "Native pixel centers to 30 km; actual highest source pixel per 4x4 block from 30 to 150 km. Source sample coordinates retained.",
+  "limitations": [
+    "Terrain beyond 150 km is not modeled.",
+    "80 m source resolution can omit narrower ridges.",
+    "Peak selection in 320 m far blocks does not preserve every sub-block azimuth.",
+    "DEM effective resolution and errors vary; pixel spacing is not an accuracy guarantee."
+  ],
+  "sha256": "099be2548f7fa8a7f576ccd62e0817a49a791187668c64251277dc23d66d6674",
+  "download_method": "Bounded window from official Cloud Optimized GeoTIFF via HTTP ranges"
+}

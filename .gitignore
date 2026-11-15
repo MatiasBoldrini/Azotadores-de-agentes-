@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+data/*.tif
+frontend/node_modules/
+frontend/*.tsbuildinfo
+dist/
+.openai-local/
+*.log
+.DS_Store
+data/.mplcache/
+release/

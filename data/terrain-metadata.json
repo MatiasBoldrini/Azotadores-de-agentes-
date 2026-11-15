@@ -1,0 +1,54 @@
+{
+  "source": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif",
+  "accessed_utc": "2026-11-14T23:19:01.583706+00:00",
+  "source_sha256": "3ba7b97cb00a2bcf21189c3aeb535f65afc21207154ab9f0d43c5bdc1f7e747e",
+  "source_shape": [
+    3200,
+    3200
+  ],
+  "window": [
+    1344,
+    1344,
+    512,
+    512
+  ],
+  "crs": "PROJCS[\"unnamed\",GEOGCS[\"unnamed ellipse\",DATUM[\"unknown\",SPHEROID[\"unnamed\",1737400,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Polar_Stereographic\"],PARAMETER[\"latitude_of_origin\",-90],PARAMETER[\"central_meridian\",0],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1],AXIS[\"Easting\",NORTH],AXIS[\"Northing\",NORTH]]",
+  "transform": [
+    5.0,
+    0.0,
+    -12280.0,
+    0.0,
+    -5.0,
+    -10720.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "tags": {
+    "NC_GLOBAL#Conventions": "COARDS, CF-1.5",
+    "NC_GLOBAL#GMT_version": "5.4.5 [64-bit]",
+    "NC_GLOBAL#history": "xyz2grd -bi3 -I5 -R-1.90000000000e+04/-3.00000000000e+03/-2.00000000000e+04/-4.00000000000e+03 -Gtest.grd -r",
+    "NC_GLOBAL#node_offset": "1",
+    "x#actual_range": "{-19000,-3000}",
+    "x#long_name": "x",
+    "y#actual_range": "{-20000,-4000}",
+    "y#long_name": "y",
+    "z#actual_range": "{-523.1834106445312,1959.496215820312}",
+    "z#long_name": "z",
+    "z#_FillValue": "nan",
+    "AREA_OR_POINT": "Area"
+  },
+  "units": "meters",
+  "radius_m": 1737400,
+  "frame": "MOON_ME_DE421",
+  "pixel_size_m": 5,
+  "coverage": "Local 2.56 km square only; distant terrain is not modelled",
+  "vertical_datum": "Radial elevation relative to 1737.4 km sphere",
+  "source_last_modified": "2020-06-05T18:39:35Z",
+  "software_versions": {
+    "numpy": "2.5.4",
+    "rasterio": "1.5.2",
+    "pyproj": "3.8.0"
+  },
+  "coordinate_convention": "East-positive longitude; pixel centers; planetocentric latitude equals planetodetic for sphere"
+}

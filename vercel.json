@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm ci --prefix frontend && npm run build --prefix frontend",
+  "outputDirectory": "dist",
+  "framework": null,
+  "git": {"deploymentEnabled": {"main": false}},
+  "headers": [{"source":"/data/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=0, must-revalidate"}]}]
+}

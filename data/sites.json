@@ -1,0 +1,20 @@
+[
+  {
+    "id": "ridge-a",
+    "name": "Ridge A",
+    "row": 256,
+    "col": 256,
+    "longitude_deg": -137.50198490762307,
+    "latitude_deg": -89.46315775697231,
+    "elevation_m": 1944.76708984375
+  },
+  {
+    "id": "ridge-b",
+    "name": "Ridge B",
+    "row": 160,
+    "col": 352,
+    "longitude_deg": -137.61081663418256,
+    "latitude_deg": -89.48552114919612,
+    "elevation_m": 1921.3062744140625
+  }
+]
