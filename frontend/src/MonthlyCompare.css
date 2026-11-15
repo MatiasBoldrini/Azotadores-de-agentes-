@@ -173,3 +173,176 @@
   .monthly-controls label { width: 100%; }
   .monthly-history thead span { display: block; }
 }
+
+/* ---------- Verdict, leaders and the month heatmap ---------- */
+.monthly-window {
+  margin: 0 0 10px auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.monthly-verdict {
+  position: relative;
+  margin: 4px 0 18px;
+  padding: 16px 18px 16px 22px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, rgba(140,224,174,.10), rgba(140,224,174,0) 70%);
+  box-shadow: inset 0 0 0 1px rgba(140,224,174,.18);
+}
+
+.monthly-verdict::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #8CE0AE;
+}
+
+.monthly-verdict.tone-bad {
+  background: linear-gradient(90deg, rgba(255,98,94,.10), rgba(255,98,94,0) 70%);
+  box-shadow: inset 0 0 0 1px rgba(255,98,94,.2);
+}
+
+.monthly-verdict.tone-bad::before { background: var(--blocked); }
+
+.monthly-verdict h2 {
+  font-size: 19px;
+  line-height: 1.35;
+  letter-spacing: -.01em;
+  animation: verdict-in .32s var(--ease-out) both;
+}
+
+.monthly-verdict p {
+  margin-top: 4px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+@keyframes verdict-in {
+  from { opacity: 0; transform: translateY(4px); filter: blur(2px); }
+}
+
+.monthly-result {
+  transition: border-color .25s ease, box-shadow .25s ease;
+}
+
+.monthly-result.lead {
+  border-color: rgba(140,224,174,.34);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 8px 32px rgba(0,0,0,.45), 0 0 0 1px rgba(140,224,174,.08), 0 0 48px rgba(140,224,174,.06);
+}
+
+.monthly-metrics dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lead-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: #8CE0AE;
+  background: rgba(140,224,174,.12);
+  box-shadow: inset 0 0 0 1px rgba(140,224,174,.26);
+}
+
+.monthly-metrics .metric-block:not(.lead) .metric-number { color: var(--text-2); }
+
+/* Sequential mast scale: a short mast reads calm, a tall one warm, none blocked. */
+.h-low  { --tone: #8CE0AE; --tone-bg: rgba(140,224,174,.20); }
+.h-mid  { --tone: #B9E6A0; --tone-bg: rgba(185,230,160,.13); }
+.h-high { --tone: #FFC46B; --tone-bg: rgba(255,196,107,.14); }
+.h-top  { --tone: #FF9A62; --tone-bg: rgba(255,154,98,.16); }
+.none   { --tone: #ff625e; --tone-bg: rgba(255,98,94,.10); }
+
+.mast-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--tone) !important;
+  background: var(--tone-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 35%, transparent);
+}
+
+.monthly-history-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 9px;
+}
+
+.monthly-history-head h2 { margin-bottom: 0; }
+
+.mast-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mast-legend li { display: inline-flex; align-items: center; gap: 6px; }
+
+.mast-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--tone-bg);
+  box-shadow: inset 0 0 0 1px var(--tone);
+}
+
+.monthly-history td { padding: 5px 3px; }
+
+.monthly-history .current-month { background: transparent; }
+
+.monthly-history th.current-month { color: var(--text); }
+
+.mast-cell {
+  width: 100%;
+  min-height: 36px;
+  border-radius: 10px;
+  color: var(--tone);
+  background: var(--tone-bg);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: transform .16s var(--ease-out), box-shadow .18s ease, background-color .18s ease;
+}
+
+.mast-cell.none {
+  background: repeating-linear-gradient(135deg, rgba(255,98,94,.10) 0 6px, rgba(255,98,94,.04) 6px 12px);
+}
+
+.mast-cell[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px var(--tone), 0 0 18px color-mix(in srgb, var(--tone) 25%, transparent);
+}
+
+.mast-cell:active { transform: scale(.96); }
+
+@media (hover: hover) and (pointer: fine) {
+  .mast-cell:hover { box-shadow: inset 0 0 0 1px var(--tone); }
+  .mast-cell[aria-pressed="true"]:hover { box-shadow: inset 0 0 0 2px var(--tone), 0 0 18px color-mix(in srgb, var(--tone) 25%, transparent); }
+}
+
+@media (max-width: 620px) {
+  .monthly-window { width: 100%; margin: 0; }
+  .monthly-verdict h2 { font-size: 16px; }
+  .monthly-history { padding: 16px; }
+  .monthly-history :is(th, td) { padding-inline: 2px; }
+  .monthly-history th:first-child { width: 17%; }
+  .monthly-history thead th { font-size: 11px; }
+  .monthly-history thead span { display: block; color: var(--muted); }
+  .mast-cell { min-height: 40px; border-radius: 8px; font-size: 11px; }
+  .monthly-metrics dt { min-height: 3em; align-content: flex-start; }
+}

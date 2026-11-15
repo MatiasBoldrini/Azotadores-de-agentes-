@@ -12,7 +12,7 @@
  --radius:22px;--radius-sm:16px;--blur:28px;
  --sans:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;--display:Sora,Inter,system-ui,sans-serif;
  --header-h:64px;
- --ease:cubic-bezier(.2,.8,.2,1);
+ --ease:cubic-bezier(.2,.8,.2,1);--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);
  font-family:var(--sans);font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);font-synthesis:none;-webkit-font-smoothing:antialiased;color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -67,10 +67,26 @@ option{background:#111}
 .moon-layer.is-site{opacity:0;visibility:hidden;transition:opacity .5s var(--ease),visibility 0s linear .5s}
 .moon-canvas{position:absolute!important;inset:0}
 .moon-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 70% at 50% 50%,transparent 52%,rgba(5,5,5,.35) 78%,rgba(5,5,5,.82) 100%)}
+.moon-scrim{position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(5,5,5,.88) 0,rgba(5,5,5,.62) 26%,rgba(5,5,5,0) 46%);transition:opacity .45s var(--ease)}
+.moon-layer:is(.is-in,.is-out) .moon-scrim{opacity:0}
+.moon-stats{margin-top:20px;width:100%;max-width:440px;border-collapse:collapse;font-variant-numeric:tabular-nums;pointer-events:auto}
+.moon-stats thead th{padding:0 0 8px;font:600 11px/1.4 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:right;border-bottom:1px solid var(--line)}
+.moon-stats thead th:first-child{text-align:left}
+.moon-stats tbody th{padding:11px 0;font-weight:500;font-size:13px;color:var(--text-2);text-align:left;white-space:nowrap}
+.moon-stats tbody th i{display:inline-block;vertical-align:1px;margin-right:9px;width:7px;height:7px;border-radius:50%;background:var(--text);box-shadow:0 0 0 3px rgba(255,255,255,.08)}
+.moon-stats tr.sun th i{background:var(--sun);box-shadow:0 0 0 3px var(--sun-soft)}
+.moon-stats tr.earth th i{background:var(--earth);box-shadow:0 0 0 3px var(--earth-soft)}
+.moon-stats tbody :is(th,td){border-bottom:1px solid var(--hairline)}
+.moon-stats td{padding:11px 0 11px 14px;text-align:right;white-space:nowrap;color:var(--muted);font-size:14px}
+.moon-stats td b{font:600 20px/1 var(--display);color:var(--text)}
+.moon-stats tr.sun td b{color:var(--sun)}
+.moon-stats tr.earth td b{color:var(--earth)}
+.moon-stats td small{margin-left:3px;font-size:11px;color:var(--muted)}
+.moon-stats .delta{display:inline-block;min-width:48px;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:600;text-align:center;background:rgba(120,220,160,.12);color:#8CE0AE;box-shadow:inset 0 0 0 1px rgba(120,220,160,.28)}
 .moon-copy{position:absolute;top:calc(var(--header-h) + 32px);left:40px;width:min(520px,calc(100% - 80px));z-index:4;pointer-events:none;transition:opacity .45s var(--ease)}
 .moon-tagline{margin-bottom:12px;font-size:14px;font-weight:600;color:var(--text-2)}
 .moon-copy h2{font-size:42px;line-height:1.15;letter-spacing:-.028em;text-wrap:balance}
-.moon-copy .lede{margin-top:14px;max-width:440px;color:var(--muted);font-size:14px;line-height:1.5}
+.moon-copy .lede{margin-top:12px;max-width:420px;color:var(--text-2);font-size:14px;line-height:1.55}
 .moon-actions{margin-top:22px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;pointer-events:auto}
 .moon-action-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .moon-action-buttons .secondary{min-height:48px;padding:0 22px;border-radius:22px}
@@ -106,6 +122,8 @@ option{background:#111}
    where the camera sits farther out and the portrait render, made at phone proportions, matches it). */
 .moon-placeholder{position:absolute;left:50%;top:50%;width:89.8cqmin;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:url(/moon/landing-placeholder.jpg) center/cover no-repeat}
 @container (aspect-ratio < 1){.moon-placeholder{top:57%;width:90.6cqmin;background-image:url(/moon/landing-placeholder-portrait.jpg)}}
+@container (min-width:960px) and (aspect-ratio >= 1.2){.moon-placeholder{left:calc(50% + clamp(0px,50cqw - 44cqmin - 8px,16cqw))}}
+@container (aspect-ratio <= 0.625){.moon-placeholder{top:calc(57% + 9cqh)}}
 .moon-layer.is-loaded .moon-loading{opacity:0;visibility:hidden;transition:opacity .5s,visibility 0s linear .5s}
 .moon-unavailable{position:absolute;inset:0;display:grid;place-items:center;padding:24px;color:var(--muted);text-align:center}
 
@@ -690,3 +708,34 @@ option{background:#111}
 .science-mode{font-size:11px;line-height:1.35;color:var(--muted,#9ca3af);max-width:170px}
 .science-mode.backend{color:#9ad4b4}.science-mode.cache{color:#e0bf82}
 @media(max-width:600px){.top-actions .science-mode{max-width:90px;font-size:10px}}
+
+/* ---------- Interaction polish ---------- */
+/* Press feedback on every pressable control that does not use transform for its own positioning. */
+:is(.cta,.primary,.secondary,.ghost-button,.demo-button,.demo-stop,.text-button,.topbar nav button,.compare-mode-buttons button,.sky-panel button,.map-optimize,.verdict-chip){transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .16s var(--ease-out)}
+:is(.cta,.primary,.secondary,.ghost-button,.demo-button,.demo-stop,.text-button,.topbar nav button,.compare-mode-buttons button,.sky-panel button,.map-optimize):active:not(:disabled){transform:scale(.97)}
+.cta svg,.primary svg,.secondary svg{transition:transform .2s var(--ease-out)}
+@media (hover:hover) and (pointer:fine){
+ :is(.cta,.primary,.secondary):hover:not(:disabled) svg:last-child{transform:translateX(2px)}
+}
+h1,h2{text-wrap:balance}
+.metric-label{letter-spacing:.1em;white-space:nowrap}
+
+@media(max-width:900px){
+ .moon-scrim{background:linear-gradient(180deg,rgba(5,5,5,.92) 0,rgba(5,5,5,.78) 38%,rgba(5,5,5,0) 62%)}
+ .moon-copy .lede{display:none}
+ .moon-stats{margin-top:14px;max-width:none}
+ .moon-stats tbody :is(th,td){padding-top:8px;padding-bottom:8px}
+ .moon-stats td b{font-size:17px}
+ .moon-actions{margin-top:16px}
+}
+@media(max-width:420px){
+ .moon-stats td{padding-left:8px}
+ .moon-stats .delta{min-width:0;padding:2px 6px}
+ .moon-action-buttons{width:100%;flex-wrap:nowrap}
+ .moon-action-buttons>*{flex:1;justify-content:center;padding:0 12px;font-size:13px}
+}
+/* Status chip above the workspace headline: the verdict reads before the sentence. */
+.story-status{display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;padding:3px 9px 3px 8px;border-radius:999px;font:600 11px/1.4 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);background:rgba(5,5,5,.6);box-shadow:inset 0 0 0 1px var(--line-strong);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);animation:rise .32s var(--ease-out) both}
+.tone-limit .story-status,.tone-infeasible .story-status,.tone-loss .story-status{color:#FFB4A8;box-shadow:inset 0 0 0 1px rgba(255,98,94,.38);background:linear-gradient(rgba(255,98,94,.12),rgba(255,98,94,.12)),rgba(5,5,5,.6)}
+.tone-gain .story-status,.tone-optimal .story-status{color:#8CE0AE;box-shadow:inset 0 0 0 1px rgba(140,224,174,.36);background:linear-gradient(rgba(140,224,174,.12),rgba(140,224,174,.12)),rgba(5,5,5,.6)}
+.tone-plateau .story-status{color:var(--sun);box-shadow:inset 0 0 0 1px var(--sun-line);background:linear-gradient(var(--sun-soft),var(--sun-soft)),rgba(5,5,5,.6)}

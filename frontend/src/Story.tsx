@@ -28,6 +28,7 @@ export function StoryBar({story,demo,onAction,onStopDemo,hideSummary=false}:{hid
   </div>}
   {!hideSummary&&<div className="story-body" aria-live="polite">
    <div className="story-text" key={title}>
+    {!demo&&<span className="story-status"><Icon size={13} aria-hidden="true"/>{story.kicker}</span>}
     <h2 className="story-title"><Segments parts={story.title}/></h2>
     {story.detail.length>0&&<p className="story-detail"><Segments parts={story.detail}/></p>}
    </div>
