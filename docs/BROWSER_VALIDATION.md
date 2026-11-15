@@ -39,3 +39,15 @@ Browser verification used the local `dist/` build. GitHub is the distribution ta
 The production `dist` build was served by Python's static HTTP server at port 4173, with no FastAPI process. The 130-configuration search returned 17 feasible options and selected 5 m. Compare → Infrastructure Designer navigation completed with an empty error/warning console log. The export opened Brave's native Save dialog; after saving, the 672,346-byte JSON was read back and confirmed 720 h Sun, 359.5 h Earth, height 5 m, 130 evaluated / 17 feasible. The initial automation wait timed out while that Save dialog awaited confirmation; the product download itself succeeded.
 
 ![Final production app in Brave](screenshots/siteforge-final.jpg)
+
+## Guided demonstration
+
+In the production build, both **Play 25-second demo** and `/?demo=1` started the November Ridge A case. Observed the automatic sequence from ground level to 10 m and 20 m, and then the optimizer finding 17 of 130 configurations feasible under the default constraints and selecting 5 m. The final browser error log was empty.
+
+The following 1920 × 1080 captures document the main states:
+
+- [Terrain and experiment overview](screenshots/terrain-hero.jpg)
+- [Ridge A at ground level](screenshots/ridge-a-0m.jpg)
+- [Ridge A at 10 m](screenshots/ridge-a-10m.jpg)
+- [Ridge A at 20 m](screenshots/ridge-a-20m.jpg)
+- [Optimizer, horizon and timeline](screenshots/optimizer-and-timeline.jpg)
