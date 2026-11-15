@@ -32,6 +32,14 @@ export function loadSurround(){
  return surroundRequest;
 }
 
+// The PDS products the regional levels are cut from, as scripts/download_lola.py verifies them.
+const PDS_GDR='https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/';
+export const REGIONAL_SOURCES=[
+ {name:'LOLA GDR ldem_85s_40m (40 m level)',url:`${PDS_GDR}ldem_85s_40m.img`,sha256:'1609e9b860748e0b9952a7239c51b37d3b2a799d35e9fc3c258526711cc1e51d'},
+ {name:'LOLA GDR ldem_80s_80m (80 to 640 m levels)',url:`${PDS_GDR}ldem_80s_80m.img`,sha256:'e6591eeea35402ca5e124ca00f5bf0774381a2d4fa919144b455d82b8ff65fdc'},
+ {name:'LOLA GDR ldem_75s_240m (1.2 km level)',url:`${PDS_GDR}ldem_75s_240m.img`,sha256:'d031efe2611b17dfbf3c158f5e15dc04cd5719349dcbf6384bb21fd97697c490'},
+];
+
 // PDS LOLA south polar grids beyond the GeoTIFF, out past the close-up's horizon, finest level first.
 export function loadRegional(){
  regionalRequest??=meta().then(({regional:s})=>levels(s.levels,b=>Float32Array.from(new Int16Array(b),c=>c*s.scale_m))).catch(()=>null);

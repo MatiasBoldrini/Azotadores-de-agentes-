@@ -57,6 +57,13 @@ class Site01TileTest(unittest.TestCase):
   for level,_ in self.regional():
    self.assertTrue(level['source'].startswith('https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/'),level['source'])
    self.assertIn(level['sha256'],sources);self.assertIn(level['source_sha256'],sources)
+ def test_science_page_lists_the_regional_sources(self):
+  import re
+  shown=dict(re.findall(r"url:`\$\{PDS_GDR\}([\w.]+)`,sha256:'([0-9a-f]{64})'",(ROOT/'frontend/src/site01.ts').read_text()))
+  used={l['source'].rsplit('/',1)[1]:l['source_sha256'] for l,_ in self.regional()}
+  self.assertEqual(shown,used)
+  download=(ROOT/'scripts/download_lola.py').read_text()
+  for name,digest in shown.items():self.assertIn(f"(PDS+'{name}','{name}',",download);self.assertIn(digest,download)
  def test_regional_levels_nest_around_the_tile(self):
   t=self.meta['transform'];half=self.meta['shape'][0]*self.meta['pixel_size_m']/2;cx,cy=t[2]+half,t[5]-half
   levels=[l for l,_ in self.surround()]+[l for l,_ in self.regional()]

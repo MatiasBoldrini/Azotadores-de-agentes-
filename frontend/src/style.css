@@ -427,6 +427,7 @@ option{background:#111}
 .source-list{display:flex;flex-direction:column;margin:18px 0}
 .source-list a{display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:12px 0;border-bottom:1px solid var(--hairline);text-decoration:none;font-size:14px}
 .source-list a:hover{color:var(--earth)}
+.source-hash{display:block;margin-top:4px;color:var(--muted);font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 .science-page details{margin:28px 0;padding:14px 18px;font-size:13px;color:var(--text-2)}
 .science-page summary{min-height:28px;cursor:pointer}
 .science-page pre{max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.6 var(--sans)}
