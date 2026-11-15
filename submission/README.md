@@ -6,9 +6,9 @@ Supporting files for the NASA Space Apps 2026 Lunar Landing Site Navigator entry
 
 - `submission.md` — written submission text
 - `pitch_v3/` — 7-slide pitch (`index.html`, `pitch.pdf`, `render.py`, fonts and images)
-- `video/siteforge-demo-16x9-final.mp4` — 29.4 s demo film, plus contact sheet
+- `video/selenarc-demo-16x9-final.mp4` — 29.46 s SELENARC demo film, plus contact sheet (`selenarc-demo-16x9-final-sheet.png`). Earlier cut kept as `video/siteforge-demo-16x9-final.mp4`.
 - `video_brief.md` — brief used to produce the film
-- `video-remotion/` — Remotion source for the film (composition IDs unchanged in this pass; video re-render still pending)
+- `video-remotion/` — Remotion source for the film, including the `selenarc-16x9-final` composition
 - `screens_v7/` — desktop and mobile screenshots of the build used in the deck and film
 - `validation_pgda69.md` and `validation_pgda69_scatter.png` — comparison to NASA LOLA PGDA 69
 - `validation_pgda69/` — scripts, compact JSON outputs, and PDS labels (raw rasters omitted; see that folder’s README)
