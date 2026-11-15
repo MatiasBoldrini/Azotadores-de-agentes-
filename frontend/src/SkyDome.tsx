@@ -7,9 +7,9 @@ import type {Vec3} from './lib/sceneGeometry';
 import {horizonRing,skyGained,skyPaths,skySteps} from './lib/skyDome';
 
 export const SKY_DOME_CAPTION='Geometric line of sight from LOLA terrain';
-const COLORS={sun:'#FFC46B',earth:'#8FD3FF'} as const;
-export const GAINED_COLOR='#7CFFB2';
-const BLOCKED='#ff625e';
+const COLORS={sun:'#E2B06A',earth:'#93B9D6'} as const;
+export const GAINED_COLOR='#9DC4A4';
+const BLOCKED='#D9665B';
 const noRaycast=()=>{};
 type Direction=(az:number,el:number)=>Vec3;
 

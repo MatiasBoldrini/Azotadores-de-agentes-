@@ -44,13 +44,13 @@ const GLOBE_FADE=[.6,.9];
 const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HFOV/2*DEG)/aspect)/DEG,MIN_FOV,MAX_FOV);
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#C7C9CD',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
+const C={sun:'#E2B06A',earth:'#93B9D6',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#C7C9CD',feasible:'#F5F5F5',recommended:'#93B9D6',ok:'#F5F5F5'};
 const SKY_DISC_COLOR={sun:'#f5f5f5',earth:C.earth};
 // Raise the grayscale HMI browse image's exposure without tinting or flattening its limb.
 const SOLAR_EXPOSURE=new THREE.Color(3.5,3.5,3.5);
 const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
-const BLOCKED_COLOR='#ff625e';
+const BLOCKED_COLOR='#D9665B';
 const CANDIDATE_HIT_RADIUS=.023*Math.sqrt(10);
 const CANDIDATE_DIAMETER={evaluated:.064,feasible:.088,recommended:.106};
 const CANDIDATE_OUTLINE='#17191E';
@@ -583,7 +583,7 @@ function Scene(p:SceneProps){
  </>;
 }
 const TerrainCanvas=memo(function TerrainCanvas(props:SceneProps){
- return <Canvas shadows events={terrainEvents} frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#050505',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
+ return <Canvas shadows events={terrainEvents} frameloop={props.active?'always':'never'} camera={{fov:FOV,near:.01,far:100}} dpr={[1,1.75]} gl={{antialias:true}} onCreated={({gl})=>{gl.toneMappingExposure=1.05;gl.setClearColor('#0c0c0c',1);}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas>;
 });
 
 export function TerrainScope({terrain,regionalRadiusM,sky}:{terrain:Terrain;regionalRadiusM?:number;sky?:boolean}){

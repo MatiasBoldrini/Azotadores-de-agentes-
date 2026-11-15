@@ -54,7 +54,7 @@
 }
 
 .position-list [aria-selected="true"] {
- color: var(--earth);
+ color: var(--accent-hover);
 }
 
 .position-list [data-active="true"] {
@@ -64,9 +64,9 @@
 
 .position-preview-label {
  transform: translate(-50%, calc(-100% - 5px));
- border-color: var(--earth-line);
+ border-color: var(--accent-line);
  color: var(--text);
- background: rgba(5,5,5,.86);
+ background: rgba(12,12,12,.9);
 }
 
 @media (pointer: coarse) {

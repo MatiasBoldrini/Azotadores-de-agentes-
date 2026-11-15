@@ -4,8 +4,8 @@ import type {Analysis} from './lib/science';
 import {classify,horizonAt,panoramaRange,trackSegments,type Body} from './lib/panorama';
 import './MastPanorama.css';
 
-const COLORS={sun:'#FFC46B',earth:'#8FD3FF'} as const;
-const BLOCKED='#ff625e',AXIS='#A3A3A3';
+const COLORS={sun:'#E2B06A',earth:'#93B9D6'} as const;
+const BLOCKED='#D9665B',AXIS='#A3A3A3';
 const RAISE_MS=1300;
 export const PANORAMA_CAPTION='Geometric line of sight from LOLA terrain, no vertical exaggeration';
 const utc=(s:string)=>new Date(s).toLocaleString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -101,8 +101,8 @@ export default function MastPanorama({sweep,siteName,initialHeight,initialIndex,
       const anchor=x(az)<left+60?'start':x(az)>w-right-60?'end':'middle';
       return <g key={body}>
        <line x1={x(az)} x2={x(az)} y1={y(el)} y2={plotH-bottom} stroke={color} strokeOpacity=".4" strokeDasharray="1 2"/>
-       <circle cx={x(az)} cy={y(el)} r={body==='sun'?7:6} fill={visible?color:'#050505'} stroke={color} strokeWidth="2"/>
-       <text x={x(az)} y={below?y(el)+20:y(el)-12} textAnchor={anchor} fill={color} className="body-label" paintOrder="stroke" stroke="#050505" strokeWidth="3">{body==='sun'?'SUN':'EARTH'}{visible?'':' · BLOCKED'}</text>
+       <circle cx={x(az)} cy={y(el)} r={body==='sun'?7:6} fill={visible?color:'#0c0c0c'} stroke={color} strokeWidth="2"/>
+       <text x={x(az)} y={below?y(el)+20:y(el)-12} textAnchor={anchor} fill={color} className="body-label" paintOrder="stroke" stroke="#0c0c0c" strokeWidth="3">{body==='sun'?'SUN':'EARTH'}{visible?'':' · BLOCKED'}</text>
       </g>;
      })}
     </svg>

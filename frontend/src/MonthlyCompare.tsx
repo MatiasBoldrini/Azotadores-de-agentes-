@@ -19,7 +19,7 @@ type Lead = 'lead' | undefined;
 
 function Visibility({ label, color, hours, month, lead }: { label: string; color: string; hours: number; month: MonthlyWindow; lead: Lead }) {
   return <div className={`metric-block ${lead ?? ''}`}>
-    <dt className={color}>{label}{lead && <span className="lead-badge">More</span>}</dt>
+    <dt className={color}>{label}{lead && <span className="lead-badge">Best</span>}</dt>
     <dd className="metric-number">{hourLabel.format(hours)}<small>h</small></dd>
     <dd className="metric-detail">{percentLabel.format(hours / month.duration_hours)} of {hourLabel.format(month.duration_hours)}&nbsp;h</dd>
   </div>;
@@ -178,7 +178,7 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
           <Visibility label="Sun visible" color="sun" hours={sun} month={month} lead={lead('sun', index)}/>
           <Visibility label="Earth visible" color="earth" hours={earth} month={month} lead={lead('earth', index)}/>
           <div className={`metric-block ${lead('gap', index) ?? ''}`}>
-            <dt className="both">Longest gap{lead('gap', index) && <span className="lead-badge">Shorter</span>}</dt>
+            <dt className="both">Longest gap{lead('gap', index) && <span className="lead-badge">Best</span>}</dt>
             <dd className="metric-number">{hourLabel.format(gap)}<small>h</small></dd>
             <dd className="metric-detail">Sun or Earth blocked</dd>
           </div>

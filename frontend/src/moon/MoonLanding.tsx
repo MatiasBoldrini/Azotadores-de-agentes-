@@ -198,7 +198,7 @@ export default function MoonLanding(p:Props){
  return <div className={`moon-layer is-${p.mode} ${loaded?'is-loaded':''}`} inert={p.mode==='site'} aria-hidden={p.mode==='site'}>
   <GlobeBoundary onError={()=>{setLoaded(true);setFailed(true);}}>
    <Canvas className="moon-canvas" frameloop={p.mode==='site'?'never':'always'} dpr={[1,2]} camera={{fov:FOV,near:.02,far:80,position:latLonToVec(-36,-18,3.15).toArray()}}
-    gl={{antialias:true,powerPreference:'high-performance'}} onCreated={({gl})=>{gl.setClearColor('#050505',1);gl.toneMappingExposure=1.05;}}>
+    gl={{antialias:true,powerPreference:'high-performance'}} onCreated={({gl})=>{gl.setClearColor('#0c0c0c',1);gl.toneMappingExposure=1.05;}}>
     <Suspense fallback={null}>
      <Globe sites={p.sites} frame={p.frame} mode={p.mode} pins={pins} tooltip={tooltip} loadingText={loadingText} onLoaded={onLoaded} onFly={p.onFly} onTile={p.onTile} onArrive={p.onArrive} onLeft={p.onLeft}/>
     </Suspense>
