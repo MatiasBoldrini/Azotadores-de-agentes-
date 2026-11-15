@@ -98,9 +98,13 @@ Unit fixtures are explicitly synthetic and isolated from production data. Real-d
 
 ## Vercel deployment
 
-Connect this GitHub repository in the Vercel project's Git settings. Keep the repository root as the Root Directory and set `main` as the branch tracked by the Production environment. Once the repository is connected and this configuration is on `main`, direct pushes and pull request merges into `main` trigger production deployments. `vercel.json` enables automatic deployments only for `main`.
+Connect this GitHub repository in the Vercel project's Git settings. Keep the repository root as the Root Directory and set `main` as the branch tracked by the Production environment.
 
-Vercel installs dependencies from `frontend/package-lock.json` with `npm ci --prefix frontend`, runs the frontend build, and serves the `dist` directory. The static data cache ships with the application, so the deployment requires no secrets, server functions, or Python runtime.
+1. In Vercel, open **Settings → Git → Deploy Hooks** and create a hook for `main`.
+2. In GitHub, open **Settings → Secrets and variables → Actions** and save the hook URL as the repository secret `VERCEL_DEPLOY_HOOK_URL`. Keep the URL out of the repository, since anyone with the URL can request a deployment.
+3. After this configuration reaches `main`, each push to `main`, including pull request merges, runs the **Request Vercel production deploy** workflow. Vercel's Git integration stays connected with its automatic deploys disabled in `vercel.json`. Check the Vercel Deployments page for the build result after GitHub Actions reports that Vercel accepted the request.
+
+Vercel installs dependencies from `frontend/package-lock.json` with `npm ci --prefix frontend`, runs the frontend build, and serves the `dist` directory. The static data cache ships with the application, so the build requires no secrets, server functions, or Python runtime.
 
 ## Limits and follow-up
 
