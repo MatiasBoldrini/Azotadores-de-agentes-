@@ -1,4 +1,4 @@
-import {Component,useMemo,useRef,useEffect,useLayoutEffect,useState,memo,Suspense,type ReactNode,type RefObject} from 'react';
+import {Component,createRef,useMemo,useRef,useEffect,useLayoutEffect,useState,memo,Suspense,type ComponentRef,type ReactNode,type RefObject} from 'react';
 import {Canvas,ThreeEvent,useFrame,useLoader,useThree} from '@react-three/fiber';
 import {Billboard,Html,OrbitControls,Line,useCursor} from '@react-three/drei';
 import * as THREE from 'three';
@@ -8,7 +8,7 @@ import {starfield} from './moon/stars';
 import {MOON_LIGHTS,MOON_TEXTURES,buildMoon,setMoonOpacity} from './moon/globe';
 import {APPROACH_KM,LANDING_FOV,heroPose,horizonPose,type Pose,type SiteFrame} from './moon/frame';
 import {SITE01_SIZE,useSite01,useSurround,type DemLevel} from './site01';
-import {TerrainRayHover,TerrainRayTooltip,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
+import {TerrainRayHover,TerrainRayTooltip,type TerrainLine,type TerrainRay,type TerrainRayTip} from './TerrainRayHover';
 
 export const VERTICAL_EXAGGERATION = 4;
 // The mast glyph is stretched beyond the relief scale so that metre-scale heights read on a 2.5 km scene.
@@ -332,8 +332,8 @@ function SkyBodies({rays}:{rays:Ray[]}){
 
 // A thin ray from the mast head to where the body's disc sits on the sky shell around the camera. A body well
 // away from the view direction keeps a short ray pointing at it instead.
-function SkyRay({dir,color}:{dir:[number,number,number];color:string}){
- const line=useRef<any>(null),from=useMemo(()=>new THREE.Vector3(),[]),to=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),d=useMemo(()=>new THREE.Vector3(...dir).normalize(),[dir]);
+function SkyRay({dir,color,line}:{dir:[number,number,number];color:string;line:TerrainLine}){
+ const from=useMemo(()=>new THREE.Vector3(),[]),to=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),d=useMemo(()=>new THREE.Vector3(...dir).normalize(),[dir]);
  useFrame(({camera})=>{
   const l=line.current;if(!l?.parent)return;
   if(camera.getWorldDirection(ahead).dot(d)<.5)to.copy(d).multiplyScalar(RAY);
@@ -343,7 +343,7 @@ function SkyRay({dir,color}:{dir:[number,number,number];color:string}){
  return <Line ref={line} points={[[0,0,0],d.clone().multiplyScalar(RAY).toArray()]} color={color} lineWidth={1.6} depthTest={false} depthWrite={false} transparent opacity={.9} renderOrder={50} frustumCulled={false}/>;
 }
 
-function Station({ground,height,label,rays,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];linkTo:[number,number,number]|null;linkVisible:boolean}){
+function Station({ground,height,label,rays,lines,linkTo,linkVisible}:{ground:[number,number,number];height:number;label:string;rays:Ray[];lines:Record<TerrainRay['id'],TerrainLine>;linkTo:[number,number,number]|null;linkVisible:boolean}){
  const mast=useRef<THREE.Mesh>(null),head=useRef<THREE.Group>(null),level=useRef(MAST_BASE+height*MAST_PER_M);
  const target=MAST_BASE+height*MAST_PER_M;
  useFrame((_,dt)=>{
@@ -360,15 +360,15 @@ function Station({ground,height,label,rays,linkTo,linkVisible}:{ground:[number,n
    {rays.map(({body,dir,visible})=>{
     const color=visible?C[body]:BLOCKED_COLOR;
     // In-view rays run out to the body's disc on the sky; blocked rays stay short and draw over the terrain.
-    return visible?<SkyRay key={body} dir={dir} color={color}/>:<group key={body}>
-     <Line points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
+    return visible?<SkyRay key={body} dir={dir} color={color} line={lines[body]}/>:<group key={body}>
+     <Line ref={lines[body]} points={[[0,0,0],dir]} color={color} lineWidth={2.5} depthTest={false} depthWrite={false} transparent renderOrder={70}/>
      <mesh position={dir} renderOrder={71}><sphereGeometry args={[.016,16,16]}/><meshBasicMaterial color={color} depthTest={false} transparent/></mesh>
      <Label position={[dir[0],dir[1]+.06,dir[2]]} color={color} size={.018} text={`${body==='sun'?'SUN':'EARTH'} · BLOCKED`}/>
     </group>;
    })}
    <Label position={[0,.09,0]} color={C.station} text={label}/>
   </group>
-  {linkTo&&<Line points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:BLOCKED_COLOR} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
+  {linkTo&&<Line ref={lines.link} points={[[0,MAST_BASE,0],[linkTo[0]-ground[0],linkTo[1]-ground[1],linkTo[2]-ground[2]]]} color={linkVisible?C.ok:BLOCKED_COLOR} lineWidth={1.4} dashed={!linkVisible} dashSize={.03} gapSize={.02}/>}
  </group>;
 }
 
@@ -390,6 +390,7 @@ type SceneProps=Props&{onRayHover:(tip:TerrainRayTip|null)=>void};
 
 function Scene(p:SceneProps){
  const controls=useRef<any>(null);
+ const lines=useMemo(()=>({sun:createRef<ComponentRef<typeof Line>>(),earth:createRef<ComponentRef<typeof Line>>(),link:createRef<ComponentRef<typeof Line>>()}),[]);
  const [hovered,setHovered]=useState<string|null>(null);
  const orbiting=useRef(false);
  useCursor(hovered!==null);
@@ -421,8 +422,8 @@ function Scene(p:SceneProps){
  });
  const add=(a:[number,number,number],b:[number,number,number]):[number,number,number]=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
  const head=add(ground,[0,MAST_BASE+p.selected.height_m*MAST_PER_M,0]);
- const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,points:[head,add(head,r.dir)],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
- if(!atLander) hoverRays.push({id:'link',points:[add(lander,[0,.02,0]),add(ground,[0,MAST_BASE,0])],label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
+ const hoverRays:TerrainRay[]=rays.map(r=>({id:r.body,line:lines[r.body],label:`${BODY_LABELS[r.body]} sightline`,visible:r.visible,color:r.visible?C[r.body]:BLOCKED_COLOR,detail:`Elevation ${p.selected.series[`${r.body}_elevation_deg`][p.time].toFixed(2)}° · Horizon ${p.selected.series[`${r.body}_horizon_deg`][p.time].toFixed(2)}°`}));
+ if(!atLander) hoverRays.push({id:'link',line:lines.link,label:'Lander ↔ station',visible:p.linkVisible,color:p.linkVisible?C.ok:BLOCKED_COLOR});
  const labelPositions:[number,number,number][]=[add(head,[0,.09,0]),...rays.filter(r=>!r.visible).map(r=>add(head,[r.dir[0],r.dir[1]+.06,r.dir[2]]))];
  if(!atLander) labelPositions.push(add(lander,[0,.1,0]));
  const north=p.frame.horizontal(0),[nx,nz]=[north.x,north.z];
@@ -450,7 +451,7 @@ function Scene(p:SceneProps){
   </ScreenScale>;})}
   {preview&&<PositionHighlight label={preview.label} position={point(preview.position,2)}/>}
   <group position={lander}><ScreenScale position={[0,0,0]}><mesh position={[0,.02,0]}><boxGeometry args={[.036,.04,.036]}/><meshStandardMaterial color={C.lander} emissive="#5a5a5a"/></mesh></ScreenScale>{!atLander&&<Label position={[0,.1,0]} text={`LANDER · ${p.lander.name.toUpperCase()}`}/>}</group>
-  <Station ground={ground} height={p.selected.height_m} rays={rays} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
+  <Station ground={ground} height={p.selected.height_m} rays={rays} lines={lines} label={`${atLander?'LANDER + STATION':'STATION'} · ${p.selected.height_m} M MAST`} linkTo={atLander?null:[lander[0],lander[1]+.02,lander[2]]} linkVisible={p.linkVisible}/>
   <group position={compass}>
    <Line points={[[0,0,0],[nx*.16,0,nz*.16]]} color="#D4D4D4" lineWidth={1.6}/>
    <mesh position={[nx*.16,0,nz*.16]} rotation={[0,Math.atan2(nx,nz),0]}><coneGeometry args={[.016,.04,12]} /><meshBasicMaterial color="#D4D4D4"/></mesh>
