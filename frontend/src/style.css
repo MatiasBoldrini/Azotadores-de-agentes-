@@ -40,7 +40,7 @@ option{background:#111}
 .muted{color:var(--muted)}
 
 /* ---------- Glass ---------- */
-.glass,.comparison,.monthly-history,.method-steps>div,.science-stamp,.science-page details,.optimizer-card,.map-legend,.map-tools button,.toast{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.05)),var(--glass-wash);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);backdrop-filter:blur(var(--blur)) saturate(160%);border:1px solid var(--glass-border);border-radius:var(--radius);box-shadow:inset 0 1px 0 var(--glass-highlight),0 8px 32px rgba(0,0,0,.45),0 0 40px rgba(255,255,255,.04)}
+.glass,.comparison,.monthly-history,.method-steps>div,.science-stamp,.science-page details,.optimizer-card,.toast{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.05)),var(--glass-wash);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);backdrop-filter:blur(var(--blur)) saturate(160%);border:1px solid var(--glass-border);border-radius:var(--radius);box-shadow:inset 0 1px 0 var(--glass-highlight),0 8px 32px rgba(0,0,0,.45),0 0 40px rgba(255,255,255,.04)}
 
 /* ---------- Shell ---------- */
 .app{position:relative;display:flex;flex-direction:column;min-height:100vh}
@@ -184,7 +184,7 @@ option{background:#111}
 .scene-layer .terrain-view,.scene-layer .scene-error{position:absolute;inset:0}
 .terrain-panel{grid-area:stage;min-width:0;min-height:0;pointer-events:none!important}
 .terrain-panel:has(.map-config-panel:not([hidden])){z-index:2}
-.terrain-panel>.optimizer-card,.map-actions button,.map-config-panel,.map-tools{pointer-events:auto}
+.terrain-panel>.optimizer-card,.map-actions button,.map-config-panel,.map-tools button{pointer-events:auto}
 .map-frame{position:relative;height:100%}
 .terrain-title{width:fit-content;text-shadow:0 1px 10px rgba(0,0,0,.9)}
 .terrain-title h2{font-size:20px;letter-spacing:-.01em}
@@ -198,19 +198,20 @@ option{background:#111}
 .map-config>button:hover,.map-config>button[aria-expanded=true]{background:rgba(42,42,42,.93)}
 .map-config-panel{position:absolute;top:calc(100% + 8px);left:0;width:min(334px,calc(100vw - 32px));padding:14px;background:rgba(13,13,14,.94);border-radius:var(--radius-sm);overscroll-behavior:contain}
 .map-config-panel .constraint-fields{max-height:min(270px,38vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
-.map-legend{position:absolute;top:0;right:52px;z-index:2;display:flex;align-items:center;gap:14px;margin:0;padding:8px 14px;list-style:none;border-radius:999px;font-size:12px;color:var(--text-2)}
+.map-legend{position:absolute;top:8px;right:0;z-index:2;display:flex;align-items:center;gap:14px;margin:0;padding:0;list-style:none;font-size:12px;color:var(--text);text-shadow:0 1px 3px #000}
 .map-legend li{display:flex;align-items:center;gap:6px;white-space:nowrap}
-.map-legend i{display:inline-block}
+.map-legend i{display:inline-block;filter:drop-shadow(0 1px 2px #000)}
 .lg-station{width:3px;height:12px;background:var(--text);border-radius:1px}
 .lg-lander{width:9px;height:9px;background:var(--text)}
 .lg-cell{width:7px;height:7px;border-radius:50%;background:var(--muted)}
 .lg-feasible{width:9px;height:9px;border-radius:50%;background:var(--text)}
 .lg-ray{width:18px;height:0;border-top:2px solid var(--text-2)}
 .lg-ray.blocked{border-top-color:var(--blocked);margin-left:6px}
-.map-tools{position:absolute;top:0;right:0;z-index:3;display:flex;flex-direction:column;gap:6px}
-.map-tools button{width:40px;height:40px;display:grid;place-items:center;border-radius:14px;color:var(--text-2)}
-.map-tools button:hover{color:var(--text);background:rgba(255,255,255,.14)}
-.map-tools button.selected{background:var(--earth-soft);border-color:var(--earth-line);color:var(--text)}
+.map-tools{position:absolute;right:0;bottom:0;z-index:3;display:flex;flex-direction:column;gap:6px}
+.map-tools button{width:40px;height:40px;display:grid;place-items:center;border-radius:10px;color:var(--text)}
+.map-tools button svg{filter:drop-shadow(0 1px 2px #000)}
+.map-tools button:hover,.map-tools button[aria-pressed=true]{color:var(--earth)}
+.map-tools button:hover svg,.map-tools button[aria-pressed=true] svg{stroke-width:2.5}
 .map-label{white-space:nowrap;padding:5px 10px;border:1px solid var(--line-strong);border-radius:999px;background:rgba(5,5,5,.78);font-size:12px;font-weight:500;color:var(--text)}
 .toast{position:absolute;top:56px;left:50%;z-index:4;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);padding:8px 16px;border-radius:18px;font-size:13px;text-align:center;animation:toast 5.2s var(--ease) both;pointer-events:none}
 .scan{position:absolute;inset:0;z-index:3;overflow:hidden;pointer-events:none;border-radius:var(--radius)}
@@ -546,7 +547,6 @@ option{background:#111}
  .map-actions{gap:6px}
  .map-actions>.map-optimize,.map-config>button{min-height:44px;padding-inline:8px;gap:5px;font-size:12px}
  .map-actions button svg{width:13px;height:13px}
- .map-tools{top:106px}
  .back-button span{display:none}
  .pin-card span{display:none}
  .pin-card{padding:6px 12px}
