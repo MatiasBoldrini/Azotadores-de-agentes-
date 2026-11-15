@@ -2,7 +2,7 @@ import {useId,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import AnalysisDisclosure,{type DisclosureControls} from './AnalysisDisclosure';
 import type {Analysis} from './lib/science';
 
-const COLORS={sun:'#FFC46B',earth:'#8FD3FF'} as const;
+const COLORS={sun:'#E2B06A',earth:'#93B9D6'} as const;
 const BLOCKED='var(--blocked)';
 const AXIS='#A3A3A3';
 
@@ -90,7 +90,7 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
    <path d={bodyPath} fill="none" stroke={colorStops.length===1?colorStops[0].color:`url(#${gradientId})`} strokeWidth="1.8"/>
    {cursor&&<line x1={x(index)} x2={x(index)} y1={top} y2={height-bottom} stroke="#F5F5F5" opacity=".55"/>}
    <circle cx={x(index)} cy={y(horizon[index])} r="6" fill="none" stroke="#BDBDBD" strokeWidth="1"/>
-   <circle cx={x(index)} cy={y(values[index])} r="3.5" fill={visible?bodyColor:'#050505'} stroke={visible?bodyColor:BLOCKED} strokeWidth="1.5"/>
+   <circle cx={x(index)} cy={y(values[index])} r="3.5" fill={visible?bodyColor:'#0e0d0c'} stroke={visible?bodyColor:BLOCKED} strokeWidth="1.5"/>
   </svg>
   <div className="tracks">
    {tracks.map((track,k)=><div className={`track ${k===tracks.length-1?'current':''}`} key={k} style={{marginLeft:left,marginRight:right}}>
@@ -159,7 +159,7 @@ export function HorizonChart({analysis,index,baseline,height=132}:{analysis:Anal
     const color=visible?COLORS[b]:BLOCKED;
     return <g key={b}>
      <line x1={x(az)} x2={x(az)} y1={y(el)} y2={height-bottom} stroke={color} strokeOpacity=".35" strokeDasharray="1 2"/>
-     <circle cx={x(az)} cy={y(el)} r="5" fill={visible?color:'#050505'} stroke={color} strokeWidth="1.6"/>
+     <circle cx={x(az)} cy={y(el)} r="5" fill={visible?color:'#0e0d0c'} stroke={color} strokeWidth="1.6"/>
      <text x={x(az)} y={below?y(el)+18:y(el)-9} textAnchor={anchor} fill={color} className="body-label" paintOrder="stroke" stroke="#0A0A0A" strokeWidth="3">{b==='sun'?'SUN':'EARTH'}{visible?'':' · BLOCKED'}</text>
     </g>;})}
   </svg>

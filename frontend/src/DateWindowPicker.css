@@ -122,8 +122,8 @@
 }
 
 .utc-calendar td[aria-selected='true'] button {
-  border-color: var(--earth-line);
-  background: var(--earth-soft);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
   color: var(--text);
 }
 

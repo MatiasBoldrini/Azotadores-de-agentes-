@@ -21,13 +21,14 @@ export function StoryBar({story,demo,onAction,onStopDemo,hideSummary=false}:{hid
    </ol>
    <span className="story-kicker" key={story.kicker}><Icon size={14}/>{story.kicker}</span>
    <div className="demo-progress">
-    <span className="demo-label" role="status"><i className="rec-dot" aria-hidden="true"/>Guided demo · {demo.step+1}/{demo.total} · {demo.label}</span>
+    <span className="demo-label" role="status">Guided demo · {demo.step+1}/{demo.total} · {demo.label}</span>
     <span className="demo-segments" aria-hidden="true">{Array.from({length:demo.total},(_,i)=><i key={i} className={i<demo.step?'done':i===demo.step?'active':''}>{i===demo.step&&<b key={demo.step} style={{animationDuration:`${demo.ms}ms`}}/>}</i>)}</span>
     <button className="demo-stop" onClick={onStopDemo}><Square size={11}/>Stop</button>
    </div>
   </div>}
   {!hideSummary&&<div className="story-body" aria-live="polite">
    <div className="story-text" key={title}>
+    {!demo&&<span className="story-status"><Icon size={13} aria-hidden="true"/>{story.kicker}</span>}
     <h2 className="story-title"><Segments parts={story.title}/></h2>
     {story.detail.length>0&&<p className="story-detail"><Segments parts={story.detail}/></p>}
    </div>

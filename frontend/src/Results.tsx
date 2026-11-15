@@ -135,7 +135,6 @@ export function ResultsPanel({children,selected,baseline,sweep,link,rows,constra
   <div className="metric-pair" role="group" aria-label="Visibility metrics">
    <MetricCard body="sun" analysis={selected} baseline={baseline} threshold={constraints.minSun}/>
    <MetricCard body="earth" analysis={selected} baseline={baseline} threshold={constraints.minEarth}/>
-   <p className="metric-note">Visible hours count when each body’s center clears the terrain horizon.</p>
   </div>
   <dl className="joint">
    <div><dt>Sun + Earth together</dt><dd>{hours(m.both.total_hours)} h{!same&&<small>{hours(b.both.total_hours)} h at ground</small>}</dd></div>

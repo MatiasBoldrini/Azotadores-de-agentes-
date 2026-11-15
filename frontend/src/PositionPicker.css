@@ -31,7 +31,7 @@
  list-style: none;
  border: 1px solid var(--glass-border);
  border-radius: var(--radius-sm);
- background: rgba(12,12,12,.96);
+ background: rgba(14,13,12,.96);
  color: var(--text);
  color-scheme: dark;
  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 8px 24px rgba(0,0,0,.6);
@@ -54,7 +54,7 @@
 }
 
 .position-list [aria-selected="true"] {
- color: var(--earth);
+ color: var(--accent-hover);
 }
 
 .position-list [data-active="true"] {
@@ -64,9 +64,9 @@
 
 .position-preview-label {
  transform: translate(-50%, calc(-100% - 5px));
- border-color: var(--earth-line);
+ border-color: var(--accent-line);
  color: var(--text);
- background: rgba(5,5,5,.86);
+ background: rgba(14,13,12,.9);
 }
 
 @media (pointer: coarse) {

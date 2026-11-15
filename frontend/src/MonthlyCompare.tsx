@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 import CompareUtcWindow from './CompareUtcWindow';
-import { type MonthlyScan, type MonthlyWindow, parseMonthlyScan } from './lib/monthlyScan';
+import { type MonthlyScan, type MonthlyWindow, mastSeason, parseMonthlyScan } from './lib/monthlyScan';
 import {type Site, type Analysis, type Link, keyFor, violations} from './lib/science';
 import {useObservationWindow} from './useObservationWindow';
 import { monthlyAdvice } from './lib/monthlyAdvisor';
@@ -17,15 +17,44 @@ type LoadState = { status: 'loading' | 'unavailable' } | { status: 'ready'; scan
 const labelFor = (month: MonthlyWindow) => monthLabel.format(new Date(month.start_utc));
 const heightLabel = (height: number | null) => height === null ? 'None' : `${height} m`;
 
-function Visibility({ label, color, hours, month }: { label: string; color: string; hours: number; month: MonthlyWindow }) {
-  return <div className="metric-block">
-    <dt className={color}>{label}</dt>
+type Lead = 'lead' | undefined;
+
+function Visibility({ label, color, hours, month, lead }: { label: string; color: string; hours: number; month: MonthlyWindow; lead: Lead }) {
+  return <div className={`metric-block ${lead ?? ''}`}>
+    <dt className={color}>{label}{lead && <span className="lead-badge">Best</span>}</dt>
     <dd className="metric-number">{hourLabel.format(hours)}<small>h</small></dd>
-    <dd className="metric-detail">
-      {percentLabel.format(hours / month.duration_hours)} of {hourLabel.format(month.duration_hours)}&nbsp;h
-      <CompareUtcWindow start={month.start_utc} end={month.end_utc}/>
-    </dd>
+    <dd className="metric-detail">{percentLabel.format(hours / month.duration_hours)} of {hourLabel.format(month.duration_hours)}&nbsp;h</dd>
   </div>;
+}
+
+// Lower is better for mast height; a missing height (no tested height qualifies) loses to any number.
+const mastRank = (height: number | null) => height === null ? Infinity : height;
+const heightTone = (height: number | null) => height === null ? 'none' : height <= 2 ? 'h-low' : height <= 5 ? 'h-mid' : height <= 10 ? 'h-high' : 'h-top';
+
+function verdictFor(month: MonthlyWindow, sites: Site[]) {
+  const [a, b] = sites;
+  const name = monthLabel.format(new Date(month.start_utc));
+  if (!a || !b) return { title: name, tone: 'neutral' as const };
+  const ha = month.sites[a.id].minimum_height_m, hb = month.sites[b.id].minimum_height_m;
+  if (ha === null && hb === null) return { title: `Neither ridge meets the limits at any tested height in ${name}.`, tone: 'bad' as const };
+  if (ha === hb) return { title: `Both ridges meet the limits with a ${ha} m mast in ${name}.`, tone: 'good' as const };
+  const [win, lose, hw, hl] = mastRank(ha) < mastRank(hb) ? [a, b, ha!, hb] : [b, a, hb!, ha];
+  return {
+    title: hl === null ? `Only ${win.name} meets the limits in ${name}, with a ${hw} m mast.` : `${win.name} meets the limits with a ${hw} m mast in ${name}. ${lose.name} needs ${hl} m.`,
+    tone: 'good' as const,
+  };
+}
+
+const monthCount = (n: number) => `${n} ${n === 1 ? 'month' : 'months'}`;
+
+function seasonFor(scan: MonthlyScan, sites: Site[]) {
+  const [a, b] = sites;
+  if (!a || !b) return null;
+  const s = mastSeason(scan, a.id, b.id);
+  const parts = [`${a.name} needs the shorter mast in ${s.aShorter} of ${s.months} months and ${b.name} in ${s.bShorter || 'none'}.`];
+  if (s.sameMast) parts.push(`Both need the same mast in ${monthCount(s.sameMast)}.`);
+  if (s.neither) parts.push(`In ${monthCount(s.neither)}, neither qualifies at any tested height.`);
+  return parts.join(' ');
 }
 
 export default function MonthlyCompare({ sites, analyses, links, renderTimelines }: { sites: Site[]; analyses: Analysis[]; links: Record<string,Record<string,Link>>; renderTimelines: () => ReactNode }) {
@@ -55,7 +84,7 @@ export default function MonthlyCompare({ sites, analyses, links, renderTimelines
   return <section className="compare-page">
     <div className="compare-mode">
       <h1>Compare landing sites</h1>
-      {load.status !== 'unavailable' && <div className="compare-mode-buttons" role="group" aria-label="Comparison view">
+      {load.status !== 'unavailable' && <div className="compare-mode-buttons" role="group" aria-label="Comparison view" style={{'--seg': showTimelines ? 1 : 0} as CSSProperties}>
         <button type="button" aria-pressed={!showTimelines} onClick={() => setView('monthly')}>Monthly comparison</button>
         <button type="button" aria-pressed={showTimelines} onClick={() => setView('timeline')}>Observation timelines</button>
       </div>}
@@ -93,55 +122,86 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
   const current=Date.parse(observations.window.start)===Date.parse(month.start_utc)&&Date.parse(observations.window.end)===Date.parse(month.end_utc);
   const available=current&&observations.status===null;
 
+  const cards = available ? ridgeSites.map(site => {
+    const sweep = observations.window.analyses.filter(a => a.position.row === site.row && a.position.col === site.col);
+    const chosen = sweep.find(a => a.height_m === height)!;
+    const qualifying = sweep.filter(a => violations(a, links[site.id][keyFor(a)], limits).length === 0).sort((a, b) => a.height_m - b.height_m);
+    return {
+      site,
+      sun: chosen.metrics.sun.total_hours,
+      earth: chosen.metrics.earth.total_hours,
+      gap: chosen.metrics.both.longest_outage_hours,
+      minimum: qualifying[0]?.height_m ?? null,
+    };
+  }) : [];
+  // Marks the better of two values; equal values mark neither.
+  const lead = (key: 'sun' | 'earth' | 'gap', index: number): Lead => {
+    if (cards.length !== 2) return undefined;
+    const [x, y] = [cards[index][key], cards[1 - index][key]];
+    if (x === y) return undefined;
+    return (key === 'gap' ? x < y : x > y) ? 'lead' : undefined;
+  };
+  const leadMast = (index: number): Lead => cards.length === 2 && mastRank(cards[index].minimum) < mastRank(cards[1 - index].minimum) ? 'lead' : undefined;
+  const verdict = verdictFor(month, ridgeSites);
+  const season = seasonFor(scan, ridgeSites);
+
   return <div className="monthly-compare">
-    <p className="monthly-context">Fixed landing points on Connecting Ridge. Each height is measured above the terrain at the same point.</p>
     <div className="monthly-controls">
       <label>Month (UTC)
         <select value={month.id} onChange={event => onMonth(event.target.value)}>
           {scan.months.map(item => <option value={item.id} key={item.id}>{labelFor(item)}</option>)}
         </select>
       </label>
-      <label>Mast height at each point
+      <label>Mast height above terrain
         <select value={height} onChange={event => onHeight(Number(event.target.value))}>
           {scan.heights_m.map(item => <option value={item} key={item}>{item === 0 ? '0 m · ground level' : `${item} m`}</option>)}
         </select>
       </label>
+      <p className="monthly-window"><CompareUtcWindow start={month.start_utc} end={month.end_utc}/></p>
     </div>
 
-    {(observations.status==='error'||(available&&observations.source==='cache'))&&<p className="science-mode cache" role="status">{observations.status==='error'?'Scientific data unavailable. Choose another month to retry.':'Using backup NASA data'}</p>}
-    {!available&&observations.status!=='error'&&<p className="micro">Loading observations…</p>}
+    <div className={`monthly-verdict tone-${verdict.tone}`} role="status" aria-live="polite">
+      <h2 key={verdict.title}>{verdict.title}</h2>
+      {season && <p>{season}</p>}
+    </div>
+
+    {available&&observations.source==='cache'&&<p className="science-mode cache" role="status">Using backup NASA data</p>}
+    {observations.status==='error'&&<div className="compare-error" role="alert">
+      <p>Scientific data for {labelFor(month)} could not be loaded.</p>
+      <button type="button" className="secondary" onClick={()=>void observations.select(month.start_utc,month.end_utc)}>Try again</button>
+    </div>}
+    {!available&&observations.status!=='error'&&<div className="compare-grid is-loading" role="status" aria-label="Loading observations">
+      {ridgeSites.map(site=><div className="comparison skeleton-card" key={site.id} aria-hidden="true">
+        <i className="sk sk-title"/><i className="sk sk-line"/>
+        <div className="sk-metrics"><i className="sk sk-num"/><i className="sk sk-num"/><i className="sk sk-num"/></div>
+        <i className="sk sk-line wide"/>
+      </div>)}
+    </div>}
     {available&&<div className="compare-grid">
-      {ridgeSites.map(site => {
-        const sweep=observations.window.analyses.filter(a=>a.position.row===site.row&&a.position.col===site.col);
-        const selectedAnalysis=sweep.find(a=>a.height_m===height)!;
-        const selected={sun_hours:selectedAnalysis.metrics.sun.total_hours,earth_hours:selectedAnalysis.metrics.earth.total_hours,both_longest_outage_hours:selectedAnalysis.metrics.both.longest_outage_hours};
-        const qualifying=sweep.filter(a=>violations(a,links[site.id][keyFor(a)],limits).length===0).sort((a,b)=>a.height_m-b.height_m);
-        const result={minimum_height_m:qualifying[0]?.height_m??null};
-        return <article className="comparison monthly-result" key={site.id}>
-          <div className="comparison-title">
-            <div>
-              <h2>{site.name}</h2>
-              <small>{Math.abs(site.latitude_deg).toFixed(5)}°&nbsp;S / {Math.abs(site.longitude_deg).toFixed(5)}°&nbsp;W</small>
-            </div>
-            <span className="monthly-height">{height} m above terrain</span>
+      {cards.map(({ site, sun, earth, gap, minimum }, index) => <article className={`comparison monthly-result ${leadMast(index) ?? ''}`} key={site.id}>
+        <div className="comparison-title">
+          <div>
+            <h2>{site.name}</h2>
+            <small>{Math.abs(site.latitude_deg).toFixed(5)}°&nbsp;S / {Math.abs(site.longitude_deg).toFixed(5)}°&nbsp;W</small>
           </div>
-          <dl className="monthly-metrics">
-            <Visibility label="Sun visible" color="sun" hours={selected.sun_hours} month={month}/>
-            <Visibility label="Earth visible" color="earth" hours={selected.earth_hours} month={month}/>
-            <div className="metric-block">
-              <dt className="both">Longest gap without both</dt>
-              <dd className="metric-number">{hourLabel.format(selected.both_longest_outage_hours)}<small>h</small></dd>
-              <dd className="metric-detail">Sun or Earth blocked</dd>
-            </div>
-          </dl>
-          <div className="monthly-lowest">
-            <h3>Lowest height that meets the limits</h3>
-            <strong className={result.minimum_height_m === null ? 'warn' : 'good'}>
-              {result.minimum_height_m === null ? 'None at tested heights' : heightLabel(result.minimum_height_m)}
-            </strong>
+          <span className="monthly-height">{height === 0 ? 'Ground level' : `${height} m mast`}</span>
+        </div>
+        <dl className="monthly-metrics">
+          <Visibility label="Sun visible" color="sun" hours={sun} month={month} lead={lead('sun', index)}/>
+          <Visibility label="Earth visible" color="earth" hours={earth} month={month} lead={lead('earth', index)}/>
+          <div className={`metric-block ${lead('gap', index) ?? ''}`}>
+            <dt className="both">Longest gap{lead('gap', index) && <span className="lead-badge">Best</span>}</dt>
+            <dd className="metric-number">{hourLabel.format(gap)}<small>h</small></dd>
+            <dd className="metric-detail">Sun or Earth blocked</dd>
           </div>
-        </article>;
-      })}
+        </dl>
+        <div className="monthly-lowest">
+          <h3>Lowest height that meets the limits</h3>
+          <strong className={`mast-pill ${heightTone(minimum)}`}>
+            {minimum === null ? 'None at tested heights' : heightLabel(minimum)}
+          </strong>
+        </div>
+      </article>)}
     </div>}
 
     <section className="monthly-advice" aria-labelledby="monthly-advice-title">
@@ -150,7 +210,16 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
     </section>
 
     <div className="monthly-history">
-      <h2>Lowest qualifying height by month</h2>
+      <div className="monthly-history-head">
+        <h2>Lowest qualifying height by month</h2>
+        <ul className="mast-legend" aria-label="Legend">
+          <li><i className="h-low"/>0–2 m</li>
+          <li><i className="h-mid"/>5 m</li>
+          <li><i className="h-high"/>10 m</li>
+          <li><i className="h-top"/>20 m</li>
+          <li><i className="none"/>None</li>
+        </ul>
+      </div>
       <table aria-describedby="monthly-limits">
         <thead><tr><th scope="col">Site</th>{scan.months.map(item => <th
           key={item.id} scope="col" className={item.id === month.id ? 'current-month' : undefined}
@@ -158,14 +227,20 @@ function MonthlyResults({ scan, sites, month, height, onMonth, onHeight, analyse
         >{shortMonth.format(new Date(item.start_utc))} <span>{item.id.slice(2, 4)}</span></th>)}</tr></thead>
         <tbody>{ridgeSites.map(site => <tr key={site.id}>
           <th scope="row">{site.name}</th>
-          {scan.months.map(item => <td className={item.id === month.id ? 'current-month' : undefined} key={item.id}>
-            {heightLabel(item.sites[site.id].minimum_height_m)}
-          </td>)}
+          {scan.months.map(item => {
+            const value = item.sites[site.id].minimum_height_m;
+            return <td className={item.id === month.id ? 'current-month' : undefined} key={item.id}>
+              <button type="button" className={`mast-cell ${heightTone(value)}`} aria-pressed={item.id === month.id}
+                aria-label={`${site.name}, ${labelFor(item)}: ${value === null ? 'no tested height qualifies' : `${value} m`}. Show this month.`}
+                onClick={() => onMonth(item.id)}>{heightLabel(value)}</button>
+            </td>;
+          })}
         </tr>)}</tbody>
       </table>
-      <p id="monthly-limits">
-        In each calendar month (UTC), qualifying heights need at least {limits.minSun}% Sun and {limits.minEarth}% Earth visibility. The longest Sun outage and the longest Earth outage must each be at most {limits.maxOutage} h. The point also needs at most {limits.maxSlope}° slope and {hourLabel.format(limits.maxDistance)} m installation distance{limits.requireLink && ', with local line of sight'}.
-      </p>
+      <details className="monthly-limits" id="monthly-limits">
+        <summary>Limits used</summary>
+        <p>At least {limits.minSun}% Sun and {limits.minEarth}% Earth visibility in the calendar month (UTC); the longest Sun outage and the longest Earth outage each at most {limits.maxOutage} h; at most {limits.maxSlope}° slope and {hourLabel.format(limits.maxDistance)} m installation distance{limits.requireLink && ', with local line of sight'}.</p>
+      </details>
     </div>
   </div>;
 }
