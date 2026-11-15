@@ -417,8 +417,11 @@ option{background:#111}
 .has-analysis-dock>.story{margin-top:14px}
 .has-analysis-dock>.results{z-index:4;overflow-y:auto;overscroll-behavior:contain;border-radius:0}
 .has-analysis-dock>.results>*{flex-shrink:0}
-.has-analysis-dock .timeline{z-index:5;grid-template-columns:max-content minmax(0,1fr);align-items:center;padding:10px 14px;margin-bottom:16px}
-.has-analysis-dock .time-scrubber{margin:0 0 4px}
+.has-analysis-dock .timeline{z-index:5;grid-template-columns:minmax(0,max-content) minmax(min-content,1fr);grid-template-rows:auto auto;row-gap:0;padding:10px 14px;margin-bottom:16px}
+.has-analysis-dock :is(.timeline-side,.timeline-plots){display:grid;grid-row:span 2;grid-template-rows:subgrid;align-items:baseline}
+.has-analysis-dock :is(.timeline-heading,.time-scrubber){align-self:center}
+.has-analysis-dock :is(.timeline-coordinates,.time-scrubber){margin:0}
+.has-analysis-dock .timeline .date-pair{flex-wrap:nowrap;margin-top:0}
 .analysis-dock{
  display:flex;flex:none;flex-direction:column;min-width:0;
 }
