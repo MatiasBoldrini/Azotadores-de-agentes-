@@ -42,7 +42,7 @@ const fovFor=(aspect:number)=>THREE.MathUtils.clamp(2*Math.atan(Math.tan(HERO_HF
 const ALBEDO=new THREE.Color(.3,.295,.285);
 const easeInOutCubic=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 const C={sun:'#FFC46B',earth:'#8FD3FF',station:'#F5F5F5',lander:'#F5F5F5',candidate:'#A3A3A3',feasible:'#F5F5F5',recommended:'#8FD3FF',ok:'#F5F5F5'};
-const SKY_DISC_COLOR={sun:'#fff9e6',earth:C.earth};
+const SKY_DISC_COLOR={sun:'#ffe17a',earth:C.earth};
 const BODY_LABELS={sun:'Sun',earth:'Earth'} as const;
 const BODY_KEYS=['sun','earth'] as const;
 const BLOCKED_COLOR='#ff625e';
@@ -322,7 +322,7 @@ const renderSolarContinuum:THREE.MeshBasicMaterial['onBeforeCompile']=shader=>{
  // The HMI JPEG is colorized. The green channel retains contrast where red clips across the disc.
  shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
   float intensity = min(1.0, 1.38 * sqrt(diffuseColor.g));
-  diffuseColor.rgb = intensity * vec3(1.0, 0.97, 0.86);
+  diffuseColor.rgb = intensity * vec3(1.0, 0.75, 0.19);
  `);
 };
 

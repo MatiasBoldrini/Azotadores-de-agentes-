@@ -20,7 +20,6 @@ import {useObservationWindow} from './useObservationWindow';
 import {buildStory,constraintRows,contrastIndex,explainRecommendation,heightSweep,hours,peakHeight,type Search,type StoryAction} from './lib/story';
 const DEFAULT_CONSTRAINTS: Constraints = {minSun:70,minEarth:40,maxOutage:360,maxDistance:1000,maxSlope:20,requireLink:true};
 const fmt=(n:number,d=1)=>n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
-const windowDates=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
 const windowHours=new Intl.NumberFormat('en-US',{maximumFractionDigits:1});
 const utc=(s:string)=>new Date(s).toLocaleString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
 type Tab='Landing Sites'|'Infrastructure Designer'|'Compare'|'Science & Sources';
@@ -34,11 +33,6 @@ const MOON_IMAGERY_SOURCES=[
 ];
 class SceneBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return {error:true};}render(){return this.state.error?<div className="scene-error"><Mountain/><p>3D rendering is unavailable on this device.</p><span>Use the station selector and scientific charts.</span></div>:this.props.children;}}
 function MetricBlock({label,value,unit,detail,color}:{label:string;value:string;unit:string;detail:ReactNode;color:string}){return <div className="metric-block"><span className={`eyebrow ${color}`}>{label}</span><div className="metric-number">{value}<small>{unit}</small></div><span className="metric-detail">{detail}</span></div>;}
-function VisibilityWindow({analysis,id}:{analysis:Analysis;id:string}){
- const times=analysis.series.timestamp_utc;
- const dates=windowDates.formatRange(new Date(times[0]),new Date(times[times.length-1]));
- return <p id={id} className="visibility-window" aria-live="polite">{windowHours.format(analysis.metrics.sun.duration_hours)} h window · {dates} UTC</p>;
-}
 function App(){
  const [data,setData]=useState<Bundle|null>(null),[error,setError]=useState(''),[progress,setProgress]=useState<number|null>(null);
  const [tab,setTab]=useState<Tab>('Landing Sites'),[siteId,setSiteId]=useState('ridge-a'),[candidate,setCandidate]=useState('r256c256'),[height,setHeight]=useState(0);
@@ -329,7 +323,7 @@ function App(){
    </>}
   </div>
  </div>;
- const results=<ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} headerAction={showAnalysisDock?configure:undefined}>
+ const results=<ResultsPanel selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} headerAction={showAnalysisDock?configure:undefined}>
   {showAnalysisDock&&<DesignerAnalysisPanels analysis={selected} index={index} baseline={baseline} onIndex={setTime} timeline={timelineRef}/>}
  </ResultsPanel>;
  const workspace=<main className={`workspace stage-${stage}${showAnalysisDock?' has-analysis-dock':''}`} inert={moon==='globe'||moon==='out'}>

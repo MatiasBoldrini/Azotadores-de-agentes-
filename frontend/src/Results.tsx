@@ -5,14 +5,18 @@ import {hours,pct,type ConstraintRow,type Search,type Segment} from './lib/story
 import {Segments} from './Story';
 import AnalysisDisclosure from './AnalysisDisclosure';
 
+const windowDates=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+
 function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analysis:Analysis;baseline:Analysis;threshold:number}){
  const m=analysis.metrics[body],b=baseline.metrics[body],same=keyFor(analysis)===keyFor(baseline);
  const Icon=body==='sun'?Sun:Globe2;
  const tooltipId=useId();
- const [active,setActive]=useState<'current'|'ground'|'minimum'|null>(null);
+ const [active,setActive]=useState<'current'|'window'|'ground'|'minimum'|null>(null);
  const label=body==='sun'?'Solar exposure':'Earth visibility';
+ const timestamps=analysis.series.timestamp_utc;
  const details={
   current:{title:label,description:`Time the ${body==='sun'?'Sun':'Earth'} is visible above the terrain from the station.`},
+  window:{title:'Observation window',description:active==='window'?`${windowDates.formatRange(new Date(timestamps[0]),new Date(timestamps[timestamps.length-1]))} UTC`:''},
   ground:{title:'Ground level',description:'Visibility from ground level at the lander.'},
   minimum:{title:'Minimum required',description:'Minimum visibility required by your search constraints.'},
  };
@@ -30,7 +34,8 @@ function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analy
     const x=event.clientX-meter.left;
     const ground=same?Infinity:Math.abs(x-meter.width*percent(b)/100);
     const minimum=Math.abs(x-meter.width*threshold/100);
-    setActive(Math.min(ground,minimum)<=10?(ground<minimum?'ground':'minimum'):'current');
+    const fillWidth=event.currentTarget.querySelector('.meter-fill')!.getBoundingClientRect().width;
+    setActive(Math.min(ground,minimum)<=10?(ground<minimum?'ground':'minimum'):x<fillWidth?'current':'window');
    }}
    onFocus={()=>setActive('current')} onBlur={()=>setActive(null)}
    onKeyDown={event=>{if(event.key==='Escape')setActive(null);}}
@@ -43,6 +48,8 @@ function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analy
    <div className="meter-legend"><span onMouseEnter={()=>setActive('ground')}>{!same?<><i className="tick-base"/>Ground {hours(b.total_hours)} h</>:<>Ground level</>}</span><span onMouseEnter={()=>setActive('minimum')}><i className="tick-req"/>Min {threshold}%</span></div>
    {active&&<div className="meter-tooltip" id={tooltipId} role="tooltip">
     <strong>{detail.title}</strong>
+    {active==='current'&&<b className={`meter-tooltip-value ${body}`}>{hours(m.total_hours)} / {hours(m.duration_hours)} h</b>}
+    {active==='window'&&<b className="meter-tooltip-value">{hours(m.duration_hours)} h</b>}
     {active==='ground'&&<b className="meter-tooltip-value">{hours(b.total_hours)} h · {pct(percent(b))}% of window</b>}
     <span>{detail.description}</span>
    </div>}
@@ -118,15 +125,14 @@ function Checks({rows}:{rows:ConstraintRow[]}){
  </section>;
 }
 
-export function ResultsPanel({window,children,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,headerAction}:{window:ReactNode;headerAction?:ReactNode;children?:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string}){
+export function ResultsPanel({children,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,headerAction}:{headerAction?:ReactNode;children?:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string}){
  const m=selected.metrics,b=baseline.metrics,same=keyFor(selected)===keyFor(baseline);
  return <aside className="results glass" aria-labelledby="results-title">
   <div className="panel-heading">
    <h2 className="panel-title" id="results-title">Results</h2>
    {headerAction}
   </div>
-  {window}
-  <div className="metric-pair" role="group" aria-label="Visibility metrics" aria-describedby="selected-visibility-window">
+  <div className="metric-pair" role="group" aria-label="Visibility metrics">
    <MetricCard body="sun" analysis={selected} baseline={baseline} threshold={constraints.minSun}/>
    <MetricCard body="earth" analysis={selected} baseline={baseline} threshold={constraints.minEarth}/>
    <p className="metric-note">Visible hours count when each body’s center clears the terrain horizon.</p>
