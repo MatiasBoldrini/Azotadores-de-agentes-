@@ -3,6 +3,7 @@ import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,terrainMean} from './TerrainView';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {loadSite01} from './site01';
+import {TAGLINE} from './brand';
 import DateWindowPicker from './DateWindowPicker';
 import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
@@ -192,7 +193,7 @@ function App(){
   {content}
  </div>;
  if(error)return shell(moon==='globe'?null:<div className="loading"><AlertTriangle/><h2>Scientific data unavailable</h2><p>{error}</p><p>No synthetic results have been substituted.</p><button onClick={()=>location.reload()}>Retry loading</button></div>);
- if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">Don’t find the perfect landing site. Engineer one!</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
+ if(!data||!selected||!baseline||!site||!frame)return shell(moon==='globe'?null:<div className="loading" role="status"><div className="brand">SITE<span>//</span>FORGE</div><p className="tagline">{TAGLINE}</p><div className={`load-bar ${progress===null?'indeterminate':''}`}><span style={progress===null?undefined:{width:`${progress*100}%`}}/></div><small>{progress===null?'Loading precomputed NASA LOLA terrain and JPL Horizons geometry':`Loading precomputed NASA LOLA terrain and JPL Horizons geometry · ${Math.round(progress*100)}%`}</small></div>);
  const links=data.links[siteId];
  const heightsTested=[...new Set(all.map(a=>a.height_m))].sort((a,b)=>a-b);
  const selectedSweep=heightSweep(all,selected.candidate_id);

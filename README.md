@@ -1,6 +1,6 @@
 # SITE//FORGE
 
-**Don't find the perfect landing site. Engineer one!**
+**Don't find the perfect landing site. Engineer one.**
 
 A working, fully static lunar terrain explorer built around a reproducible NASA-data experiment. Compare two Connecting Ridge locations and dates, change a combined station's position or height, inspect Sun/Earth visibility, and run a constrained discrete search. No live NASA request or Python server is needed during the demo.
 
@@ -66,9 +66,11 @@ These figures are not a paired validation. The two sources use different periods
 6. Use **Compare** to select independent windows for Ridge A/B. Hover curves or use the main timeline slider to inspect samples.
 7. Open **Science & Sources**, or **Export analysis** to download the complete selected result, baseline, link profile and provenance as JSON.
 
+### What the terrain represents
+
 The scene shows a 2.56 × 2.56 km crop of Connecting Ridge, about 16 km from the lunar south pole. Ridge A is at 89.46316° S, 137.50198° W, and Ridge B is at 89.48552° S, 137.61082° W. NASA's [LOLA Site01 elevation model](https://pgda.gsfc.nasa.gov/products/78) has 5 m pixel spacing and interpolates between laser tracks.
 
-All 16,384 terrain vertices in the static dataset match the source crop sampled every fourth pixel in each direction, giving a 20 m display mesh. The scene exaggerates the relief 4× and enlarges station markers for legibility. The scientific calculations use the original elevations and include [regional terrain for the horizon](docs/REGIONAL_HORIZON.md). The local link uses a 2 m lander reference and the availability baseline is at ground level.
+The main close-up mesh is that 5 m Site01 DEM itself: every 5 m sample of the evaluated window, set inside the rest of the same 16 km Site01 DEM drawn at 10 and 20 m. The 20 m mesh in the static dataset is only the wireframe overlay and the fallback while the 5 m tile loads or if it is unavailable: its 16,384 vertices match the source crop sampled every fourth pixel in each direction. The scene exaggerates the relief 4× and enlarges station markers for legibility. The scientific calculations use the original elevations and include [regional terrain for the horizon](docs/REGIONAL_HORIZON.md). The local link uses a 2 m lander reference and the availability baseline is at ground level.
 
 ## Architecture
 

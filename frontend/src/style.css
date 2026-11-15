@@ -69,6 +69,7 @@ option{background:#111}
 .moon-canvas{position:absolute!important;inset:0}
 .moon-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 70% at 50% 50%,transparent 52%,rgba(5,5,5,.35) 78%,rgba(5,5,5,.82) 100%)}
 .moon-copy{position:absolute;top:calc(var(--header-h) + 32px);left:40px;width:min(520px,calc(100% - 80px));z-index:4;pointer-events:none;transition:opacity .45s var(--ease)}
+.moon-tagline{margin-bottom:12px;font-size:14px;font-weight:600;color:var(--text-2)}
 .moon-copy h2{font-size:42px;line-height:1.15;letter-spacing:-.028em;text-wrap:balance}
 .moon-copy .lede{margin-top:14px;max-width:440px;color:var(--muted);font-size:14px;line-height:1.5}
 .moon-actions{margin-top:22px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;pointer-events:auto}
