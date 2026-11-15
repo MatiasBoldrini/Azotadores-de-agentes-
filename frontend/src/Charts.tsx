@@ -41,14 +41,20 @@ function elevationColorStops(visibility:boolean[],bodyColor:string){
  return stops;
 }
 
-export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel}:{analysis:Analysis;index:number;onIndex:(i:number)=>void;body:'sun'|'earth';baseline?:Analysis;height?:number;currentLabel?:string;baselineLabel?:string}){
+// Plot-area insets of every timeline chart: the y-axis labels on the left, the track totals on the right.
+// Equal insets put a given instant at the same x in every chart of the same width.
+export const PLOT_LEFT=44,PLOT_RIGHT=56;
+
+type ChartProps={analysis:Analysis;index:number;onIndex:(i:number)=>void;baseline?:Analysis;height?:number;currentLabel?:string;baselineLabel?:string};
+
+export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,currentLabel,baselineLabel,cursor=true}:ChartProps&{body:'sun'|'earth';cursor?:boolean}){
  const [ref,width]=useWidth<HTMLDivElement>();
  const s=analysis.series,values=s[`${body}_elevation_deg`],horizon=s[`${body}_horizon_deg`],n=values.length;
  const visibility=s[`${body}_visible`],bodyColor=COLORS[body],gradientId=useId();
  const colorStops=useMemo(()=>elevationColorStops(visibility,bodyColor),[visibility,bodyColor]);
  const compare=baseline&&(baseline.candidate_id!==analysis.candidate_id||baseline.height_m!==analysis.height_m)?baseline:undefined;
  const baseHorizon=compare?.series[`${body}_horizon_deg`];
- const left=44,right=56,top=6,bottom=18,w=Math.max(width,160);
+ const left=PLOT_LEFT,right=PLOT_RIGHT,top=6,bottom=18,w=Math.max(width,160);
  const {min,max,x,y,ticks,horizonPath,bodyPath,baselinePath}=useMemo(()=>{
   const [min,max]=range([...values,...horizon,...(baseHorizon??[])]);
   const x=(i:number)=>left+i/(n-1)*(w-left-right);
@@ -78,7 +84,7 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
    {baselinePath&&<path d={baselinePath} fill="none" stroke="#8F8F8F" strokeWidth="1" strokeDasharray="1 3"/>}
    <path key={`${analysis.candidate_id}-${analysis.height_m}`} className="fade-in" d={horizonPath} fill="none" stroke="#BDBDBD" strokeWidth="1.1" strokeDasharray="4 3"/>
    <path d={bodyPath} fill="none" stroke={colorStops.length===1?colorStops[0].color:`url(#${gradientId})`} strokeWidth="1.8"/>
-   <line x1={x(index)} x2={x(index)} y1={top} y2={height-bottom} stroke="#F5F5F5" opacity=".55"/>
+   {cursor&&<line x1={x(index)} x2={x(index)} y1={top} y2={height-bottom} stroke="#F5F5F5" opacity=".55"/>}
    <circle cx={x(index)} cy={y(horizon[index])} r="6" fill="none" stroke="#BDBDBD" strokeWidth="1"/>
    <circle cx={x(index)} cy={y(values[index])} r="3.5" fill={visible?bodyColor:'#050505'} stroke={visible?bodyColor:BLOCKED} strokeWidth="1.5"/>
   </svg>
@@ -89,6 +95,29 @@ export function TimelineChart({analysis,index,onIndex,body,baseline,height=88,cu
     <span className="track-total">{track.analysis.metrics[body].total_hours.toLocaleString('en-US',{maximumFractionDigits:1})} h</span>
    </div>)}
   </div>
+ </div>;
+}
+
+// The Sun over the Earth on one time axis, each with its own visible-interval tracks, and a single cursor
+// line through both plots at the selected instant.
+export function TimelineStack({analysis,index,...rest}:ChartProps){
+ const ref=useRef<HTMLDivElement>(null),[span,setSpan]=useState<[number,number]|null>(null);
+ useLayoutEffect(()=>{
+  const el=ref.current;if(!el)return;
+  const measure=()=>{
+   const box=el.getBoundingClientRect(),plots=el.querySelectorAll('.time-chart svg'),tracks=el.querySelectorAll('.tracks');
+   if(!plots.length)return;
+   const top=plots[0].getBoundingClientRect().top-box.top,bottom=(tracks[tracks.length-1]??plots[plots.length-1]).getBoundingClientRect().bottom-box.top;
+   setSpan(s=>s&&s[0]===top&&s[1]===bottom?s:[top,bottom]);
+  };
+  measure();
+  const observer=new ResizeObserver(measure);observer.observe(el);return()=>observer.disconnect();
+ },[analysis,rest.baseline]);
+ const f=index/Math.max(1,analysis.series.timestamp_utc.length-1);
+ return <div className="chart-stack" ref={ref}>
+  <TimelineChart analysis={analysis} index={index} body="sun" cursor={false} {...rest}/>
+  <TimelineChart analysis={analysis} index={index} body="earth" cursor={false} {...rest}/>
+  {span&&<span className="stack-cursor" aria-hidden="true" style={{top:span[0],height:span[1]-span[0],left:`calc(${PLOT_LEFT}px + (100% - ${PLOT_LEFT+PLOT_RIGHT}px) * ${f})`}}/>}
  </div>;
 }
 

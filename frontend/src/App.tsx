@@ -8,7 +8,7 @@ import CompareUtcWindow from './CompareUtcWindow';
 import MonthlyCompare from './MonthlyCompare';
 import PositionPicker,{type EvaluatedPosition} from './PositionPicker';
 import {demoSteps} from './RidgeDemo';
-import {TimelineChart,HorizonChart} from './Charts';
+import {TimelineChart,TimelineStack,HorizonChart} from './Charts';
 import {StoryBar} from './Story';
 import {ResultsPanel,OptimizerCard} from './Results';
 import MoonLanding,{type MoonMode} from './moon/MoonLanding';
@@ -314,7 +314,7 @@ function App(){
    {contrast.length>0?<p className="contrast-note">Contrast instant: {contrast.map(b=>b==='sun'?'Sun':'Earth').join(' and ')} blocked at 0 m, in view at {sitePeak} m.</p>:<p className="micro">Hover a chart or drag the slider to scrub through the window.</p>}
   </div>
   <div className="timeline-plots">
-   <div className="chart-grid"><TimelineChart analysis={selected} index={index} onIndex={setTime} body="sun" baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/><TimelineChart analysis={selected} index={index} onIndex={setTime} body="earth" baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/></div>
+   <TimelineStack analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>
    <input className="time-slider" aria-label="Timeline time" type="range" min="0" max={count-1} value={index} onChange={e=>{setTime(Number(e.target.value));setPlaying(false);}}/>
    <div className="time-labels"><span>{utc(start)} UTC</span><ul className="timeline-legend"><li><i className="lg-line solid"/>Body elevation</li><li><i className="lg-line"/>Terrain horizon at body azimuth</li>{keyFor(selected)!==keyFor(baseline)&&<li><i className="lg-line dotted"/>Ground-level horizon</li>}<li><i className="lg-band"/>Visible intervals</li></ul><span>{utc(end)} UTC</span></div>
   </div>

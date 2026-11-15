@@ -332,7 +332,8 @@ option{background:#111}
 .time-current .jump{margin-left:auto;border-radius:12px}
 .contrast-note{margin-bottom:6px;font-size:12px;line-height:1.45;color:var(--text-2)}
 .timeline-plots{min-width:0}
-.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.chart-stack{position:relative;display:grid;gap:10px}
+.stack-cursor{position:absolute;width:1px;margin-left:-.5px;background:#F5F5F5;opacity:.55;pointer-events:none}
 .time-chart{min-width:0}
 .chart-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;color:var(--muted)}
 .chart-title{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
@@ -352,7 +353,8 @@ option{background:#111}
 .track-label{right:100%;padding-right:8px}
 .track-total{left:100%;padding-left:8px}
 .track.current .track-label,.track.current .track-total{color:var(--text);font-weight:600}
-.time-slider{display:block;width:100%;height:24px;margin:6px 0 2px;accent-color:var(--earth);cursor:pointer}
+/* The thumb's centre travels the charts' plot area (insets 44 px / 56 px, thumb 16 px). */
+.time-slider{display:block;width:calc(100% - 84px);height:24px;margin:6px 48px 2px 36px;accent-color:var(--earth);cursor:pointer}
 .time-labels{display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:12px;color:var(--muted)}
 .time-labels>span{white-space:nowrap}
 .timeline-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin:0;padding:0;list-style:none;font-size:12px;color:var(--muted)}
@@ -511,7 +513,6 @@ option{background:#111}
  .timeline{grid-template-columns:1fr}
  .timeline-side{display:grid;grid-template-columns:auto 1fr;gap:4px 20px;align-items:center}
  .timeline-side>.panel-title{grid-column:1/-1}
- .chart-grid{grid-template-columns:1fr;gap:14px}
  .compare-grid{grid-template-columns:1fr}
  .science-page{grid-template-columns:1fr}
  .science-page aside{display:none}
