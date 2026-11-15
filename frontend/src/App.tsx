@@ -1,6 +1,6 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
 import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
-import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,terrainMean} from './TerrainView';
+import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,TerrainScope,terrainMean} from './TerrainView';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {loadSite01} from './site01';
 import {TAGLINE} from './brand';
@@ -283,6 +283,7 @@ function App(){
      <h2>Connecting Ridge</h2>
      <p className="map-coordinates"><span className="sr-only">Landing site coordinates: </span>{fmt(Math.abs(site.latitude_deg),5)}° S · {fmt(Math.abs(site.longitude_deg),5)}° W · {fmt(site.elevation_m,0)} m elevation</p>
     </div>
+    <TerrainScope terrain={data.terrain} regionalRadiusM={data.methodology.regional_provenance?.max_radius_m}/>
     <div className="map-actions">
      <div className="map-config" ref={configureRef}>
       <button type="button" ref={configureButton} className="secondary" aria-expanded={showConfigure} aria-controls="map-configuration" onClick={()=>setShowConfigure(!showConfigure)}><SlidersHorizontal size={14} aria-hidden="true"/>Configure</button>
