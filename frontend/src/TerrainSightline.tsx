@@ -1,7 +1,7 @@
 import {useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ComponentRef, type RefObject} from 'react';
 import {useFrame, useThree} from '@react-three/fiber';
 import {Line} from '@react-three/drei';
-import {GreaterDepth, type Material} from 'three';
+import {GreaterDepth, type Group, type Material} from 'three';
 import type {TerrainLine} from './TerrainRayHover';
 
 type Point = [number, number, number];
@@ -12,6 +12,7 @@ type Props = {
  color: string;
  width: number;
  blocked: boolean;
+ worldEndFrom?: RefObject<Group | null>;
  behind?: RefObject<boolean>;
 };
 
@@ -49,8 +50,7 @@ const screenDashes: Material['onBeforeCompile'] = shader => {
 
 // Hidden rather than unmounted while the sightline is clear, so its shader stays compiled. The close-up is
 // drawn on demand, so the flow asks for its next frame itself, except on a GPU already behind the frames.
-function OccludedSightline({points, color, width, shown, behind}: {points: [Point, Point]; color: string; width: number; shown: boolean; behind?: RefObject<boolean>}) {
- const line = useRef<NonNullable<TerrainLine['current']>>(null);
+function OccludedSightline({line, points, color, width, shown, behind}: {line: TerrainLine; points: [Point, Point]; color: string; width: number; shown: boolean; behind?: RefObject<boolean>}) {
  const reducedMotion = useRef(false);
  const invalidate = useThree(state => state.invalidate);
  useEffect(() => {
@@ -67,7 +67,7 @@ function OccludedSightline({points, color, width, shown, behind}: {points: [Poin
    query.removeEventListener('change', update);
    document.removeEventListener('visibilitychange', update);
   };
- }, [invalidate]);
+ }, [line, invalidate]);
  useFrame((state, delta) => {
   if (!shown || reducedMotion.current || document.hidden || !line.current) return;
   const material = line.current.material;
@@ -81,11 +81,25 @@ function OccludedSightline({points, color, width, shown, behind}: {points: [Poin
   dashed dashSize={DASH_PX} gapSize={GAP_PX} onBeforeCompile={screenDashes}/>;
 }
 
-export function TerrainSightline({line, start, end, color, width, blocked, behind}: Props) {
+export function TerrainSightline({line, start, end, color, width, blocked, worldEndFrom, behind}: Props) {
+ const occluded = useRef<NonNullable<TerrainLine['current']>>(null);
  const points = useMemo<[Point, Point]>(() => [start, end], [start, end]);
+ useFrame(() => {
+  const origin = worldEndFrom?.current?.position;
+  if (!origin || !line.current) return;
+  const x = end[0] - origin.x, y = end[1] - origin.y, z = end[2] - origin.z;
+  // Both render passes must use the same world endpoint while the station moves.
+  for (const part of [line.current, occluded.current]) {
+   if (!part) continue;
+   const endpoint = part.geometry.getAttribute('instanceEnd');
+   if (endpoint.getX(0) === Math.fround(x) && endpoint.getY(0) === Math.fround(y) && endpoint.getZ(0) === Math.fround(z)) continue;
+   part.geometry.setPositions([...start, x, y, z]);
+   part.computeLineDistances();
+  }
+ });
  return <>
   <SteadyLine line={line} points={points} color={color} lineWidth={width} renderOrder={50}
    depthWrite={false} transparent opacity={.9} toneMapped={false}/>
-  <OccludedSightline points={points} color={color} width={width} shown={blocked} behind={behind}/>
+  <OccludedSightline line={occluded} points={points} color={color} width={width} shown={blocked} behind={behind}/>
  </>;
 }

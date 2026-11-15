@@ -1,0 +1,6 @@
+Sun: NASA/SDO HMI colored continuum intensity image.
+Source: https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg
+Retrieved: 2026-11-15. Image timestamp: 2026-11-15 11:30 UTC.
+Credit: NASA/SDO and the AIA, EVE, and HMI science teams.
+Illustrative static texture; not synchronized to the selected observation date.
+Solar display diameter is enlarged to 2.2 degrees for legibility; scientific calculations are unchanged.
