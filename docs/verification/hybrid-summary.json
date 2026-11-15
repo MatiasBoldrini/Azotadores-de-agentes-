@@ -1,0 +1,11 @@
+{
+  "timestamp_utc": "2026-11-15T17:44:59.300453+00:00",
+  "python_tests_passed": 52,
+  "javascript_tests_passed": 92,
+  "total_passed": 144,
+  "production_build": "passed",
+  "browser_ui": "not verified; occupied browser profile and sandbox socket restriction",
+  "deployment": "not performed",
+  "roundtrip_evidence": "hybrid-roundtrip.json",
+  "asgi_serving_evidence": "hybrid-serving.json"
+}

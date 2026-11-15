@@ -1,0 +1,80 @@
+{
+  "snapshot_sha256": "0bbc60591c01d55a86dea65640230b95a08f7de2a1a921a280f5691bf6af8584",
+  "counts": {
+    "configurations": 130,
+    "body_samples": 374660,
+    "metric_fields": 3120,
+    "local_links": 260,
+    "profile_samples": 74075,
+    "height_comparisons": 104
+  },
+  "errors": [],
+  "max_horizon_error_deg": 3.552713678800501e-15,
+  "max_distance_error_m": 1.1368683772161603e-13,
+  "max_line_error_m": 6.984919309616089e-10,
+  "max_ground_error_m": 6.821210263296962e-13,
+  "rankings": [
+    {
+      "site": "ridge-a",
+      "outage": 360,
+      "feasible": 17,
+      "top5": [
+        "r256c256-5",
+        "r256c256-10",
+        "r192c256-10",
+        "r256c192-10",
+        "r192c320-10"
+      ]
+    },
+    {
+      "site": "ridge-a",
+      "outage": 240,
+      "feasible": 0,
+      "top5": []
+    },
+    {
+      "site": "ridge-b",
+      "outage": 360,
+      "feasible": 11,
+      "top5": [
+        "r160c352-10",
+        "r128c384-5",
+        "r192c320-10",
+        "r128c384-10",
+        "r128c320-10"
+      ]
+    },
+    {
+      "site": "ridge-b",
+      "outage": 240,
+      "feasible": 0,
+      "top5": []
+    }
+  ],
+  "status": "passed",
+  "scope": {
+    "period_utc": [
+      "2026-11-01",
+      "2026-12-01"
+    ],
+    "optimization_constraints": {
+      "min_sun_percent": 70,
+      "min_earth_percent": 40,
+      "max_individual_outage_hours": [
+        360,
+        240
+      ],
+      "max_distance_m": 1000,
+      "max_slope_deg": 20,
+      "require_local_link": true
+    },
+    "independence": "Python standard-library numerical formulas plus NumPy solely to load raw DEM arrays; no imports from application science code.",
+    "limitations": [
+      "Horizon profiles and ephemeris directions are inputs: their full NASA acquisition and regional horizon construction are not independently recomputed.",
+      "Checks left-endpoint integration at the existing 30-minute samples, periodic linear horizon interpolation and the documented body-center visibility rule.",
+      "Local-link ground and chord are independently reconstructed from raw terrain.npz using the documented half-cell sampling, not a continuous collision proof.",
+      "Rankings validate the finite exported grid and heuristic cost only; they do not prove a global optimum or radio/energy feasibility.",
+      "No browser, deployed HTTP service, atmospheric model, eclipse model or absolute scientific accuracy certification is included."
+    ]
+  }
+}
