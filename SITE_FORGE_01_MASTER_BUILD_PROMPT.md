@@ -20,7 +20,7 @@ No declares que una funcionalidad está terminada si no funciona. No inventes da
 
 **Nombre:** SITE//FORGE
 
-**Tagline:** Don't find the perfect landing site. Engineer one!
+**Tagline:** Don't find the perfect landing site. Engineer one.
 
 **Challenge:** NASA Space Apps Challenge 2026 — Lunar Landing Site Navigator.
 
