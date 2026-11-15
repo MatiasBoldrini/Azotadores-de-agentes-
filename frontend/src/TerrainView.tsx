@@ -220,6 +220,33 @@ function terrainMaterial(hole:Rect|null,offset:number,mosaic?:Mosaic){
 
 const noRaycast=()=>{};
 
+// Clicks land on the drawn relief anywhere out to the rim: the ray is marched over the DEM levels the terrain is
+// built from, finest first, since the GPU meshes keep no vertices to test.
+function levelRaycast(ground:Ground,list:DemLevel[]){
+ const {frame,mean}=ground,[cx,cy]=frame.centerPs,boxes=list.map(l=>extent(l,frame)),rim=rimKm(list[list.length-1],frame);
+ const ray=new THREE.Ray(),inverse=new THREE.Matrix4(),p=new THREE.Vector3();
+ const above=(t:number)=>{
+  ray.at(t,p);
+  const i=Math.hypot(p.x,p.z)>rim?-1:boxes.findIndex(([x0,x1,z0,z1])=>p.x>=x0&&p.x<=x1&&p.z>=z0&&p.z<=z1);
+  return i<0?null:p.y-((bilinear(list[i],cx+p.x*1000,cy-p.z*1000)-mean)*VERTICAL_EXAGGERATION/1000-(p.x*p.x+p.z*p.z)/(2*frame.radiusKm));
+ };
+ return function(this:THREE.Mesh,raycaster:THREE.Raycaster,hits:THREE.Intersection[]){
+  ray.copy(raycaster.ray).applyMatrix4(inverse.copy(this.matrixWorld).invert());
+  const far=Math.min(raycaster.far,FAR_KM);
+  for(let t=Math.max(raycaster.near,.001),before=above(t);t<far;){
+   const next=t+Math.max(.004,t*.002),after=above(next);
+   if(before!==null&&after!==null&&before>0&&after<=0){
+    let a=t,b=next;
+    for(let k=0;k<24;k++){const m=(a+b)/2,d=above(m);if(d!==null&&d>0)a=m;else b=m;}
+    const point=ray.at(b,new THREE.Vector3()).applyMatrix4(this.matrixWorld);
+    hits.push({distance:raycaster.ray.origin.distanceTo(point),point,object:this});
+    return;
+   }
+   t=next;before=after;
+  }
+ };
+}
+
 type Levels={tile:DemLevel|null;surround:DemLevel[]|null;regional:DemLevel[]|null};
 // Finest first: the 5 m tile, the rest of the Site01 GeoTIFF, then the PDS polar grids. Each level eases into
 // the next toward its border and is cut where the finer one takes over; the coarsest ends in a round rim.
@@ -241,6 +268,8 @@ function Surface({ground,levels,wireframe,onPick,mosaic}:{ground:Ground;levels:L
  const meshes=useLevelGeometry(ground,levels);
  const materials=useMemo(()=>meshes?.map(m=>terrainMaterial(m.hole,m.offset,mosaic))??[],[meshes,mosaic]);
  const solid=useMemo(()=>terrainMaterial(null,0),[]);
+ const {tile,surround,regional}=levels;
+ const raycast=useMemo(()=>tile&&surround?levelRaycast(ground,[tile,...surround,...regional??[]]):THREE.Mesh.prototype.raycast,[ground,tile,surround,regional]);
  useEffect(()=>()=>coarse.dispose(),[coarse]);
  useEffect(()=>()=>{meshes?.forEach(m=>m.geometry.dispose());materials.forEach(m=>m.dispose());},[meshes,materials]);
  // The light never moves, so the shadow map is drawn once per terrain.
@@ -248,7 +277,7 @@ function Surface({ground,levels,wireframe,onPick,mosaic}:{ground:Ground;levels:L
  const pick=(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onPick(e.point.z*1000/terrain.pixel_size_m+n/2,e.point.x*1000/terrain.pixel_size_m+n/2);};
  return <>
   {meshes?.map((m,i)=><mesh key={i} geometry={m.geometry} material={materials[i]} raycast={noRaycast} castShadow receiveShadow/>)}
-  <mesh geometry={coarse} material={wireframe?undefined:solid} onClick={pick} visible={wireframe||!meshes} castShadow receiveShadow position-y={meshes&&wireframe?.004:0}>
+  <mesh geometry={coarse} material={wireframe?undefined:solid} onClick={pick} raycast={raycast} visible={wireframe||!meshes} castShadow receiveShadow position-y={meshes&&wireframe?.004:0}>
    {wireframe&&<meshBasicMaterial color="#d4d4d4" wireframe transparent opacity={.35}/>}
   </mesh>
  </>;
