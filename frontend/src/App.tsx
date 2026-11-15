@@ -1,5 +1,5 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
-import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION,terrainMean} from './TerrainView';
 import {siteFrame,viewAzimuth} from './moon/frame';
 import {REGIONAL_SOURCES,loadSite01} from './site01';
@@ -195,7 +195,6 @@ function App(){
    <button className="brand" onClick={()=>moon==='site'&&backToMoon()} aria-label="SITE FORGE, back to the Moon">SITE<span>//</span>FORGE</button>
    <nav aria-label="Main navigation">{TABS.map(t=><button className={tab===t?'active':''} aria-label={t} aria-current={tab===t?'page':undefined} key={t} onClick={()=>openTab(t)}><span className="tab-full">{t}</span><span className="tab-short" aria-hidden="true">{SHORT_TABS[t]}</span></button>)}</nav>
    <div className="top-actions">
-    {moon==='site'&&<button className="ghost-button back-button" aria-label="Back to Moon" onClick={backToMoon}><ArrowLeft size={14}/><span>Back to Moon</span></button>}
     {actions}
     <button className={`demo-button ${demoStep!==null?'running':''}`} disabled={!ready} onClick={demoStep === null ? startDemo : stopDemo}>{demoStep===null?<><Play size={13}/>Play 25 s demo</>:<><Pause size={13}/>Stop demo</>}</button>
    </div>
@@ -211,8 +210,6 @@ function App(){
  const atSiteCell=selected.candidate_id===siteCell;
  const rows=constraintRows(selected,link,constraints);
  const story=buildStory({selected,baseline,sweep:selectedSweep,links,constraints,search,searching,evaluated:all.length});
- const peakAnalysis=siteSweep.find(a=>a.height_m===sitePeak);
- const contrast=atSiteCell&&peakAnalysis&&index===focusIndex?(['sun','earth'] as const).filter(b=>!siteSweep[0].series[`${b}_visible`][index]&&peakAnalysis.series[`${b}_visible`][index]):[];
  const chooseSite=(id:string)=>{setDemoStep(null);const s=data.sites.find(s=>s.id===id)!;setSiteId(id);setCandidate(`r${s.row}c${s.col}`);setHeight(0);setSearch(null);};
  const chooseCandidate=(id:string)=>{setDemoStep(null);setCandidate(id);setTab('Infrastructure Designer');setNotice('Station moved to the nearest evaluated terrain cell.');};
  const chooseHeight=(h:number)=>{setDemoStep(null);setHeight(h);setTab('Infrastructure Designer');setNotice(`Loaded the precomputed ${h} m terrain horizon; metrics re-integrated over the selected window.`);};
@@ -327,14 +324,13 @@ function App(){
   <div className="timeline-side">
    <h2 className="panel-title">Timeline</h2>
    <div className="time-current"><button aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button><div><b>{utc(selected.series.timestamp_utc[index])}</b><small>{selected.series.timestamp_utc[index].slice(0,4)} · UTC</small></div>{focusIndex>0&&atSiteCell&&<button className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}</div>
-   {contrast.length>0?<p className="contrast-note">Contrast instant: {contrast.map(b=>b==='sun'?'Sun':'Earth').join(' and ')} blocked at 0 m, in view at {sitePeak} m.</p>:<p className="micro">Hover a chart or drag the slider to scrub through the window.</p>}
   </div>
   <div className="timeline-plots">
-   {!showAnalysisDock&&<TimelineStack analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>}
+   {!showAnalysisDock&&<TimelineStack height={64} analysis={selected} index={index} onIndex={setTime} baseline={baseline} baselineLabel="0 m" currentLabel={`${selected.height_m} m`}/>}
    <input className="time-slider" aria-label="Timeline time" type="range" min="0" max={count-1} value={index} onChange={e=>{setTime(Number(e.target.value));setPlaying(false);}}/>
-   <div className="time-labels"><span>{utc(start)} UTC</span><ul className="timeline-legend"><li><i className="lg-line solid"/>Body elevation</li><li><i className="lg-line"/>Terrain horizon at body azimuth</li>{keyFor(selected)!==keyFor(baseline)&&<li><i className="lg-line dotted"/>Ground-level horizon</li>}<li><i className="lg-band"/>Visible intervals</li></ul><span>{utc(end)} UTC</span></div>
+   <div className="time-labels"><span>{utc(start)} UTC</span><span>{utc(end)} UTC</span></div>
   </div>
-  {!showAnalysisDock&&<div className="timeline-horizon"><HorizonPanel analysis={selected} index={index} baseline={baseline}/></div>}
+  {!showAnalysisDock&&<div className="timeline-horizon"><HorizonPanel compact analysis={selected} index={index} baseline={baseline}/></div>}
  </section>
  </main>;
  return shell(workspaceTab?workspace:moon==='site'?<main className="page">{tab==='Science & Sources'?<Science data={data}/>:compare}</main>:null,

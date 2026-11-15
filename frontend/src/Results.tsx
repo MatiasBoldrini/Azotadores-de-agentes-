@@ -1,4 +1,4 @@
-import {useState,type ReactNode} from 'react';
+import {useId,useState,type ReactNode} from 'react';
 import {Check,Minus,Radio,Sun,Globe2,X,Info,ArrowUpRight} from 'lucide-react';
 import {keyFor,percent,type Analysis,type Constraints,type Link} from './lib/science';
 import {hours,pct,type ConstraintRow,type Search,type Segment} from './lib/story';
@@ -8,15 +8,36 @@ import AnalysisDisclosure from './AnalysisDisclosure';
 function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analysis:Analysis;baseline:Analysis;threshold:number}){
  const m=analysis.metrics[body],b=baseline.metrics[body],same=keyFor(analysis)===keyFor(baseline);
  const Icon=body==='sun'?Sun:Globe2;
+ const tooltipId=useId();
+ const [active,setActive]=useState<'current'|'ground'|'minimum'|null>(null);
+ const label=body==='sun'?'Solar exposure':'Earth visibility';
+ const details={
+  current:{title:label,value:`${hours(m.total_hours)} h · ${pct(percent(m))}%`,description:`Colored bar: time the ${body==='sun'?'Sun':'Earth'} is above the terrain horizon for the selected configuration.`},
+  ground:{title:'Ground level',value:`${hours(b.total_hours)} h · ${pct(percent(b))}%`,description:'Solid marker: visibility at ground level at the lander, for comparison.'},
+  minimum:{title:'Minimum required',value:`${threshold}% of window`,description:'Dotted marker: the minimum visibility set in your search constraints.'},
+ };
+ const detail=details[active??'current'];
  return <div className={`metric-card ${body}`}>
   <span className="metric-label"><Icon size={14}/>{body==='sun'?'Solar exposure':'Earth visibility'}</span>
   <div className="metric-value"><b key={m.total_hours}>{hours(m.total_hours)}</b><small>h</small><span className="metric-pct">{pct(percent(m))}% of window</span></div>
-  <div className="meter" role="img" aria-label={`${pct(percent(m))} percent; ground level ${pct(percent(b))} percent; requirement ${threshold} percent`}>
-   <span className="meter-fill" style={{width:`${percent(m)}%`}}/>
-   {!same&&<span className="meter-base" style={{left:`${percent(b)}%`}}/>}
-   <span className="meter-req" style={{left:`${threshold}%`}}/>
+  <div className={`meter-interaction${active?' active':''}`} tabIndex={0}
+   aria-label={`${label}: ${pct(percent(m))}% of window. Ground ${pct(percent(b))}%. Minimum ${threshold}%.`}
+   aria-describedby={active?tooltipId:undefined}
+   onMouseEnter={()=>setActive('current')} onMouseLeave={()=>setActive(null)}
+   onFocus={()=>setActive('current')} onBlur={()=>setActive(null)}
+   onKeyDown={event=>{if(event.key==='Escape')setActive(null);}}
+   onClick={()=>setActive(active?null:'current')}>
+   <div className="meter" aria-hidden="true" onMouseEnter={()=>setActive('current')}>
+    <span className="meter-fill" style={{width:`${percent(m)}%`}}/>
+    {!same&&<span className="meter-base" style={{left:`${percent(b)}%`}} onMouseEnter={()=>setActive('ground')} onMouseLeave={()=>setActive('current')}/>}
+    <span className="meter-req" style={{left:`${threshold}%`}} onMouseEnter={()=>setActive('minimum')} onMouseLeave={()=>setActive('current')}/>
+   </div>
+   <div className="meter-legend"><span onMouseEnter={()=>setActive('ground')}>{!same?<><i className="tick-base"/>Ground {hours(b.total_hours)} h</>:<>Ground level</>}</span><span onMouseEnter={()=>setActive('minimum')}><i className="tick-req"/>Min {threshold}%</span></div>
+   {active&&<div className="meter-tooltip" id={tooltipId} role="tooltip">
+    <strong>{detail.title}</strong><b>{detail.value}</b><span>{detail.description}</span>
+    {active==='current'&&<span>Solid marker: ground level · dotted marker: minimum required.</span>}
+   </div>}
   </div>
-  <div className="meter-legend">{!same?<span title="Ground level at the lander"><i className="tick-base"/>Ground {hours(b.total_hours)} h</span>:<span>Ground level</span>}<span title="Search constraint"><i className="tick-req"/>Min {threshold}%</span></div>
  </div>;
 }
 

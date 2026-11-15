@@ -11,13 +11,13 @@ type Point={x:number;y:number};
 type DropTarget={id:PanelId;side:'before'|'after'};
 type Move={id:PanelId;pointer:number;origin:Point;position:Point;dragged:boolean};
 
-export function HorizonPanel({analysis,index,baseline,controls}:{
- analysis:Analysis;index:number;baseline:Analysis;controls?:DisclosureControls;
+export function HorizonPanel({analysis,index,baseline,controls,compact=false}:{
+ analysis:Analysis;index:number;baseline:Analysis;controls?:DisclosureControls;compact?:boolean;
 }){
  const compare=baseline.candidate_id!==analysis.candidate_id||baseline.height_m!==analysis.height_m;
  return <AnalysisDisclosure title={titles.horizon} controls={controls}>
-  <HorizonChart analysis={analysis} index={index} baseline={baseline}/>
-  <div className="horizon-legend"><span><i className="lg-line"/>Horizon at {analysis.height_m} m</span>{compare&&<span><i className="lg-line dotted"/>Ground level</span>}<span><i className="dot-fill"/>In view <i className="dot-ring"/>Blocked</span></div>
+  <HorizonChart height={compact?112:undefined} analysis={analysis} index={index} baseline={baseline}/>
+  {!compact&&<div className="horizon-legend"><span><i className="lg-line"/>Horizon at {analysis.height_m} m</span>{compare&&<span><i className="lg-line dotted"/>Ground level</span>}<span><i className="dot-fill"/>In view <i className="dot-ring"/>Blocked</span></div>}
  </AnalysisDisclosure>;
 }
 
