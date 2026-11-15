@@ -212,8 +212,6 @@ option{background:#111}
 .map-reference-content[hidden]{display:none}
 .map-references-toggle{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 8px;border-radius:6px;background:rgba(5,5,5,.6);color:var(--muted);font-size:12px}
 .map-references-toggle:hover{color:var(--text);background:rgba(28,28,28,.85)}
-.map-references-toggle svg{transition:transform .2s var(--ease)}
-.map-references-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
 .map-legend{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:4px 14px;margin:0;padding:0;list-style:none;font-size:12px;color:var(--text);text-shadow:0 1px 3px #000}
 .map-legend li{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .map-legend i{display:inline-block;filter:drop-shadow(0 1px 2px #000)}
