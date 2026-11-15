@@ -96,11 +96,11 @@ npm run build --prefix frontend
 
 Unit fixtures are explicitly synthetic and isolated from production data. Real-data tests check raw response parsing, coordinates, regional provenance, altitude monotonicity, and cached metrics. JavaScript tests compare time integration and search against Python. Browser checks cover the actual Brave application, responsive layouts, the feasible and infeasible search flows, date changes and scene controls.
 
-## Vercel deployment — prepared, not published
+## Vercel deployment
 
-`vercel.json` declares the root build command and `dist` output. Import this repository into Vercel with the repository root as project root; no secret, server function or Python runtime is needed. The static cache ships with the application. Build output is ready in `dist`.
+Connect this GitHub repository in the Vercel project's Git settings. Keep the repository root as the Root Directory and set `main` as the branch tracked by the Production environment. Once the repository is connected and this configuration is on `main`, direct pushes and pull request merges into `main` trigger production deployments. `vercel.json` enables automatic deployments only for `main`.
 
-This version is distributed through GitHub. The Vercel configuration disables automatic deployments from pushes to `main`. The demo can be reviewed using the local preview above.
+Vercel installs dependencies from `frontend/package-lock.json` with `npm ci --prefix frontend`, runs the frontend build, and serves the `dist` directory. The static data cache ships with the application, so the deployment requires no secrets, server functions, or Python runtime.
 
 ## Limits and follow-up
 
