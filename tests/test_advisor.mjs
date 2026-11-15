@@ -77,6 +77,14 @@ test('a passing taller mast is compared with the lowest passing height', () => {
   assert.ok(margins.some(m => m.id === 'margin' && /342.5 h vs 360 h/.test(m.detail)));
 });
 
+test('a move reports blocked local line of sight when the link is optional', () => {
+  const constraints = {...C, minSun: 0, minEarth: 0, maxOutage: 744, requireLink: false};
+  const move = advise(input(at('r128c128', 0), {constraints}), 4).find(item => item.id === 'move');
+  assert.ok(move);
+  assert.equal(linksA[`${move.action.candidate}-${move.action.height}`].visible, false);
+  assert.match(move.detail, /lander line of sight blocked/);
+});
+
 test('advise ranks risks first, caps the list and every time action points at a real sample', () => {
   for (const site of bundle.sites) for (const h of [0, 2, 5, 10, 20]) for (const index of [0, 500, 1400]) {
     const selected = at(`r${site.row}c${site.col}`, h);

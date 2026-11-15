@@ -13,6 +13,7 @@ test('offline parser keeps the order and reads Spanish and English durations', (
   assert.deepEqual(steps('cargar baterías 24 h, luego transmitir 1 h'), [['sun', 24], ['earth', 1]]);
   assert.deepEqual(steps('charge for a day then downlink 30 min'), [['sun', 24], ['earth', 0.5]]);
   assert.deepEqual(steps('cargar 2 días y transmitir 4 h y después operar a la vez 6 h'), [['sun', 48], ['earth', 4], ['both', 6]]);
+  assert.deepEqual(steps('cargar 1,5 h y luego transmitir 30 min'), [['sun', 1.5], ['earth', 0.5]]);
 });
 
 test('simultaneous and live operations need Sun and Earth together', () => {
@@ -28,6 +29,7 @@ test('missing or odd durations are assumed and reported, never silent', () => {
   const q = parseOperation('downlink 10 min');
   assert.equal(q.op.steps[0].hours, 0.5);
   assert.match(q.assumed[0], /rounded to 0.5 h/);
+  assert.deepEqual(steps('downlink 40 min'), [['earth', 1]]);
   assert.equal(hoursIn('una semana'), 168);
 });
 
@@ -35,6 +37,17 @@ test('requests the planner cannot express are rejected instead of guessed', () =
   const p = parseOperation('hola, ¿qué tal?');
   assert.equal(p.ok, false);
   assert.match(p.reason, /Sun \(power\), the Earth \(radio link\) or both/);
+  for (const request of [
+    'cargar 2 h y después esperar 12 h y después transmitir 1 h',
+    'charge 2 h and collect samples',
+    'transmitir 1 h mañana',
+    'transmit in 2 h',
+    'do not transmit, charge for 2 hours',
+    'charge for 20 days',
+    'charge for -1 h',
+    'charge for 1 hour and 30 minutes',
+    'charge 1 h then downlink 1 h then charge 1 h then downlink 1 h then charge 1 h',
+  ]) assert.equal(parseOperation(request).ok, false, request);
 });
 
 const answer = body => ({ok: true, status: 200, json: async () => body});
@@ -68,7 +81,9 @@ test('the client falls back to the offline parser when the agent is missing, fai
 });
 
 test('agent payloads outside the planner limits are refused', () => {
-  assert.throws(() => validateAgentPayload({...claude, operation: {...claude.operation, steps: [{need: 'sun', hours: 0, label: 'x'}]}}));
+  for (const hours of [0, 0.49, 0.6, 336.1, Infinity, '2']) {
+    assert.throws(() => validateAgentPayload({...claude, operation: {...claude.operation, steps: [{need: 'sun', hours, label: 'x'}]}}));
+  }
   assert.throws(() => validateAgentPayload({...claude, operation: {...claude.operation, steps: Array(5).fill(claude.operation.steps[0])}}));
   const unclear = validateAgentPayload({understood: false, operation: null, note: 'Needs temperature data.'});
   assert.equal(unclear.ok, false);

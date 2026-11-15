@@ -1,7 +1,7 @@
 // Backend-first reading of an operator request: Claude on the server when configured,
 // the local parser otherwise. Either way only an Operation comes back; the planner computes
 // every time and duration shown to the user from the engine output.
-import {clampHours,MAX_HOURS,MAX_STEPS,MIN_HOURS,parseOperation} from './intent.ts';
+import {MAX_STEPS,parseOperation,validHours} from './intent.ts';
 import type {Need,Operation} from './planner.ts';
 
 export const AGENT_TIMEOUT_MS = 20_000;
@@ -20,9 +20,9 @@ export function validateAgentPayload(payload:unknown):AgentAnswer {
  const op = payload.operation;
  if(!isObj(op)||typeof op.name!=='string'||!Array.isArray(op.steps)||op.steps.length<1||op.steps.length>MAX_STEPS) throw new Error('invalid agent operation');
  const steps = op.steps.map((s:unknown)=>{
-  if(!isObj(s)||!NEEDS.includes(s.need)||typeof s.hours!=='number'||!Number.isFinite(s.hours)||s.hours<MIN_HOURS||s.hours>MAX_HOURS||typeof s.label!=='string'||!s.label.trim())
+  if(!isObj(s)||!NEEDS.includes(s.need)||!validHours(s.hours)||typeof s.label!=='string'||!s.label.trim())
    throw new Error('invalid agent step');
-  return {need:s.need as Need,hours:clampHours(s.hours),label:s.label.slice(0,80)};
+  return {need:s.need as Need,hours:s.hours,label:s.label.slice(0,80)};
  });
  return {ok:true,op:{id:'custom',name:op.name.slice(0,60)||'Your request',steps},note:payload.note,source:'claude'};
 }
