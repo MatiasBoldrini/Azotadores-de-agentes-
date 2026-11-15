@@ -89,4 +89,32 @@ if regional_enabled:
 report+='\n## Published illumination context, not a direct benchmark\n\nNASA PGDA product 78 describes areas of Site01 with average illumination above 70% at 1 m over 2024-01-01 to 2026-01-01, and improved illumination at 5 m. That area-based, two-year result uses different positions, heights and dates from this point-specific November 2026 experiment. It supports investigating height sensitivity, but is not an independent numerical validation of our reported hours. A matched coordinate/time/method comparison remains future work.\n'
 if regional_enabled:
  report += '\n## Ridge A solar-center sensitivity\n\nThe published 1° horizon gives 426 h at ground level and 720 h at 5, 10, and 20 m. The 720 h refers to November 1 through December 1, 2026 UTC at this one coordinate. It counts half-hour intervals whose opening sample has the **center** of the Sun above the modeled horizon. At 5 m, the smallest sampled clearance is +0.799° with the production settings.\n\n| Azimuth resolution | Ground-level Sun (h) | Sun at 5 m (h) | Minimum center clearance at 5 m |\n|---:|---:|---:|---:|\n| 2° | 411 | 720 | +0.798° |\n| 1° (production) | 426 | 720 | +0.799° |\n| 0.5° | 443.5 | 720 | +0.797° |\n| 0.25° | 470.5 | 720 | +0.800° |\n\nThe 720 h result also holds at 10 and 20 m in all four runs. Ground-level hours are sensitive to azimuth resolution. These checks use the same NASA local and regional DEMs and JPL samples as production. They measure sensitivity to angular resolution while retaining the 150 km coverage, 30-minute cadence and terrain sampling limits. Solar disk coverage, eclipses and panel output are outside the model. The published PGDA two-year, area-based result above has different dates, heights and spatial aggregation, so it provides context rather than a matched benchmark.\n\nReproduce the table inputs with `.venv/bin/python scripts/check_ridge_solar.py`.\n'
+
+ridge_ground = next(r for r in results if r['site_id'] == 'ridge-a' and r['height_m'] == 0)
+pgda_rows = []
+for body, dn in (('sun', 9636), ('earth', 8463)):
+    pgda_pct = dn * 0.00004 * 100
+    november_hours = ridge_ground['metrics'][body]['total_hours']
+    november_pct = november_hours / 720 * 100
+    pgda_rows.append(
+        f'| {body.title()} | {dn} | {pgda_pct:.3f}% | {november_hours:g}/720 h ({november_pct:.3f}%) | '
+        f'{november_pct - pgda_pct:+.3f} pp |'
+    )
+pgda_table_rows = '\n'.join(pgda_rows)
+
+report += f'''
+## Ridge A surface comparison with long-term NASA maps
+
+The 60 m surface maps from [NASA PGDA product 69](https://pgda.gsfc.nasa.gov/products/69) and the November 2026 experiment produce the following values at Ridge A. Differences use unrounded fractions and describe an unpaired comparison across time windows, terrain models and visibility definitions.
+
+| Body | LOLA stored integer (DN) | LOLA cycle, any disk visible | November 2026 at 0 m, center visible | November minus LOLA |
+|---|---:|---:|---:|---:|
+{pgda_table_rows}
+
+**Time and definition.** NASA describes both rasters as averages of hourly samples over a lunar cycle of about 18.6 years. The detached labels carry 2009–2013 `START_TIME`/`STOP_TIME` metadata, a shorter span than the documented simulation. The checked sources give the cycle duration without calendar endpoints for these specific rasters. Both bands count the fraction of steps with any part of the corresponding disk above terrain. The demo counts 30-minute steps with the body center above its geometric horizon during 2026-11-01 00:00 through 2026-12-01 00:00 UTC. The percentage-point differences cannot establish November accuracy or isolate a model bias. [PDS GDRVIS documentation](https://ode.rsl.wustl.edu/moon/pagehelp/Content/Missions_Instruments/Lunar%20Reconnaissance%20Orbiter%20(LRO)/LOLA/GDR/GDRVIS.htm), [Mazarico et al. (2011)](https://doi.org/10.1016/j.icarus.2010.10.030).
+
+**Coordinate and terrain.** The labels use planetocentric latitude and east-positive longitude in the lunar Mean Earth/Polar Axis frame of DE421, matching the Site01 coordinate frame. The south-polar stereographic projection uses a 1,737,400 m sphere, a 0° central meridian and true scale at the south pole. Ridge A projects to x = −10,997.5 m, y = −12,002.5 m. The sampled cell contains that point and has its center at x = −11,010 m, y = −12,030 m, about 30 m away. LOLA models the surface of `LDEM_85S_060M`. The demo's 0 m is above the surface of the 5 m Site01 DEM at Ridge A, with separate regional terrain for the horizon. The shared datum places the coordinates on the same reference sphere while each model uses its own terrain elevations. The product's 60 m grid and the demo's 5 m local grid can resolve different ridge features. [LOLA polar projection catalog](https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/catalog/dsmap_polar.cat).
+
+**Raster extraction.** Sample the containing cell at zero-based row 2729, column 2345 (PDS line 2730, sample 2346) in both 5058 × 5058 IMG files. The outer upper-left corner is (−151,740 m, +151,740 m), and rows run toward decreasing y. With signed little-endian 16-bit samples and 10,116 bytes per row, read two bytes starting at file offset `2729 * 10116 + 2345 * 2`. Multiply the DN by `0.00004` and add `0.0` to obtain the fraction, then multiply by 100 for percent. The Earth label's `MINIMUM_LATITUDE = 90` conflicts with its south-pole projection and extent. The extraction uses the projection center and raster registration. [Sun IMG](https://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608.IMG) and [label](https://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608.LBL). [Earth IMG](https://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608_EARTH.IMG) and [label](https://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608_EARTH.LBL).
+'''
 (ROOT/'validation_report.md').write_text(report)
