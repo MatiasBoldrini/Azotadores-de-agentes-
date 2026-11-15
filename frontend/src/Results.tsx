@@ -12,7 +12,7 @@ function MetricCard({body,analysis,baseline,threshold}:{body:'sun'|'earth';analy
    <span className="metric-label"><Icon size={14}/>{body==='sun'?'Solar exposure':'Earth visibility'}</span>
    {!same&&<span key={delta} className={`delta ${delta>0?'up':delta<0?'down':''}`} title="Versus ground level at the lander">{signed(delta)} h</span>}
   </div>
-  <div className="metric-value"><b key={m.total_hours}>{hours(m.total_hours)}</b><small>h</small><span className="metric-pct">{pct(percent(m))}% of {hours(m.duration_hours)} h</span></div>
+  <div className="metric-value"><b key={m.total_hours}>{hours(m.total_hours)}</b><small>h</small><span className="metric-pct">{pct(percent(m))}% of window</span></div>
   <div className="meter" role="img" aria-label={`${pct(percent(m))} percent; ground level ${pct(percent(b))} percent; requirement ${threshold} percent`}>
    <span className="meter-fill" style={{width:`${percent(m)}%`}}/>
    {!same&&<span className="meter-base" style={{left:`${percent(b)}%`}}/>}
@@ -26,7 +26,7 @@ function HeightResponse({sweep,selected,onHeight,recommended,constraints}:{sweep
  if(sweep.length<2) return null;
  const window=sweep[0].metrics.sun.duration_hours;
  return <div className="height-response">
-  <div className="block-head"><span>Height response · this cell</span><span className="legend"><i className="earth-sq"/>Earth <i className="sun-sq"/>Sun <i className="req-sq"/>Min</span></div>
+  <div className="block-head"><span>Visibility by height</span><span className="legend"><i className="earth-sq"/>Earth <i className="sun-sq"/>Sun <i className="req-sq"/>Min</span></div>
   <div className="hr-plot">
    <div className="hr-guides" aria-hidden>
     <span className="hr-req earth" style={{bottom:`${constraints.minEarth}%`}}><em>{constraints.minEarth}%</em></span>
@@ -54,15 +54,15 @@ function Checks({rows}:{rows:ConstraintRow[]}){
  </div>;
 }
 
-export function ResultsPanel({window,site,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window?:ReactNode;site:string;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
+export function ResultsPanel({window,selected,baseline,sweep,link,rows,constraints,onHeight,recommended,onMethod}:{window:ReactNode;selected:Analysis;baseline:Analysis;sweep:Analysis[];link?:Link;rows:ConstraintRow[];constraints:Constraints;onHeight:(h:number)=>void;recommended?:string;onMethod:()=>void}){
  const m=selected.metrics,b=baseline.metrics,same=keyFor(selected)===keyFor(baseline);
- return <aside className="results glass" aria-label="Analysis results">
-  <div className="panel-heading"><span className="eyebrow">03 / Result · {site} · {selected.height_m} m mast</span><button className="text-button method-link" onClick={onMethod} title="How these numbers are computed"><Info size={13}/>Method<ArrowUpRight size={12}/></button></div>
+ return <aside className="results glass" aria-labelledby="results-title">
+  <div className="panel-heading"><h2 className="panel-title" id="results-title">Results</h2><button className="text-button method-link" onClick={onMethod} title="How these numbers are computed"><Info size={13}/>Method<ArrowUpRight size={12}/></button></div>
   {window}
-  <div className="metric-pair" aria-describedby="selected-visibility-window">
+  <div className="metric-pair" role="group" aria-label="Visibility metrics" aria-describedby="selected-visibility-window">
    <MetricCard body="sun" analysis={selected} baseline={baseline} threshold={constraints.minSun}/>
    <MetricCard body="earth" analysis={selected} baseline={baseline} threshold={constraints.minEarth}/>
-   <p className="metric-note">Hours each body’s center clears the terrain horizon — geometric line of sight, not electrical power or a radio link budget.</p>
+   <p className="metric-note">Visible hours count when each body’s center clears the terrain horizon.</p>
   </div>
   <dl className="joint">
    <div><dt>Sun + Earth together</dt><dd>{hours(m.both.total_hours)} h{!same&&<small>{hours(b.both.total_hours)} h at ground</small>}</dd></div>

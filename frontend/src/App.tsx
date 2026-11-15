@@ -1,5 +1,5 @@
 import {useState,useEffect,useMemo,useRef,Component,ReactNode} from 'react';
-import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,Telescope,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair,Radio,Target} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,ArrowLeft,ChevronDown,Layers3,RotateCcw,Maximize2,SlidersHorizontal,Play,Pause,AlertTriangle,Download,Mountain,ExternalLink,Crosshair} from 'lucide-react';
 import TerrainView,{MAST_EXAGGERATION,VERTICAL_EXAGGERATION} from './TerrainView';
 import DateWindowPicker from './DateWindowPicker';
 import CompareUtcWindow from './CompareUtcWindow';
@@ -231,22 +231,27 @@ function App(){
   <div className="scene-layer"><SceneBoundary><TerrainView active={moon!=='globe'} approach={moon==='in'?(descend?'descend':'hold'):null} focus={focusRef} terrain={data.terrain} positions={positions} previewId={positionPreview} selected={selected} lander={site} time={index} onSelect={chooseCandidate} wireframe={wire} mapView={mapView} reset={reset} linkVisible={link?.visible??false} feasible={feasible} recommended={search?.recommended?.candidate_id}/></SceneBoundary></div>
   <StoryBar story={story} demo={demo} onAction={onStoryAction} onStopDemo={stopDemo}/>
   <aside className="controls glass" aria-label="Site, station and search controls">
-  <div className="panel-heading"><span className="eyebrow">01 / Landing site</span><Telescope size={14}/></div>
-  <label className="control-label">Site<select aria-label="Landing site" value={siteId} onChange={e=>chooseSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name} · Connecting Ridge</option>)}</select></label>
-  <div className="coordinate-readout"><span>{fmt(Math.abs(site.latitude_deg),5)}° S</span><span>{fmt(Math.abs(site.longitude_deg),5)}° W</span><span>{fmt(site.elevation_m,0)} m</span></div>
+  <h2 className="panel-title"><label htmlFor="landing-site">Landing site</label></h2>
+  <select id="landing-site" value={siteId} onChange={e=>chooseSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+  <details className="panel-details">
+   <summary>Site coordinates</summary>
+   <p>{fmt(Math.abs(site.latitude_deg),5)}° S · {fmt(Math.abs(site.longitude_deg),5)}° W · {fmt(site.elevation_m,0)} m elevation</p>
+  </details>
   <DateWindowPicker days={days} start={start} end={end} label="Observation window" onChange={setWindow}/>
   <div className="section-rule"/>
-  <div className="panel-heading" title="One mast for solar exposure and direct-to-Earth line of sight"><span className="eyebrow">02 / Sun + Earth station</span><Radio size={14}/></div>
+  <h2 className="panel-title">Station</h2>
   <PositionPicker options={positions} value={selected.candidate_id} onPreview={setPositionPreview} onSelect={chooseCandidate}/>
-  <span className="control-label" id="height-label">Mast height <span>{height} m</span></span>
+  <span className="control-label" id="height-label">Mast height</span>
   <div className="height-buttons" role="group" aria-labelledby="height-label">{heightsTested.map(h=><button key={h} aria-label={`Station height ${h} meters`} aria-pressed={height===h} className={height===h?'selected':''} onClick={()=>chooseHeight(h)}>{h}<small>m</small></button>)}</div>
-  <div className="mini-info"><span>Cell {selected.position.row}, {selected.position.col} · slope {fmt(selected.position.slope_deg??0)}°</span><span>{link&&link.distance_m>=1?`${fmt(link.distance_m,0)} m from lander`:'At lander'}</span></div>
+  <details className="panel-details">
+   <summary>Station cell details</summary>
+   <p>Cell {selected.position.row}, {selected.position.col} · slope {fmt(selected.position.slope_deg??0)}°</p>
+  </details>
   <div className="section-rule"/>
-  <div className="panel-heading"><span className="eyebrow">03 / Optimizer</span><Target size={14}/></div>
-  <button className="constraints-toggle" aria-expanded={showConstraints} onClick={()=>setShowConstraints(!showConstraints)}><SlidersHorizontal size={14}/> Search constraints <span className="toggle-summary">Sun ≥{constraints.minSun}% · Earth ≥{constraints.minEarth}% · outage per resource ≤{constraints.maxOutage} h</span><ChevronDown size={14}/></button>
-  {showConstraints&&<div className="constraint-fields">{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:744} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:744,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label></div>}
+  <h2 className="panel-title">Optimizer</h2>
+  <button className="constraints-toggle" aria-expanded={showConstraints} aria-controls="search-constraints" onClick={()=>setShowConstraints(!showConstraints)}><SlidersHorizontal size={14}/> Search constraints <ChevronDown size={14}/></button>
+  <div className="constraint-fields" id="search-constraints" hidden={!showConstraints}>{([['minSun','Minimum solar exposure','%'],['minEarth','Minimum Earth visibility','%'],['maxOutage','Maximum outage per resource','h'],['maxDistance','Maximum distance','m'],['maxSlope','Maximum slope','°']] as const).map(([key,label,unit])=><label key={key}>{label}<div><input type="number" aria-label={label} aria-describedby={key==='maxOutage'?'resource-outage-help':undefined} min="0" max={key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:744} value={constraints[key]} onChange={e=>setConstraints({...constraints,[key]:Math.max(0,Math.min(key==='minSun'||key==='minEarth'?100:key==='maxSlope'?90:key==='maxDistance'?5000:744,Number(e.target.value)))})}/><span>{unit}</span></div></label>)}<p id="resource-outage-help" className="fine">The longest Sun outage and the longest Earth outage must each stay within this limit.</p><label className="checkbox"><input type="checkbox" checked={constraints.requireLink} onChange={e=>setConstraints({...constraints,requireLink:e.target.checked})}/> Require local line of sight</label><p className="fine">{all.length} precomputed configurations across {positions.length} cells and {heightsTested.length} heights.</p></div>
   <button className={`primary wide ${searching?'is-busy':''}`} onClick={runSearch} disabled={searching}>{searching?'Evaluating configurations…':'Find optimal configuration'}<ArrowUpRight size={16}/></button>
-  <p className="micro">{all.length} precomputed configurations · {positions.length} cells × {heightsTested.length} heights · finite search</p>
  </aside>
   <section ref={focusRef} className={`terrain-panel ${searching?'is-searching':''}`} aria-label="Interactive lunar terrain">
   <div className="terrain-title"><h2>Connecting Ridge</h2></div>
@@ -258,12 +263,18 @@ function App(){
   {notice&&<div className="toast" role="status" key={notice}>{notice}</div>}
   {searching&&<div className="scan" aria-hidden><span>Evaluating {all.length} configurations</span></div>}
   {search&&<OptimizerCard search={search} lines={explainRecommendation(search,all,links,constraints,baseline)} links={links} selectedKey={keyFor(selected)} onPick={a=>{setDemoStep(null);setCandidate(a.candidate_id);setHeight(a.height_m);}} onClose={()=>setSearch(null)}/>}
-  <div className="map-foot"><span>Drag to orbit · scroll to zoom · click a cell to move the station</span><span>Connecting Ridge · NASA LOLA 5 m DEM (PGDA 78) · ROI {fmt(extent[1],2)} × {fmt(extent[0],2)} km · {VERTICAL_EXAGGERATION}× vertical exaggeration · mast glyph ×{MAST_EXAGGERATION} · MOON_ME / DE421</span></div>
+  <div className="map-foot">
+   <span>Drag to orbit · scroll to zoom · click a cell to move the station</span>
+   <details className="map-source">
+    <summary>NASA LOLA 5 m DEM (PGDA 78)</summary>
+    <p>Region {fmt(extent[1],2)} × {fmt(extent[0],2)} km · {VERTICAL_EXAGGERATION}× vertical exaggeration · mast glyph ×{MAST_EXAGGERATION} · MOON_ME / DE421</p>
+   </details>
+  </div>
   </section>
-  <ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} site={site.name} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>setTab('Science & Sources')}/>
+  <ResultsPanel window={<VisibilityWindow analysis={selected} id="selected-visibility-window"/>} selected={selected} baseline={baseline} sweep={selectedSweep} link={link} rows={rows} constraints={constraints} onHeight={chooseHeight} recommended={search?.recommended?keyFor(search.recommended):undefined} onMethod={()=>setTab('Science & Sources')}/>
   <section className="timeline glass" aria-label="Sun and Earth over time">
   <div className="timeline-side">
-   <span className="eyebrow">04 / Time</span>
+   <h2 className="panel-title">Timeline</h2>
    <div className="time-current"><button aria-label={playing?'Pause timeline':'Play timeline'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={14}/>:<Play size={14}/>}</button><div><b>{utc(selected.series.timestamp_utc[index])}</b><small>2026 · UTC</small></div>{focusIndex>0&&atSiteCell&&<button className="jump" title="Jump to the contrast instant" aria-label="Jump to the contrast instant" onClick={()=>{setPlaying(false);setTime(focusIndex);}}><Crosshair size={14}/></button>}</div>
    {contrast.length>0?<p className="contrast-note">Contrast instant: {contrast.map(b=>b==='sun'?'Sun':'Earth').join(' and ')} blocked at 0 m, in view at {sitePeak} m.</p>:<p className="micro">Hover a chart or drag the slider to scrub through the window.</p>}
   </div>
@@ -273,7 +284,7 @@ function App(){
    <div className="time-labels"><span>{utc(start)} UTC</span><ul className="timeline-legend"><li><i className="lg-line solid"/>Body elevation</li><li><i className="lg-line"/>Terrain horizon at body azimuth</li>{keyFor(selected)!==keyFor(baseline)&&<li><i className="lg-line dotted"/>Ground-level horizon</li>}<li><i className="lg-band"/>Visible intervals</li></ul><span>{utc(end)} UTC</span></div>
   </div>
   <div className="timeline-horizon">
-   <div className="block-head"><span>360° horizon at cursor</span><span>{selected.height_m} m mast</span></div>
+   <div className="block-head">Horizon from the station</div>
    <HorizonChart analysis={selected} index={index} baseline={baseline}/>
    <div className="horizon-legend"><span><i className="lg-line"/>Horizon at {selected.height_m} m</span>{keyFor(selected)!==keyFor(baseline)&&<span><i className="lg-line dotted"/>Ground level</span>}<span><i className="dot-fill"/>In view <i className="dot-ring"/>Blocked</span></div>
   </div>
