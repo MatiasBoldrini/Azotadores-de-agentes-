@@ -24,3 +24,17 @@ footer .footer-sources{display:flex;gap:12px;flex-wrap:wrap}
 footer .geometry-note{display:block!important;line-height:1.5}
 @media(max-width:900px){.ridge-finding{grid-template-columns:1fr;padding:14px 20px}footer{flex-wrap:wrap}}
 @media(max-width:620px){.ridge-options{grid-template-columns:1fr}.ridge-options button{padding:6px 8px}}
+
+.visibility-window {
+ color: #a7b1ad;
+ font-size: 12px;
+ line-height: 1.5;
+ grid-column: 1 / -1;
+}
+.results > .visibility-window { margin-bottom: 12px; }
+@media (max-width: 900px) {
+ .results > .visibility-window { margin-bottom: 0; }
+}
+@media (min-width: 621px) and (max-width: 900px) {
+ .results .facts { grid-row: 3 / 6; }
+}
