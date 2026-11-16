@@ -805,7 +805,7 @@ option{background:#111}
 .adv-all{margin:0 0 var(--adv-s3);border-top:1px solid var(--adv-border)}
 .adv-all>summary{display:flex;align-items:center;justify-content:space-between;min-height:var(--adv-target);cursor:pointer;list-style:none;font-size:13px;font-weight:600;color:var(--adv-text-1)}
 .adv-all>summary::-webkit-details-marker{display:none}
-.adv-all>summary::after{content:'';width:8px;height:8px;margin-left:var(--adv-s2);border-right:1.5px solid var(--adv-text-3);border-bottom:1.5px solid var(--adv-text-3);transform:rotate(45deg) translateY(-2px);transition:transform 200ms var(--adv-ease)}
+.adv-all>summary::after{content:'';flex:none;width:8px;height:8px;margin:0 4px 0 var(--adv-s2);border-right:1.5px solid var(--adv-text-3);border-bottom:1.5px solid var(--adv-text-3);transform:rotate(45deg) translateY(-2px);transition:transform 200ms var(--adv-ease)}
 .adv-all[open]>summary::after{transform:rotate(225deg) translateY(-2px)}
 .adv-all>summary .adv-caption{margin-left:auto;font-variant-numeric:tabular-nums}
 .adv-group{display:grid;gap:var(--adv-s3);padding:var(--adv-s2) 0 var(--adv-s4)}

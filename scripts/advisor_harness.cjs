@@ -32,13 +32,13 @@ const json = body => ({status: 200, contentType: 'application/json', body: JSON.
 const briefingFrom = request => {
   const facts = JSON.parse(request.postData()).facts;
   const lead = facts.find(f => f.tone === 'risk') || facts[0];
-  return {headline: lead.title, picks: facts.filter(f => f !== lead).slice(0, 2).reduce((a, f) => [...a, {id: f.id, reason: ''}], [{id: lead.id, reason: 'This blocks the operation as planned.'}]), source: 'openai', model: 'stub'};
+  return {picks: [lead.id, ...facts.filter(f => f !== lead).slice(0, 2).map(f => f.id)], source: 'openai'};
 };
 
 // Each scenario: how /api/agent/* answers, what to do, and what must be on screen.
 const SCENARIOS = [
   {name: 'offline', agent: () => ({status: 404, body: ''}), expect: {source: /Automatic/}},
-  {name: 'openai-briefing', agent: (route, kind) => kind === 'briefing' ? json(briefingFrom(route.request())) : {status: 404, body: ''}, expect: {source: /OpenAI, checked against the findings/}},
+  {name: 'openai-briefing', agent: (route, kind) => kind === 'briefing' ? json(briefingFrom(route.request())) : {status: 404, body: ''}, expect: {source: /Ranked by OpenAI/}},
   {name: 'briefing-loading', agent: (route, kind) => kind === 'briefing' ? null : {status: 404, body: ''}, expect: {source: /OpenAI is reviewing/}},
   {name: 'ask-understood', agent: (route, kind) => kind === 'operation'
       ? json({understood: true, note: 'Assumed 1 h of transmission.', model: 'stub', source: 'openai', operation: {name: 'Charge then transmit', steps: [{need: 'sun', hours: 24, label: 'Charge batteries'}, {need: 'earth', hours: 1, label: 'Transmit to Earth'}]}})
@@ -118,6 +118,7 @@ async function run() {
     try {
       await page.goto(base, {waitUntil: 'networkidle'});
       await page.getByText('Fly to Ridge A', {exact: true}).first().evaluate(el => el.click());
+      await page.getByRole('button', {name: /Infrastructure Designer/}).first().evaluate(el => el.click()); // the briefing is only requested on the Designer tab
       await page.waitForSelector('.advisor', {state: 'attached'});
       await page.evaluate(() => { const s = document.querySelector('.advisor .adv-next') ? null : document.querySelector('.advisor summary'); s?.click(); });
       await page.waitForSelector('.adv-next', {state: 'attached'});
