@@ -1,7 +1,6 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ArrowRight,Check,LoaderCircle} from 'lucide-react';
 import AnalysisDisclosure from './AnalysisDisclosure';
-import {backendBaseUrl} from './backendConfig';
 import {advise,utcLabel,type AdvisorInput,type Insight,type InsightAction} from './lib/advisor';
 import {nowAlerts} from './lib/alerts';
 import {askAgent,askBriefing,localBriefing,type AgentSource,type Briefing} from './lib/agentClient';
@@ -42,30 +41,35 @@ const SOURCE_LABEL:Record<AgentSource,string> = {openai:'Read by OpenAI',local:'
 // it has no agent, the session stays on the automatic briefing.
 const briefingCache = new Map<string,Briefing>();
 let agentAbsent = false;
+let nextBriefingAt = 0;
 const BRIEF_DEBOUNCE_MS = 1200;
 
-function useBriefing(items:Insight[],operation:string,context:string,playing:boolean){
- const key = JSON.stringify([items.map(i=>[i.id,i.title,i.detail]),operation,context]);
- const [state,setState] = useState<{briefing:Briefing|null;loading:boolean}>({briefing:null,loading:false});
+function useBriefing(items:Insight[],operation:string,context:string,enabled:boolean){
+ const key = JSON.stringify([items.map(i=>[i.id,i.tone,i.title,i.detail]),operation,context]);
+ const [state,setState] = useState<{key:string;briefing:Briefing|null}|null>(null);
+ const cached = briefingCache.get(key);
+ const fallbackReason = agentAbsent?'no language agent on this server'
+  : Date.now()<nextBriefingAt?'language agent rate limited':undefined;
+ const canRequest = enabled&&!cached&&!fallbackReason&&items.length>0;
  useEffect(()=>{
-  const cached = briefingCache.get(key);
-  if(cached){setState({briefing:cached,loading:false});return;}
-  const askModel = !agentAbsent&&!playing;
-  setState({briefing:localBriefing(items,agentAbsent?'no language agent on this server':undefined),loading:askModel});
-  if(!askModel) return;
+  if(!canRequest) return;
   const controller = new AbortController();
   const timer = setTimeout(async()=>{
+   if(controller.signal.aborted||agentAbsent||Date.now()<nextBriefingAt) return;
    try{
-    const r = await askBriefing(items,operation,context,{baseUrl:backendBaseUrl,signal:controller.signal});
+    const r = await askBriefing(items,operation,context,{signal:controller.signal});
+    if(controller.signal.aborted) return;
     if(r.absent) agentAbsent = true;
+    if(r.retryAfterMs) nextBriefingAt = Date.now()+r.retryAfterMs;
     if(r.briefing?.source==='openai'){ if(briefingCache.size>50) briefingCache.clear(); briefingCache.set(key,r.briefing); }
-    setState({briefing:r.briefing,loading:false});
+    setState({key,briefing:r.briefing});
    }catch{/* superseded */}
   },BRIEF_DEBOUNCE_MS);
   return ()=>{clearTimeout(timer);controller.abort();};
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[key,playing]);
- return state;
+ },[key,canRequest]);
+ const current = enabled&&state?.key===key ? state : null;
+ return {briefing:cached??current?.briefing??localBriefing(items,fallbackReason),loading:canRequest&&!current};
 }
 
 function Badge({tone}:{tone:Insight['tone']}){
@@ -78,31 +82,31 @@ function ActionButton({action,onAction,primary}:{action:InsightAction;onAction:(
  </button>;
 }
 
-/** The single most important thing to do now, with its action. Other picks are secondary rows. */
+/** The single most important thing to do now, with its action. The model only ranks the computed
+ * findings; every word here is the finding's own text. Other picks are secondary rows. */
 function NextAction({briefing,loading,items,onAction}:{briefing:Briefing|null;loading:boolean;items:Insight[];onAction:(a:InsightAction)=>void}){
- if(!briefing) return <div className="adv-card adv-next is-empty" aria-live="polite">
+ const byId = new Map(items.map(i=>[i.id,i]));
+ const picks = (briefing?.picks??[]).map(id=>byId.get(id)).filter((x):x is Insight=>!!x);
+ if(!briefing||!picks.length) return <div className="adv-card adv-next is-empty" aria-live="polite">
   <p className="adv-caption">Nothing to flag</p>
   <p className="adv-headline">No risks or opportunities at this time and configuration.</p>
  </div>;
- const byId = new Map(items.map(i=>[i.id,i]));
- const picks = briefing.picks.map(p=>({p,item:byId.get(p.id)})).filter((x):x is {p:typeof x.p;item:Insight}=>!!x.item);
- const lead = picks[0], rest = picks.slice(1);
- const action = picks.find(x=>x.item.action)?.item.action;
- const source = briefing.source==='openai';
- return <div className={`adv-card adv-next tone-${lead?.item.tone??'alternative'}`} aria-live="polite" aria-busy={loading}>
+ const [lead,...rest] = picks;
+ const action = lead.action;
+ return <div className={`adv-card adv-next tone-${lead.tone}`} aria-live="polite" aria-busy={loading}>
   <div className="adv-next-meta">
-   {lead&&<Badge tone={lead.item.tone}/>}
+   <Badge tone={lead.tone}/>
    <span className="adv-caption adv-source">
     {loading?<><LoaderCircle size={12} className="adv-spin" aria-hidden="true"/>OpenAI is reviewing</>
-     :source?<><Check size={12} aria-hidden="true"/>OpenAI, checked against the findings</>
+     :briefing.source==='openai'?<><Check size={12} aria-hidden="true"/>Ranked by OpenAI</>
      :`Automatic${briefing.fallbackReason?` · ${briefing.fallbackReason}`:''}`}
    </span>
   </div>
-  <p className="adv-headline">{briefing.headline}</p>
-  {lead?.p.reason&&<p className="adv-body">{lead.p.reason}</p>}
+  <p className="adv-headline">{lead.title}</p>
+  <p className="adv-body">{lead.detail}</p>
   {action&&<ActionButton action={action} onAction={onAction} primary/>}
   {rest.length>0&&<ul className="adv-also">
-   {rest.map(({p,item})=><li key={p.id}><span className={`adv-dot ${item.tone}`} aria-hidden="true"/><span><span className="sr-only">{TONE_LABEL[item.tone]}: </span>{item.title}{p.reason&&<span className="adv-also-reason"> {p.reason}</span>}</span></li>)}
+   {rest.map(item=><li key={item.id}><span className={`adv-dot ${item.tone}`} aria-hidden="true"/><span><span className="sr-only">{TONE_LABEL[item.tone]}: </span>{item.title}</span></li>)}
   </ul>}
  </div>;
 }
@@ -138,12 +142,13 @@ function FindingRow({item,onAction}:{item:Insight;onAction:(a:InsightAction)=>vo
  </li>;
 }
 
-export default function Advisor({input,onAction,playing=false}:{input:AdvisorInput;onAction:(action:InsightAction)=>void;playing?:boolean}){
+export default function Advisor({input,onAction,active,playing}:{input:AdvisorInput;onAction:(action:InsightAction)=>void;active:boolean;playing:boolean}){
  const [op,setOp] = useState<Operation>(loadOperation);
  const [custom,setCustom] = useState<Operation|null>(()=>{const o=loadOperation();return o.id==='custom'?o:null;});
  const [ask,setAsk] = useState('');
  const [busy,setBusy] = useState(false);
  const [reply,setReply] = useState<Reply|null>(null);
+ const [expanded,setExpanded] = useState(true);
  const pending = useRef<AbortController|null>(null);
  useEffect(()=>{try{localStorage.setItem(STORE,JSON.stringify(toSaved(op)));}catch{/* storage unavailable */}},[op]);
  useEffect(()=>()=>pending.current?.abort(),[]);
@@ -157,7 +162,7 @@ export default function Advisor({input,onAction,playing=false}:{input:AdvisorInp
  const cursorMs = Date.parse(cursor);
  const opText = `${op.name}: ${op.steps.map(s=>`${NEED_LABEL[s.need]} ${s.hours} h`).join(' then ')}`;
  const context = `Station ${input.selected.candidate_id} with a ${input.selected.height_m} m mast; timeline cursor ${utcLabel(cursor)}`;
- const brief = useBriefing(findings,opText,context,playing);
+ const brief = useBriefing(findings,opText,context,active&&expanded&&!playing);
  const schedule = planOperation(input.selected,op,cursorMs);
  const slack = schedule?slackHours(input.selected,op,schedule):null;
  const fallback = schedule?fallbackPlan(input.selected,op,schedule):null;
@@ -175,7 +180,7 @@ export default function Advisor({input,onAction,playing=false}:{input:AdvisorInp
   pending.current = controller;
   setBusy(true);
   try{
-   const answer = await askAgent(ask,{baseUrl:backendBaseUrl,signal:controller.signal});
+   const answer = await askAgent(ask,{signal:controller.signal});
    if(controller.signal.aborted) return;
    if(answer.ok){
     setCustom(answer.op); setOp(answer.op);
@@ -188,7 +193,7 @@ export default function Advisor({input,onAction,playing=false}:{input:AdvisorInp
  const options = [...(custom?[custom]:[]),...PRESETS];
  const groups:[string,Insight[]][] = [['Right now',alerts],['Your operation',plan],['This configuration',general]];
  return <section className="advisor" aria-label="Mission advisor">
-  <AnalysisDisclosure title="What to do next"
+  <AnalysisDisclosure title="What to do next" onOpenChange={setExpanded}
    summary={<span className={`advisor-count ${risks?'has-risk':''}`}>{risks?`${risks} risk${risks===1?'':'s'}`:'No risks flagged'}</span>}>
    <NextAction briefing={brief.briefing} loading={brief.loading} items={findings} onAction={onAction}/>
 
@@ -238,7 +243,7 @@ export default function Advisor({input,onAction,playing=false}:{input:AdvisorInp
      <ol className="adv-findings">{items.map(i=><FindingRow key={i.id} item={i} onAction={onAction}/>)}</ol>
     </div>)}
    </details>
-   <p className="fine">The agent turns your words into steps and ranks the findings; it never computes them. Times and configurations come from the timeline and the evaluated configurations, and any number in the briefing must appear in those findings. Geometric line of sight only.</p>
+   <p className="fine">The agent turns your words into steps and ranks the findings. The planner computes times, durations and configurations using geometric line of sight. Each step runs in order within one continuous visibility window.</p>
   </AnalysisDisclosure>
  </section>;
 }

@@ -11,3 +11,6 @@ dist/
 .DS_Store
 data/.mplcache/
 release/
+/node_modules/
+.vercel/
+/.env*

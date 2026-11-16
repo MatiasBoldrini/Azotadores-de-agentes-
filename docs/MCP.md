@@ -1,6 +1,6 @@
 # SELENARC over MCP
 
-`mcp/server.mjs` is a Model Context Protocol server. It lets an AI assistant (Claude Code, Claude Desktop, ChatGPT connectors, Cursor, any MCP client) plan lunar operations with the same engine modules and the same precomputed NASA-derived data as the web app. The server imports `frontend/src/lib/*.ts` directly, so a figure from the assistant is the figure on the page.
+`mcp/server.mjs` is a Model Context Protocol server. It lets a compatible MCP client running on your computer plan lunar operations with the same engine modules and the same precomputed NASA-derived data as the web app. The server imports `frontend/src/lib/*.ts` directly, so a figure from the assistant is the figure on the page.
 
 ## Connect
 
@@ -16,13 +16,13 @@ Claude Code, local stdio:
 claude mcp add selenarc -- node mcp/server.mjs
 ```
 
-Any client that speaks Streamable HTTP:
+Local Streamable HTTP clients can use this command:
 
 ```bash
 node mcp/server.mjs --http 8765
 ```
 
-The endpoint is `http://127.0.0.1:8765/mcp`. Set `SELENARC_MCP_HOST=0.0.0.0` to listen beyond localhost; put it behind HTTPS before exposing it.
+The endpoint is `http://127.0.0.1:8765/mcp`. HTTP listens on loopback and validates Host and Origin headers. Set `SELENARC_MCP_HOST` to `::1` if your client uses IPv6.
 
 ## Tools
 
@@ -39,7 +39,7 @@ All tools are read-only and deterministic. None calls a language model.
 
 Resource `selenarc://methodology` gives provenance and limitations.
 
-## Rules the server enforces
+## Results and limitations
 
 These follow the team rules and the app's design language:
 
@@ -51,4 +51,4 @@ These follow the team rules and the app's design language:
 ## Verification
 
 - `tests/test_mcp_tools.mjs` (7, part of the main suite) checks the tools against the app modules and confirmed figures: 426 h Sun and 199 h Earth at Ridge A 0 m, 44 / 465 / 458 h, 17 feasible with the defaults, 5 m recommended, none feasible at a 240 h outage limit, the monthly table, and input errors.
-- `npm test --prefix mcp` (2) connects a real MCP client over stdio and over Streamable HTTP: lists the 6 read-only tools, reads the instructions, calls tools, gets an error for an invalid station, and reads the methodology resource.
+- `npm test --prefix mcp` (2) connects a real MCP client over stdio and over Streamable HTTP: lists the 6 read-only tools, reads the instructions, calls tools, gets an error for an invalid station, and reads the methodology resource, and verifies that HTTP rejects untrusted Host and Origin headers.

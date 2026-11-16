@@ -26,7 +26,7 @@ export function nowAlerts(a:Analysis,index:number,horizonHours=ALERT_HORIZON_HOU
    const left = (current.end-now)/HOUR;
    if(left<=horizonHours&&current.end<end){
     out.push({id:`now-${body}-set`,tone:'risk',
-     title:body==='earth'?`Earth sets in ${hours(left)} h: transmit now`:`Sunset in ${hours(left)} h: finish what needs power`,
+     title:body==='earth'?`Earth sets in ${hours(left)} h`:`Sunset in ${hours(left)} h`,
      detail:`${NAME[body]} drops below the horizon at ${utcLabel(new Date(current.end).toISOString())}.`});
    }
   } else {
@@ -34,8 +34,8 @@ export function nowAlerts(a:Analysis,index:number,horizonHours=ALERT_HORIZON_HOU
    if(next&&(next.start-now)/HOUR<=horizonHours){
     const wait = (next.start-now)/HOUR;
     out.push({id:`now-${body}-rise`,tone:'opportunity',
-     title:body==='earth'?`Earth rises in ${hours(wait)} h: queue the downlink`:`Sunrise in ${hours(wait)} h: power returns`,
-     detail:`${NAME[body]} clears the horizon at ${utcLabel(new Date(next.start).toISOString())} for ${hours((next.end-next.start)/HOUR)} h.`,
+     title:body==='earth'?`Earth rises in ${hours(wait)} h`:`Sunrise in ${hours(wait)} h`,
+     detail:`${NAME[body]} clears the horizon at ${utcLabel(new Date(next.start).toISOString())} for ${next.end===end?'at least ':''}${hours((next.end-next.start)/HOUR)} h.`,
      action:{kind:'time',index:nearestIndex(times,next.start),label:'Go there'}});
    }
   }
